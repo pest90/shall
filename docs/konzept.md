@@ -44,13 +44,13 @@ Das Werkzeug (`shall`, kurz für „Specifications Hooked to Actual Lines of Log
 
 ```text
 reqs/
-  L1_high_level/*.md     # Typ l1
-  L2_system/*.md         # Typ l2
-  L3_requirements/*.md   # Typ l3
-  L3D_design/*.md        # Typ l3d (Blatt-Ebene)
+  L1_high_level/*.md     # Typ hlr
+  L2_system/*.md         # Typ sys
+  L3_requirements/*.md   # Typ swr
+  L3D_design/*.md        # Typ dsn (Blatt-Ebene)
   verification/*.md      # Typ vrev / vana (Reviews, Analysen)
-src/                     # Code mit [impl->l3d~...~N]
-tests/                   # Tests mit [utest->l3d~...~N]
+src/                     # Code mit [impl->dsn~...~N]
+tests/                   # Tests mit [utest->dsn~...~N]
 shall.toml            # Ebenen, Policy, Quellen, Report
 ```
 
@@ -60,7 +60,7 @@ Ein Requirement ist ein Abschnitt in einer Markdown-Datei. Erlaubte Schlüsselw�
 
 ```markdown
 ### Motor bei Übertemperatur abschalten
-`l3~motor.overtemp-shutdown~2`
+`swr~motor.overtemp-shutdown~2`
 
 Die Software schaltet den Motor innerhalb von 100 ms ab, wenn die
 Wicklungstemperatur 85 °C überschreitet.
@@ -72,22 +72,22 @@ Status: approved
 Source: Lastenheft Kap. 4.2
 
 Covers:
-- l2~motor.thermal-protection~1
+- sys~motor.thermal-protection~1
 
-Needs: l3d
+Needs: dsn
 ```
 
 Die Blatt-Ebene fordert Implementierung und Validierung:
 
 ```markdown
 ### Temperaturüberwachung im 10-ms-Task
-`l3d~motor.temp-monitor~1`
+`dsn~motor.temp-monitor~1`
 
 Der Task `TempMonitor` liest alle 10 ms den Sensor und setzt bei
 > 85 °C das Abschaltsignal.
 
 Covers:
-- l3~motor.overtemp-shutdown~2
+- swr~motor.overtemp-shutdown~2
 
 Needs: impl, utest
 ```
@@ -101,9 +101,9 @@ Neben Markdown können Requirements in [Typst](https://typst.app) geschrieben we
 
 == Motor bei Übertemperatur abschalten
 #req(
-  id: "l3~motor.overtemp-k4f2~2",
+  id: "swr~motor.overtemp-k4f2~2",
   covers: "cap~motor.overtemp-protection~1",
-  needs: "l3d",
+  needs: "dsn",
   status: "approved",
   source: "Lastenheft Kap. 4.2",
   rationale: [Schutz der Wicklung, siehe Thermomodell.],
@@ -137,23 +137,24 @@ Quellen: [Typst HTML-Export (Doku)](https://www.typst.app/docs/reference/html), 
 
 IDs müssen eindeutig sein und werden vom Werkzeug erzeugt, nicht von Hand ausgedacht. Fortlaufende Nummern scheiden aus: Zwei Branches vergeben sonst dieselbe Nummer, und beim Merge müsste eine umnummeriert werden – mit gebrochenen Links und Code-Tags.
 
-**Format:** `typ~slug-zufall~revision`, z. B. `l3~motor.overtemp-k4f2~1`
+**Format:** `typ~slug-zufall~revision`, z. B. `swr~motor.overtemp-k4f2~1`
 
 | Teil | Herkunft | Zweck |
 | --- | --- | --- |
-| `typ` | Ebene aus `shall.toml` (nur ASCII-Buchstaben und Ziffern) | Position in der Hierarchie |
-| `slug` | aus dem Titel beim Anlegen, punktgetrennt nach Komponente | Lesehilfe in Code-Tags und Reviews |
-| `zufall` | 4–5 Zeichen Base32 beim Anlegen | macht parallele Branches praktisch kollisionsfrei |
+| `typ` | Ebene aus `shall.toml` (nur ASCII-Buchstaben, keine Ziffern) | Position in der Hierarchie |
+| `slug` | aus dem Titel beim Anlegen, punktgetrennt nach Komponente; beginnt mit einem Buchstaben | Lesehilfe in Code-Tags und Reviews |
+| `zufall` | 4–5 Zeichen Crockford-Base32 in Kleinbuchstaben (`0-9a-z` ohne `i`, `l`, `o`, `u`) beim Anlegen | macht parallele Branches praktisch kollisionsfrei |
 | `revision` | startet bei 1, von Hand erhöht | markiert inhaltliche Änderungen |
 
 **Regeln:**
 
-- **Erzeugen statt ausdenken:** `shall new l3 "Motor bei Übertemperatur abschalten"` legt ein fertiges Item-Gerüst mit neuer ID an; ein VSCode-Snippet bzw. Task ruft dasselbe auf.
+- **Erzeugen statt ausdenken:** `shall new swr "Motor bei Übertemperatur abschalten"` legt ein fertiges Item-Gerüst mit neuer ID an; ein VSCode-Snippet bzw. Task ruft dasselbe auf.
 - **Nie umbenennen:** Slug und Zufall bleiben nach dem Anlegen fest, auch wenn sich der Titel ändert. Der Slug ist eine Lesehilfe, keine Beschreibung, die aktuell gehalten werden muss.
 - **Nicht aus Inhalt oder Position ableiten:** Kein Hash über den Text, keine Nummer nach Reihenfolge in der Datei – sonst ändert sich die ID bei jeder Bearbeitung.
 - **Inhaltliche Änderung = neue Revision:** Eine sachliche Änderung erhöht `~1` auf `~2`. Alle Links auf die alte Revision werden ungültig und müssen bewusst nachgezogen werden – das ist der Mechanismus für Impact-Analyse. Tippfehler-Korrekturen brauchen keine neue Revision.
 - **Eindeutigkeit wird erzwungen:** Doppelte IDs sind ein Defekt der höchsten Schwere – über alle Dateien, Plattform und Projekte hinweg. Plattform-Items tragen beim Import den Namensraum (`plat~…`).
 - **Gelöschte IDs werden nicht wiederverwendet:** `shall new` prüft gegen die Git-Historie, damit alte Links in Reports und Tickets nie auf etwas Neues zeigen.
+- **OFT-kompatibel:** Jede gültige ID ist auch für OpenFastTrace gültig. `shall` erlaubt eine ASCII-Teilmenge der OFT-Grammatik: Typ `[A-Za-z]+`, Name `[A-Za-z][A-Za-z0-9_-]*(\.[A-Za-z0-9_-]+)*`, Revision ohne führende Nullen und höchstens 2³¹−1 (OFT speichert sie als Java-`int`). Darum tragen Ebenen Kürzel wie `hlr`, `sys`, `swr`, `dsn` statt `l1`…`l3d`; die lesbaren Namen „L1 – …“ stehen in `shall.toml`.
 
 Die übrigen Beispiele in diesem Dokument lassen den Zufallsanteil der Lesbarkeit halber weg.
 
@@ -164,8 +165,8 @@ Die übrigen Beispiele in diesem Dokument lassen den Zufallsanteil der Lesbarkei
 | `Covers:` | Kind → Eltern | dieses Item verfeinert/erfüllt das Eltern-Item |
 | `Needs:` | Eltern → Typen | welche Artefakttypen das Item abdecken müssen |
 | `Depends:` | seitlich | Abhängigkeit, ohne Einfluss auf Coverage |
-| `l2 --> l3 : l1~x~1` | Weiterleitung | Ebene l2 wird für dieses Item übersprungen |
-| Tag `[impl->…]` | Code → Blatt (l3d) | Implementierung |
+| `sys --> swr : hlr~x~1` | Weiterleitung | Ebene sys wird für dieses Item übersprungen |
+| Tag `[impl->…]` | Code → Blatt (dsn) | Implementierung |
 | Tag `[utest->…]`, `[itest->…]` | Test → Blatt | Validierung durch Test |
 | Item `vrev`/`vana` mit `Covers:` | Doku → Blatt | Validierung durch Review/Analyse |
 
@@ -177,22 +178,22 @@ Die Ebenen sind nicht fest eingebaut, sondern stehen in `shall.toml`. Die L1/L2/
 
 ```toml
 [[level]]
-type  = "l1"
+type  = "hlr"
 name  = "L1 – High-Level-Requirements"
-needs = ["l2"]
+needs = ["sys"]
 
 [[level]]
-type  = "l2"
+type  = "sys"
 name  = "L2 – System-Requirements"
-needs = ["l3"]
+needs = ["swr"]
 
 [[level]]
-type  = "l3"
+type  = "swr"
 name  = "L3 – Software-Requirements"
-needs = ["l3d"]
+needs = ["dsn"]
 
 [[level]]
-type  = "l3d"
+type  = "dsn"
 name  = "L3D – Design-Entscheidungen"
 needs = ["impl", "utest"]   # Default, pro Item überschreibbar
 
@@ -208,20 +209,20 @@ junit = ["build/test-results/**/*.xml"]
 code_url = "https://git.example.org/team/projekt/src/commit/{sha}/{path}#L{line}"
 ```
 
-**Wenn eine Ebene der darüberliegenden 1:1 entspricht** (wie L1 = L2 im letzten Projekt), muss niemand abschreiben. Eine Weiterleitung `l2 --> l3 : l1~bremse.notbremse~1` (OFT-Syntax) erklärt das L1-Item direkt für L3 zuständig; der Report zeigt es als „durchgereicht“ statt als Lücke.
+**Wenn eine Ebene der darüberliegenden 1:1 entspricht** (wie L1 = L2 im letzten Projekt), muss niemand abschreiben. Eine Weiterleitung `sys --> swr : hlr~bremse.notbremse~1` (OFT-Syntax) erklärt das L1-Item direkt für L3 zuständig; der Report zeigt es als „durchgereicht“ statt als Lücke.
 
 ### Code- und Test-Tags
 
 ```cpp
-// [impl->l3d~motor.temp-monitor~1]
+// [impl->dsn~motor.temp-monitor~1]
 void TempMonitor::run() { /* ... */ }
 
-// [utest->l3d~motor.temp-monitor~1]
+// [utest->dsn~motor.temp-monitor~1]
 TEST(TempMonitor, ShutsDownAbove85C) { /* ... */ }
 ```
 
 ```rust
-// [utest->l3d~motor.temp-monitor~1]
+// [utest->dsn~motor.temp-monitor~1]
 #[test]
 fn shuts_down_above_85c() { /* ... */ }
 ```
@@ -300,21 +301,21 @@ Kunde L1 ──Satisfied-by──▶ plat cap ──▶ plat L3 ──▶ plat L
 [[level]]
 type  = "cap"
 name  = "Fähigkeiten"
-needs = ["l3"]
+needs = ["swr"]
 
 [[level]]
-type  = "l3"
+type  = "swr"
 name  = "L3 – Software-Requirements"
-needs = ["l3d"]
+needs = ["dsn"]
 
 [[level]]
-type  = "l3d"
+type  = "dsn"
 name  = "L3D – Design-Entscheidungen"
 needs = ["impl", "utest"]
 
 [satisfied_by]
 targets  = ["cap"]   # Kundenanforderungen dürfen nur auf Fähigkeiten zeigen
-fallback = ["l3"]    # optional erlaubt, erzeugt aber eine Warnung
+fallback = ["swr"]   # optional erlaubt, erzeugt aber eine Warnung
 ```
 
 Für das Werkzeug bleibt das Konfiguration: Die Vorlage `shall init --template platform` legt diese Ebenen an, andere Projekte können es anders schneiden.
@@ -325,7 +326,7 @@ Im OFT-Modell zeigt `Covers:` vom Kind zum Eltern-Item. Für Wiederverwendung w�
 
 ```markdown
 ### Abschaltung bei Übertemperatur
-`l1~kunde-a.overtemp~1`
+`hlr~kunde-a.overtemp~1`
 
 Der Antrieb schaltet bei Übertemperatur innerhalb von 100 ms ab.
 
@@ -337,7 +338,7 @@ Params:
 ```
 
 - `Params:` hält fest, mit welchem Parameterwert die Plattform die Anforderung erfüllt; der Report zeigt ihn neben dem Link.
-- Kann die Plattform eine Kundenanforderung nicht erfüllen, bekommt das Item ganz normal `Needs: l3` und wird im Projekt-Repo verfeinert und umgesetzt – oder als Erweiterung an die Plattform gemeldet.
+- Kann die Plattform eine Kundenanforderung nicht erfüllen, bekommt das Item ganz normal `Needs: swr` und wird im Projekt-Repo verfeinert und umgesetzt – oder als Erweiterung an die Plattform gemeldet.
 - `Satisfied-by:` und `Params:` sind bewusste Erweiterungen gegenüber OFT. Für die Gegenprobe wandelt `shall export --oft` sie in Standard-`Covers` um.
 
 ### Repository-Struktur und Importe
@@ -525,7 +526,7 @@ Der Plan hat zwölf Meilensteine; nach M2 gibt es ein nutzbares MVP (Konsole), n
 - [ ] **2.3 Deep Coverage (M)**
   - Rekursive Auswertung mit Memoisierung und Zyklenerkennung (Zyklus = Defekt).
 - [ ] **2.4 Policy aus `shall.toml` (M)**
-  - Erlaubte Kette, z. B. `l1→l2→l3→l3d→{impl,utest,itest,vrev}`; verbotene Links als Defekt.
+  - Erlaubte Kette, z. B. `hlr→sys→swr→dsn→{impl,utest,itest,vrev}`; verbotene Links als Defekt.
 - [ ] **2.5 Konsolen-Report und Exit-Code (S)**
   - Ausgabe ähnlich OFT: `ok`/`not ok`, Coverage pro Item, Zusammenfassung; Exit-Code abhängig vom Prüfmodus (siehe 7.5).
   - Fertig, wenn: `shall check fixtures/motor` genau die Defekte aus `expected-defects.txt` liefert (Integrationstest).
@@ -642,7 +643,7 @@ Neben HTML erzeugt `shall report --format pdf` (oder `--format html,pdf`) densel
 - **Archivtauglich:** optional als PDF/A (`--pdf-standard a-2b`), für langfristige Ablage bei Audits.
 - **Reproduzierbar:** Schriften sind eingebettet und werden mitgeliefert, Erstellungsdatum kommt aus `--build-info`; gleicher Stand ergibt dasselbe PDF.
 - **Anpassbar:** eigenes Typst-Template mit Firmenlogo, Farben und Kopfzeile über `[report.pdf] template = "reqs/report-template.typ"` (Erweiterungsstufe 1).
-- **Große Projekte:** `--pdf-scope l1` (nur Zusammenfassung und L1) oder ein PDF je Variante, damit Dokumente nicht ausufern.
+- **Große Projekte:** `--pdf-scope hlr` (nur Zusammenfassung und L1) oder ein PDF je Variante, damit Dokumente nicht ausufern.
 
 * [ ] **5.14 Typst-Template für den Report (M)**
   - Deckblatt, Zusammenfassung, Matrix, Details, Defektliste als Typst-Template; Daten aus `trace.json` (Typst liest JSON nativ).
@@ -660,7 +661,7 @@ Neben HTML erzeugt `shall report --format pdf` (oder `--format html,pdf`) densel
   - Default-`Needs` pro Ebene, damit nicht jedes Item `Needs:` wiederholen muss.
   - Kann vor 2.4 gezogen werden, die Policy baut darauf auf.
 - [ ] **6.2 Weiterleitung (S)**
-  - Syntax `l2 --> l3 : l1~x~1` parsen; im Tracer zählt das Item als von l2 abgedeckt, sobald l3 es abdeckt.
+  - Syntax `sys --> swr : hlr~x~1` parsen; im Tracer zählt das Item als von sys abgedeckt, sobald swr es abdeckt.
 - [ ] **6.3 Projektvorlagen (S)**
   - `shall init --template automotive` (L1/L2/L3/L3D), `--template platform` (Fähigkeiten/L3/L3D), `--template project` (Kunden-L1 mit Plattform-Import) bzw. `--template simple` (req/dsn) legt Ordner, Beispiel-Items und `shall.toml` an.
 - [ ] **6.4 Ebenen-Namen im Report (S)**
@@ -828,7 +829,7 @@ Das Werkzeug blockiert nie von selbst. `shall check` meldet Defekte immer; **ob*
 mode          = "report"          # report | new | mature | strict
 mature_status = ["approved"]      # ab diesem Status zählt ein Item in "mature"
 
-[check.level.l1]                  # optional: einzelne Ebenen früher verschärfen
+[check.level.hlr]                 # optional: einzelne Ebenen früher verschärfen
 mode = "mature"
 ```
 
