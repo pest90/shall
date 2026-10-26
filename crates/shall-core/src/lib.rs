@@ -4,6 +4,8 @@
 //! can be used as a library to build custom tools.
 
 pub mod check;
+pub mod config;
+pub mod create;
 pub mod diagnostic;
 pub mod id;
 pub mod item;

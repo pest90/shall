@@ -509,11 +509,12 @@ Der Plan hat zwölf Meilensteine; nach M2 gibt es ein nutzbares MVP (Konsole), n
   - Fehler im Format `datei.md:42: unbekanntes Schlüsselwort 'Neds'`, damit VSCode sie im Terminal anklickbar macht.
   - Doppelte IDs melden, auch über Plattform und Projekt hinweg; höchste Schwere. (`check::duplicate_ids` arbeitet auf beliebigen Item-Mengen; über Projekte hinweg greift es, sobald M8.1 die Importe zusammenführt. Die Ausgabe im Terminal kommt mit 2.5.)
 
-* [ ] **1.4 `shall new` – ID-Erzeugung (M)**
+* [x] **1.4 `shall new` – ID-Erzeugung (M)**
   - Slug aus dem Titel (Umlaute transliterieren, Kleinbuchstaben, Bindestriche), 4–5 Zeichen Base32-Zufall anhängen (Crate `rand`).
   - Gegen alle bekannten IDs prüfen, auch gelöschte aus der Git-Historie (`git log -S`); bei Kollision neu würfeln.
   - Item-Gerüst mit Titel, ID, `Covers:`-Platzhalter und Default-`Needs` der Ebene an die Zieldatei anhängen.
-  - VSCode-Task bzw. Snippet, der das Kommando aufruft.
+  - VSCode-Task bzw. Snippet, der das Kommando aufruft (`contrib/vscode/tasks.json`).
+  - Umsetzung: `shall new <typ> "<titel>" [--file <datei>] [--component <name>]`; ohne `--file` wird nur die ID ausgegeben. Bekannt sind alle IDs aus Markdown-Dateien des Projekts (ohne von Git ignorierte) und aus der Git-Historie dieses Klons (alle Branches, Tags, Stashes und das Reflog, in einem `git log -G`-Lauf, unabhängig von Diff-Einstellungen); Code-Tags kommen mit M3 dazu. In einem flachen Klon oder bei nicht lesbarer Historie bricht `shall new` ab, außer mit `--no-history`. Zieldateien müssen Markdown sein, im Projekt liegen (auch nach Auflösen von Links) und dürfen nicht von Git ignoriert sein. Nicht abgeholte Branches anderer bleiben eine bekannte Grenze; dagegen hilft der Zufallsanteil.
   - Fertig, wenn: 10 000 erzeugte IDs ohne Kollision sind und eine gelöschte ID nie wieder vergeben wird (Test).
 
 ### M2 – Linker, Coverage, Konsole (MVP)

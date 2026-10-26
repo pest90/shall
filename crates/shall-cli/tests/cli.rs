@@ -19,7 +19,7 @@ fn prints_version() {
 
 #[test]
 fn stubs_fail_with_message() {
-    for args in [&["check"][..], &["report"], &["new", "swr", "Title"]] {
+    for args in [&["check"][..], &["report"]] {
         let output = shall().args(args).output().unwrap();
         assert!(!output.status.success(), "{args:?} should fail");
         let stderr = String::from_utf8(output.stderr).unwrap();

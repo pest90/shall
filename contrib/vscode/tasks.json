@@ -1,0 +1,35 @@
+{
+  // Copy to .vscode/tasks.json of your project. Run "Tasks: Run Task" >
+  // "shall: new item" while a requirements file is open; the new item is
+  // appended to that file.
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "shall: new item",
+      "type": "process",
+      "command": "shall",
+      "args": [
+        "new",
+        "${input:type}",
+        "${input:title}",
+        "--file",
+        "${file}"
+      ],
+      "options": { "cwd": "${fileDirname}" },
+      "presentation": { "reveal": "always", "panel": "shared" },
+      "problemMatcher": []
+    }
+  ],
+  "inputs": [
+    {
+      "id": "type",
+      "type": "promptString",
+      "description": "Item type, a level from shall.toml (e.g. swr, dsn)"
+    },
+    {
+      "id": "title",
+      "type": "promptString",
+      "description": "Title of the new item"
+    }
+  ]
+}
