@@ -1,0 +1,139 @@
+---
+source: crates/shall-core/tests/motor_fixture.rs
+expression: read_requirements()
+---
+- id: dsn~motor.temp-monitor-r5t1~1
+  title: Temperature monitoring in the 10 ms task
+  description: "The task `TempMonitor` reads the winding sensor every 10 ms and raises\nthe overtemperature flag above 85 °C."
+  rationale: ~
+  comment: ~
+  status: approved
+  needs:
+    - impl
+    - utest
+  covers:
+    - id: swr~motor.overtemp-shutdown-k4f2~1
+      line: 12
+  depends: []
+  tags: []
+  source: ~
+  location:
+    path: reqs/design.md
+    line: 4
+- id: dsn~motor.shutdown-signal-w9e4~1
+  title: Shutdown signal
+  description: "`Shutdown::on_overtemp` switches off the PWM output in the same task\ncycle in which the overtemperature flag is raised."
+  rationale: ~
+  comment: ~
+  status: approved
+  needs:
+    - impl
+    - utest
+  covers:
+    - id: swr~motor.overtemp-shutdown-k4f2~2
+      line: 25
+  depends: []
+  tags: []
+  source: ~
+  location:
+    path: reqs/design.md
+    line: 17
+- id: dsn~motor.relay-driver-b6j3~1
+  title: Relay driver
+  description: "`RelayDriver` opens the relay directly from the emergency stop\ninterrupt."
+  rationale: ~
+  comment: ~
+  status: approved
+  needs:
+    - impl
+    - utest
+  covers:
+    - id: swr~motor.estop-relay-c2v6~1
+      line: 38
+  depends: []
+  tags: []
+  source: ~
+  location:
+    path: reqs/design.md
+    line: 30
+- id: swr~motor.overtemp-shutdown-k4f2~2
+  title: Shut down the motor on overtemperature
+  description: "The software shuts down the motor within 100 ms when the winding\ntemperature exceeds 85 °C."
+  rationale: Revision 2 lowered the reaction time from 200 ms to 100 ms.
+  comment: ~
+  status: approved
+  needs:
+    - dsn
+  covers:
+    - id: sys~motor.thermal-protection-q7m2~1
+      line: 15
+  depends: []
+  tags: []
+  source: ~
+  location:
+    path: reqs/software.md
+    line: 4
+- id: swr~motor.overtemp-warning-p8n5~1
+  title: Warn before overtemperature
+  description: "The software reports a warning when the winding temperature exceeds\n75 °C."
+  rationale: ~
+  comment: ~
+  status: proposed
+  needs:
+    - dsn
+  covers:
+    - id: sys~motor.thermal-protection-q7m2~1
+      line: 28
+  depends: []
+  tags: []
+  source: ~
+  location:
+    path: reqs/software.md
+    line: 20
+- id: swr~motor.estop-relay-c2v6~1
+  title: Open the motor relay on emergency stop
+  description: "The software opens the motor relay within 10 ms after the emergency\nstop input becomes active."
+  rationale: ~
+  comment: ~
+  status: approved
+  needs:
+    - dsn
+  covers:
+    - id: sys~motor.emergency-stop-h3x9~1
+      line: 41
+  depends: []
+  tags: []
+  source: ~
+  location:
+    path: reqs/software.md
+    line: 33
+- id: sys~motor.thermal-protection-q7m2~1
+  title: Thermal protection of the motor
+  description: The drive protects the motor winding against overheating.
+  rationale: Overheating destroys the winding insulation.
+  comment: ~
+  status: approved
+  needs:
+    - swr
+  covers: []
+  depends: []
+  tags: []
+  source: Customer specification ch. 4.2
+  location:
+    path: reqs/system.md
+    line: 4
+- id: sys~motor.emergency-stop-h3x9~1
+  title: Emergency stop
+  description: The drive stops the motor when the emergency stop input is active.
+  rationale: ~
+  comment: ~
+  status: approved
+  needs:
+    - swr
+  covers: []
+  depends: []
+  tags: []
+  source: Customer specification ch. 5.1
+  location:
+    path: reqs/system.md
+    line: 17

@@ -497,17 +497,17 @@ Der Plan hat zwölf Meilensteine; nach M2 gibt es ein nutzbares MVP (Konsole), n
 
 ### M1 – Markdown-Import
 
-- [ ] **1.1 ID-Erkennung (M)**
+- [x] **1.1 ID-Erkennung (M)**
   - Zeilenbasierter Zustandsautomat: Eine Zeile, die nur aus `` `typ~name~rev` `` besteht, startet ein Item; die direkt vorangehende Überschrift wird Titel.
   - Code-Blöcke (```` ``` ````) werden übersprungen, damit Beispiele nicht als Items zählen.
   - Fertig, wenn: alle Items der Fixture mit Datei und Zeile erkannt werden.
-- [ ] **1.2 Schlüsselwörter (M)**
+- [x] **1.2 Schlüsselwörter (M)**
   - `Needs:` (kommagetrennt), `Covers:`/`Depends:` (Aufzählungsliste), `Status:`, `Tags:`, `Source:`, `Rationale:`, `Comment:`.
   - Freier Text bis zum ersten Schlüsselwort = Beschreibung; nächstes Item oder gleich hohe Überschrift beendet das Item.
   - Fertig, wenn: Snapshot-Tests (Crate `insta`) die geparsten Items der Fixture festschreiben.
-- [ ] **1.3 Diagnose-Ausgabe (S)**
+- [x] **1.3 Diagnose-Ausgabe (S)**
   - Fehler im Format `datei.md:42: unbekanntes Schlüsselwort 'Neds'`, damit VSCode sie im Terminal anklickbar macht.
-  - Doppelte IDs melden, auch über Plattform und Projekt hinweg; höchste Schwere.
+  - Doppelte IDs melden, auch über Plattform und Projekt hinweg; höchste Schwere. (`check::duplicate_ids` arbeitet auf beliebigen Item-Mengen; über Projekte hinweg greift es, sobald M8.1 die Importe zusammenführt. Die Ausgabe im Terminal kommt mit 2.5.)
 
 * [ ] **1.4 `shall new` – ID-Erzeugung (M)**
   - Slug aus dem Titel (Umlaute transliterieren, Kleinbuchstaben, Bindestriche), 4–5 Zeichen Base32-Zufall anhängen (Crate `rand`).
@@ -532,6 +532,7 @@ Der Plan hat zwölf Meilensteine; nach M2 gibt es ein nutzbares MVP (Konsole), n
   - Fertig, wenn: `shall check fixtures/motor` genau die Defekte aus `expected-defects.txt` liefert (Integrationstest).
 - [ ] **2.6 Gegenprobe mit OFT (S)**
   - Dieselbe Fixture mit `oft trace` laufen lassen und Ergebnisse vergleichen; Abweichungen dokumentieren.
+  - Bekannte Abweichungen beim Markdown-Import (Details im Modul `shall_core::markdown`): `shall` liest Schlüsselwörter wie `Status:` überall im Item, OFT nur direkt nach der ID; tiefere Überschriften beenden in `shall` kein Item; Code-Blöcke werden in `shall` auch innerhalb von Items übersprungen; Setext-Überschriften erkennt `shall` noch nicht.
 
 ### M3 – Code- und Test-Tags
 
