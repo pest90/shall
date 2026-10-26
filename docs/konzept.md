@@ -728,7 +728,7 @@ Tests brauchen diesen Abgleich kaum: Ein Ergebnis in der JUnit-XML beweist berei
 
 ### M10 – Erweiterbarkeit und Open-Source-Release
 
-- [ ] **10.1 Crate-Struktur (M) – gleich zu Beginn, zusammen mit 0.1**
+- [x] **10.1 Crate-Struktur (M) – gleich zu Beginn, zusammen mit 0.1**
   - Cargo-Workspace: `shall-core` (Modell, Parser, Graph, Tracer), `shall-report`, `shall-cli`, `shall-plugin` (Protokoll-Typen und Hilfen für Rust-Plugins).
   - Der Kern hat keine Abhängigkeit auf CLI oder Report, damit er als Bibliothek nutzbar ist.
 - [ ] **10.2 Versionierte Schemas (M)**
