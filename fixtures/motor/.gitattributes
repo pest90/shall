@@ -1,0 +1,2 @@
+# Golden files compare line by line; keep LF on every platform.
+* text eol=lf

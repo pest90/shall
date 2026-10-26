@@ -1,0 +1,4 @@
+reqs/design.md:12: dsn~motor.temp-monitor-r5t1~1: covers outdated revision swr~motor.overtemp-shutdown-k4f2~1 (current revision: 2)
+reqs/software.md:20: swr~motor.overtemp-warning-p8n5~1: not covered by required type 'dsn'
+src/fault_log.cpp:3: tag [impl->dsn~motor.fault-log-z2d8~1]: unknown target dsn~motor.fault-log-z2d8~1
+tests/shutdown_test.cpp:5: test Shutdown.DisablesPwmOnOvertemp failed

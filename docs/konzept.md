@@ -485,7 +485,7 @@ Der Plan hat zwölf Meilensteine; nach M2 gibt es ein nutzbares MVP (Konsole), n
   - `cargo new shall`, Crates: `clap` (CLI), `anyhow`/`thiserror` (Fehler), `serde` + `toml` (Konfiguration).
   - Unterbefehle als Stubs: `shall check`, `shall report`, `shall new`.
   - Fertig, wenn: `shall --version` lokal und in der CI läuft.
-- [ ] **0.2 Beispielprojekt als Testfixture (M)**
+- [x] **0.2 Beispielprojekt als Testfixture (M)**
   - Ordner `fixtures/motor/` mit 3 Ebenen, ca. 8 Requirements, etwas C++-Code mit gtest und einer JUnit-XML.
   - Absichtlich eingebaute Fehler: ein unabgedecktes Requirement, eine veraltete Revision, ein verwaistes Code-Tag, ein roter Test.
   - Datei `expected-defects.txt` als „goldene“ Erwartung.

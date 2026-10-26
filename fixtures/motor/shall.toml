@@ -1,0 +1,25 @@
+# Sample project for the integration tests of shall (work package 0.2).
+# It contains deliberate defects, see README.md and expected-defects.txt.
+
+[[level]]
+type  = "sys"
+name  = "L2 – System Requirements"
+needs = ["swr"]
+
+[[level]]
+type  = "swr"
+name  = "L3 – Software Requirements"
+needs = ["dsn"]
+
+[[level]]
+type  = "dsn"
+name  = "L3D – Design Decisions"
+needs = ["impl", "utest"]
+
+[verification]
+types = ["utest"]
+
+[sources]
+impl  = ["src/**/*.{cpp,hpp}"]
+utest = ["tests/**/*.cpp"]
+junit = ["test-results/**/*.xml"]
