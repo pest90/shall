@@ -1,0 +1,29 @@
+# Build output
+/target/
+
+# Backup files from rustfmt
+**/*.rs.bk
+
+# MSVC debug info
+*.pdb
+
+# Coverage / profiling
+*.profraw
+*.profdata
+lcov.info
+tarpaulin-report.html
+
+# Environment
+.env
+.env.*
+
+# IDE / Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
