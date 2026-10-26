@@ -33,7 +33,8 @@ docker run --rm -u "$(id -u):$(id -g)" -v "$PWD:/project" shall check
 - `master` has a **linear history**. Pull requests are **squash-merged** only;
   merge commits and rebase-merging are disabled on `master`. The pull request
   title becomes the commit message on `master`, so it must follow the rules
-  below. CI checks it.
+  below. CI checks it, together with the branch name; run
+  `scripts/check-conventions.sh <branch> "<title>"` to check locally.
 - Inside your branch, work however you like: merging `master` into your
   branch, fixup commits and so on are fine, because they are squashed away
   when the pull request lands.
@@ -141,7 +142,7 @@ A breaking change adds `!` after the scope, for example
 The part of the project that changes:
 
 `core`, `md`, `typst`, `scan`, `junit`, `trace`, `report`, `pdf`, `cli`,
-`plugin`, `build-check`, `deps`, `ci`
+`plugin`, `build-check`, `deps`, `ci`, `release`
 
 Leave the scope out only if a change really spans the whole project.
 

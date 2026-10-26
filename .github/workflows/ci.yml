@@ -3,19 +3,32 @@ on:
   push:
     branches: [master]
   pull_request:
+    # `edited` re-runs the convention check when the title changes.
+    types: [opened, edited, synchronize, reopened]
 
 env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: -D warnings
 
 jobs:
+  conventions:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Passed through the environment, never interpolated into the script.
+      - env:
+          BRANCH: ${{ github.head_ref }}
+          TITLE: ${{ github.event.pull_request.title }}
+        run: scripts/check-conventions.sh "$BRANCH" "$TITLE"
+
   lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       # rustup picks up the pinned toolchain from rust-toolchain.toml
       - run: cargo fmt --all --check
-      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
   test:
     strategy:
@@ -42,8 +55,8 @@ jobs:
           fi
           rustup toolchain install "$tc" --profile minimal
           rustup override set "$tc"
-      - run: cargo test --workspace
-      - run: cargo run -p shall-cli -- --version
+      - run: cargo test --workspace --locked
+      - run: cargo run --locked -p shall-cli -- --version
 
   docker:
     runs-on: ubuntu-latest

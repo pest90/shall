@@ -83,7 +83,7 @@ Closes #42
   `chore`, `revert`. Breaking change: `!` after the scope plus a
   `BREAKING CHANGE:` footer.
 - Scopes: `core`, `md`, `typst`, `scan`, `junit`, `trace`, `report`, `pdf`,
-  `cli`, `plugin`, `build-check`, `deps`, `ci`.
+  `cli`, `plugin`, `build-check`, `deps`, `ci`, `release`.
 - Summary: imperative, lower case, no trailing period, at most 72 characters.
 - `Plan:` footer names the work package from `docs/konzept.md`.
 - One logical change per commit. Do not add `Signed-off-by` yourself: the
