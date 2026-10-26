@@ -10,7 +10,7 @@ use crate::item::Item;
 /// The first definition, ordered by location, is the original; every other
 /// one gets an error that points back to it. Duplicate IDs are errors of
 /// the highest severity, because links to them are ambiguous.
-pub fn duplicate_ids(items: &[Item]) -> Vec<Diagnostic> {
+pub fn duplicate_ids<'a>(items: impl IntoIterator<Item = &'a Item>) -> Vec<Diagnostic> {
     let mut by_id: HashMap<(&str, &str), Vec<&Item>> = HashMap::new();
     for item in items {
         by_id

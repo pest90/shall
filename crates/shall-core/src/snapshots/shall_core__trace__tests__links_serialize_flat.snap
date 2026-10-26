@@ -1,0 +1,12 @@
+---
+source: crates/shall-core/src/trace.rs
+expression: trace.links
+---
+- kind: covers
+  source: swr~b~1
+  target: sys~a~1
+  location:
+    path: x.md
+    line: 7
+  status: outdated
+  current: 2

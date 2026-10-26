@@ -519,15 +519,17 @@ Der Plan hat zwölf Meilensteine; nach M2 gibt es ein nutzbares MVP (Konsole), n
 
 ### M2 – Linker, Coverage, Konsole (MVP)
 
-- [ ] **2.1 Index und Auflösung (M)**
+- [x] **2.1 Index und Auflösung (M)**
   - `HashMap<(typ,name), Vec<Item>>`; jedes `Covers` auflösen.
   - Defekte: unbekannte ID, falsche Revision (`COVERING_WRONG_VERSION`), doppelte ID.
-- [ ] **2.2 Shallow Coverage (S)**
+- [x] **2.2 Shallow Coverage (S)**
   - Pro Item: welche Typen aus `Needs` sind abgedeckt, welche fehlen, welche Abdeckung war nicht gefordert.
-- [ ] **2.3 Deep Coverage (M)**
+- [x] **2.3 Deep Coverage (M)**
   - Rekursive Auswertung mit Memoisierung und Zyklenerkennung (Zyklus = Defekt).
-- [ ] **2.4 Policy aus `shall.toml` (M)**
+- [x] **2.4 Policy aus `shall.toml` (M)**
   - Erlaubte Kette, z. B. `hlr→sys→swr→dsn→{impl,utest,itest,vrev}`; verbotene Links als Defekt.
+  - Umsetzung (`shall_core::trace`): Ein `Covers:`-Link ist gültig, wenn das Ziel in genau dieser Revision existiert und den Typ des verlinkenden Items braucht (`Needs:` des Items, sonst `needs` seiner Ebene – damit ist der Default-Teil von 6.1 erledigt). Ungültige Links (unbekannt, veraltete oder noch nicht existierende Revision, gegen die Ebenen) sind Defekte an der Zeile des Links und zählen nicht als Abdeckung. Fehlende Abdeckung wird je fehlendem Typ am Item gemeldet; „nicht deep covered“ ist nur ein Status. Ein Item-Typ muss Ebene, von einer Ebene gebraucht oder Prüftyp aus `[verification]` sein; sonst ist er ein Fehler, oder eine Warnung, wenn ihn nur `Needs:` von Items nennen (oft ein Tippfehler). Links auf eine doppelt vergebene ID sind mehrdeutig und zählen nicht; die Links aller Kopien werden geprüft, fehlende Abdeckung an Kopien wird nicht zusätzlich gemeldet. Wie in OFT brauchen Items mit `Status: rejected` keine Abdeckung, ihre Links werden ignoriert, Links auf sie sind Defekte, auch vor einer abweichenden Revision. Ohne `[[level]]` gelten nur die `Needs:` der Items. Zyklen werden je starker Zusammenhangskomponente einmal am ersten Item (nach Fundstelle) gemeldet, unabhängig von der Suchreihenfolge. `Trace` enthält zusätzlich jeden Link mit Status (gültig, unbekannt, veraltet, zu neu, mehrdeutig, abgelehnt, nicht gefordert) als Grundlage für Report und `trace.json`.
+  - Offen für 2.5/7.5 und M3: Defekte sind bisher nur Meldungstexte; für die Prüfmodi `new` und `mature` und für Defekte an Code-Tags (Meldung `tag [impl->…]: …` statt der ID des erzeugten Items) braucht `Diagnostic` eine Art und das Item eine Herkunft.
 - [ ] **2.5 Konsolen-Report und Exit-Code (S)**
   - Ausgabe ähnlich OFT: `ok`/`not ok`, Coverage pro Item, Zusammenfassung; Exit-Code abhängig vom Prüfmodus (siehe 7.5).
   - Fertig, wenn: `shall check fixtures/motor` genau die Defekte aus `expected-defects.txt` liefert (Integrationstest).

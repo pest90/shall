@@ -94,6 +94,14 @@ impl Location {
     pub fn line(&self) -> u32 {
         self.line
     }
+
+    /// Returns the same file at another line.
+    pub fn with_line(&self, line: u32) -> Self {
+        Self {
+            path: self.path.clone(),
+            line,
+        }
+    }
 }
 
 /// Error for a path that is not relative to the project root.

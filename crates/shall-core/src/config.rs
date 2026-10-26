@@ -17,6 +17,17 @@ pub struct Config {
     /// Levels of the project, from the `[[level]]` tables.
     #[serde(default, rename = "level")]
     pub levels: Vec<Level>,
+    /// Verification types, from the `[verification]` table.
+    #[serde(default)]
+    pub verification: Verification,
+}
+
+/// Types of items that verify others, e.g. tests and reviews.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
+pub struct Verification {
+    /// Verification types such as `utest`, `itest` or `vrev`.
+    #[serde(default)]
+    pub types: Vec<ItemType>,
 }
 
 /// A level such as system or software requirements.
@@ -78,12 +89,16 @@ type = "dsn"
 name = "Design"
 needs = ["impl", "utest"]
 
+[verification]
+types = ["utest", "vrev"]
+
 [sources]
 impl = ["src/**"]
 "#,
         )
         .unwrap();
         assert_eq!(config.levels.len(), 2);
+        assert_eq!(config.verification.types, [typ("utest"), typ("vrev")]);
         assert_eq!(config.level(&typ("dsn")).unwrap().name, "Design");
         assert!(config.level(&typ("impl")).is_none());
         assert!(config.has_parents(&typ("dsn")));

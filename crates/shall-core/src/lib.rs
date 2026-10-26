@@ -10,6 +10,7 @@ pub mod diagnostic;
 pub mod id;
 pub mod item;
 pub mod markdown;
+pub mod trace;
 
 pub use diagnostic::{Diagnostic, Severity};
 pub use id::{ItemId, ItemType, MAX_REVISION, ParseIdError};
