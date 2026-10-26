@@ -38,7 +38,7 @@ use crate::check;
 use crate::config::Config;
 use crate::diagnostic::Diagnostic;
 use crate::id::{ItemId, ItemType};
-use crate::item::{Item, Location, Reference, Status};
+use crate::item::{Item, Location, Origin, Reference, Status};
 
 /// Result of tracing all items of a project.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -196,22 +196,24 @@ pub fn trace(items: &[Item], config: &Config) -> Trace {
             continue;
         }
         let typ = item.id.typ();
+        let subject = match &item.origin {
+            Origin::Tag { text, .. } => format!("tag {text}"),
+            Origin::Requirement => item.id.to_string(),
+        };
         if !config.levels.is_empty() && !configured.contains(typ) {
             if needed_by_items.contains(typ) {
                 defects.push(Diagnostic::warning(
                     item.location.clone(),
                     format!(
-                        "{}: type '{typ}' is only known from Needs: of items; \
-                         add it to shall.toml if it is no typo",
-                        item.id
+                        "{subject}: type '{typ}' is only known from Needs: of items; \
+                         add it to shall.toml if it is no typo"
                     ),
                 ));
             } else {
                 defects.push(Diagnostic::error(
                     item.location.clone(),
                     format!(
-                        "{}: type '{typ}' is not a level, a verification type or needed by any item",
-                        item.id
+                        "{subject}: type '{typ}' is not a level, a verification type or needed by any item"
                     ),
                 ));
             }
@@ -364,8 +366,15 @@ fn link_message(
         LinkKind::Depends => "depends on",
     };
     let target = &link.id;
+    // The ID of a tag's item is generated, so its defects name the tag as
+    // written; a tag with an unknown target is orphaned code.
+    let (subject, is_tag) = match &item.origin {
+        Origin::Tag { text, .. } => (format!("tag {text}"), true),
+        Origin::Requirement => (item.id.to_string(), false),
+    };
     let problem = match status {
         LinkStatus::Valid => return None,
+        LinkStatus::Unknown if is_tag => format!("unknown target {target}"),
         LinkStatus::Unknown => format!("{verb} unknown item {target}"),
         LinkStatus::Outdated { current } => {
             format!("{verb} outdated revision {target} (current revision: {current})")
@@ -382,7 +391,7 @@ fn link_message(
             item.id.typ()
         ),
     };
-    Some(format!("{}: {problem}", item.id))
+    Some(format!("{subject}: {problem}"))
 }
 
 /// Computes deep coverage and reports coverage cycles.
@@ -978,6 +987,29 @@ Covers:
         };
         assert!(message.contains("... (11 more) <- swr~n00~1"), "{message}");
         assert!(message.len() < 300, "{message}");
+    }
+
+    #[test]
+    fn tag_defects_name_the_tag() {
+        let mut items = markdown::parse(Path::new("x.md"), "`dsn~x~2`\nNeeds: impl\n")
+            .unwrap()
+            .items;
+        let scanned = crate::tags::scan(
+            Path::new("a.c"),
+            "// [iml->dsn~x~2]\n// [impl->dsn~x~1]\n// [impl->dsn~gone~1]\n// [impl->dsn~x~2]\n",
+        )
+        .unwrap();
+        items.extend(scanned.items);
+        let trace = trace(&items, &Config::parse(CONFIG).unwrap());
+        assert_eq!(
+            messages(&trace),
+            [
+                "a.c:1: tag [iml->dsn~x~2]: type 'iml' is not a level, a verification type or needed by any item",
+                "a.c:1: tag [iml->dsn~x~2]: covers dsn~x~2, which does not need type 'iml'",
+                "a.c:2: tag [impl->dsn~x~1]: covers outdated revision dsn~x~1 (current revision: 2)",
+                "a.c:3: tag [impl->dsn~gone~1]: unknown target dsn~gone~1",
+            ]
+        );
     }
 
     #[test]

@@ -37,6 +37,72 @@ pub struct Item {
     pub source: Option<String>,
     /// Where the item is defined: the line of its ID.
     pub location: Location,
+    /// Whether the item comes from a requirement file or a tag in code.
+    pub origin: Origin,
+}
+
+/// Where an item comes from.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", tag = "kind")]
+pub enum Origin {
+    /// An item written in a requirement file.
+    Requirement,
+    /// An item generated from a tag such as `[impl->dsn~x~1]` in code or
+    /// tests.
+    Tag {
+        /// The tag as written, e.g. `[impl->dsn~x~1]`.
+        text: String,
+        /// The test defined right after the tag, if any.
+        test: Option<TestName>,
+    },
+}
+
+/// A test definition found right after a tag, with what is needed to
+/// match it to test results.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct TestName {
+    /// How the test is defined, which decides how runners name it.
+    pub kind: TestKind,
+    /// Test suite, e.g. the first argument of gtest's `TEST(Suite, Name)`;
+    /// none for Rust tests.
+    pub suite: Option<String>,
+    /// Name of the test function or case.
+    pub name: String,
+    /// Inline modules around a Rust test, outermost first, e.g. `tests` for
+    /// a test in `mod tests { ... }`. The module path of the file itself is
+    /// not included.
+    pub module: Vec<String>,
+    /// Line of the test definition.
+    pub line: u32,
+}
+
+/// How a test is defined.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TestKind {
+    /// gtest `TEST`, `TEST_F` or `GTEST_TEST`: reported as `Suite.Name`.
+    Gtest,
+    /// gtest `TEST_P`: reported as `Instance/Suite.Name/Index`.
+    GtestParameterized,
+    /// gtest `TYPED_TEST`, reported as `Suite/Index.Name`, or
+    /// `TYPED_TEST_P`, reported as `Instance/Suite/Index.Name`.
+    GtestTyped,
+    /// A Rust function with a test attribute.
+    Rust,
+}
+
+impl fmt::Display for TestName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self.suite {
+            Some(suite) => write!(f, "{suite}.{}", self.name),
+            None => {
+                for module in &self.module {
+                    write!(f, "{module}::")?;
+                }
+                f.write_str(&self.name)
+            }
+        }
+    }
 }
 
 /// A link from one item to another, with the line it is written on.

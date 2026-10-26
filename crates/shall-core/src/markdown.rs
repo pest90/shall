@@ -46,7 +46,7 @@ use std::path::Path;
 
 use crate::diagnostic::Diagnostic;
 use crate::id::{ItemId, ItemType};
-use crate::item::{Item, Location, LocationError, Reference, Status};
+use crate::item::{Item, Location, LocationError, Origin, Reference, Status};
 
 /// Items and diagnostics read from one Markdown file.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
@@ -519,6 +519,7 @@ impl Parser {
             tags: item.tags,
             source: item.source,
             location,
+            origin: Origin::Requirement,
         });
     }
 }

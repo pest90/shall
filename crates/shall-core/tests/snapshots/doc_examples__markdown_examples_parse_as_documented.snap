@@ -19,6 +19,8 @@ expression: items
   location:
     path: README.md
     line: 2
+  origin:
+    kind: requirement
 - id: swr~motor.overtemp-shutdown-k4f2~2
   title: Shut down the motor on overtemperature
   description: "The software shuts down the motor within 100 ms when the winding\ntemperature exceeds 85 °C."
@@ -40,3 +42,5 @@ expression: items
   location:
     path: docs/user-guide.md
     line: 4
+  origin:
+    kind: requirement

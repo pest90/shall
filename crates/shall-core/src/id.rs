@@ -147,7 +147,7 @@ fn parse_name(name: &str) -> Result<String, ParseIdError> {
     }
 }
 
-fn parse_revision(revision: &str) -> Result<u32, ParseIdError> {
+pub(crate) fn parse_revision(revision: &str) -> Result<u32, ParseIdError> {
     let canonical = !revision.is_empty()
         && revision.bytes().all(|b| b.is_ascii_digit())
         && (revision == "0" || !revision.starts_with('0'));

@@ -542,11 +542,14 @@ Der Plan hat zwölf Meilensteine; nach M2 gibt es ein nutzbares MVP (Konsole), n
 - [ ] **3.1 Tag-Scanner (M)**
   - Dateien mit Crate `ignore` durchlaufen (respektiert `.gitignore`), Tags per Regex `\[\s*(\w+)(~[^\]\s]*)?\s*->\s*([^\]\s]+)\s*\]` finden.
   - Jedes Tag erzeugt ein Item `impl~<name>-<hash>~0` mit `Covers` auf das Ziel.
-- [ ] **3.2 Testnamen erkennen (M)**
+  - Stand: Erkennung fertig (`shall_core::tags`), mit den OFT-Formen mehrere Ziele (`[impl->a, b]`, ein Item je Ziel), `>>` mit gebrauchten Typen (Name wie das Ziel, ohne Hash) und eigenem Namen bzw. eigener Revision (`[impl~name~1->…]`, `[impl~~2->…]`); Kurz-Tags `[[name:1]]` nicht. Ein Text ist nur ein Tag, wenn sein erstes Ziel wie eine ID beginnt (`typ~name`), damit `a[p->len]` oder `m[r->x&~1]` keine sind. Erzeugte Namen: Zielname plus FNV-1a-Hash aus Pfad, Typ, Zieltyp und -name (ohne Revision) und Vorkommen dieses Paars in der Datei – stabil, wenn andere Tags eingefügt werden oder die Revision des Ziels steigt; anders als OFT (CRC32 über Pfad und Zeile), daher stimmen die IDs bei der Gegenprobe nicht überein. Tag-Items sind `approved`. Ein fehlerhaftes Tag, das nicht wie eine ID beginnt (z. B. `[impl->dsn ~x~1]`), wird ohne Meldung ignoriert und fällt nur als fehlende Abdeckung auf; zwei `>>`-Tags mit gleichem Zielnamen ergeben dieselbe ID und damit einen Duplikat-Defekt. Defekte nennen das Tag. Offen: Dateien nach den Globs aus `[sources]` durchlaufen, kommt mit 2.5 in die CLI.
+- [x] **3.2 Testnamen erkennen (M)**
   - Nach einem `utest`/`itest`-Tag die nächste Testdefinition suchen: gtest `TEST(_F|_P)?\((\w+),\s*(\w+)\)`, Rust `#[test]` + `fn (\w+)`.
   - Ergebnis: `test_key = Suite.Name` bzw. `modulpfad::name`.
+  - Umsetzung: gtest `TEST`, `TEST_F`, `GTEST_TEST`, `TEST_P`, `TYPED_TEST(_P)` (auch über mehrere Zeilen) und Rust-Funktionen mit `#[test]`, `#[…::test(…)]`, `#[rstest]` oder `#[test_case(…)]`. Steht Code vor dem Tag in derselben Zeile, ist diese Zeile die Definition; sonst wird nach dem Tag gesucht (auch hinter `*/` in derselben Zeile). Kommentare und Literale erkennt ein kleiner Lexer für C, C++ und Rust, der auch die Inline-Module zählt. Gespeichert werden Art (gtest, parametrisiert, typisiert, Rust), Zeile der Definition und bei Rust die umgebenden Inline-Module; den Modulpfad der Datei selbst und das Testbinary für `cargo nextest` ergänzt M4. Der Test wird nach jedem Tag gesucht; M4 wertet ihn nur für Prüftypen aus.
 - [ ] **3.3 Konfigurierbare Quellen (S)**
   - In `shall.toml`: Globs pro Quelle, z. B. `impl = ["src/**/*.{cpp,hpp,rs}"]`, `utest = ["tests/**"]`.
+  - Stand: `[sources]` wird gelesen (`requirements`, ohne Angabe alle Markdown-Dateien; `junit`; jeder weitere Schlüssel mit einer Liste von Mustern sind Code- und Testdateien, der Typ kommt aus dem Tag; Schlüssel mit anderen Werten lädt die Konfiguration trotzdem und meldet sie über `invalid_keys`). Offen: Auswertung der Globs in der CLI mit 2.5, dabei Dateien, die unter mehreren Schlüsseln passen, nur einmal lesen und Schlüssel, die kein bekannter Typ sind, als Tippfehler-Warnung melden.
 
 ### M4 – Testergebnisse und weitere Validierung
 
