@@ -33,7 +33,7 @@ enum Command {
     },
     /// Create a new item with a generated ID.
     New {
-        /// Item type, e.g. `l3`.
+        /// Item type, e.g. `swr`.
         typ: String,
         /// Title of the new item.
         title: String,

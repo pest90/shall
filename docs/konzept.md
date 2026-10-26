@@ -490,7 +490,7 @@ Der Plan hat zwölf Meilensteine; nach M2 gibt es ein nutzbares MVP (Konsole), n
   - Absichtlich eingebaute Fehler: ein unabgedecktes Requirement, eine veraltete Revision, ein verwaistes Code-Tag, ein roter Test.
   - Datei `expected-defects.txt` als „goldene“ Erwartung.
   - Fertig, wenn: die Fixture eingecheckt ist und jeder Fehler dokumentiert ist.
-- [ ] **0.3 Datenmodell (M)**
+- [x] **0.3 Datenmodell (M)**
   - `ItemId { typ, name, revision }` mit `FromStr`/`Display` für `typ~name~rev`.
   - `Item { id, title, description, rationale, status, needs: Vec<Typ>, covers: Vec<ItemId>, depends, tags, source, location: Datei+Zeile }`.
   - Fertig, wenn: Unit-Tests für gültige und ungültige IDs grün sind.
