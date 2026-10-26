@@ -1,0 +1,42 @@
+---
+source: crates/shall-core/tests/doc_examples.rs
+expression: items
+---
+- id: swr~motor.overtemp-shutdown-k4f2~2
+  title: Shut down the motor on overtemperature
+  description: "The software shuts down the motor within 100 ms when the winding\ntemperature exceeds 85 °C."
+  rationale: ~
+  comment: ~
+  status: approved
+  needs:
+    - dsn
+  covers:
+    - id: sys~motor.thermal-protection-q7m2~1
+      line: 8
+  depends: []
+  tags: []
+  source: ~
+  location:
+    path: README.md
+    line: 2
+- id: swr~motor.overtemp-shutdown-k4f2~2
+  title: Shut down the motor on overtemperature
+  description: "The software shuts down the motor within 100 ms when the winding\ntemperature exceeds 85 °C."
+  rationale: Protects the winding insulation.
+  comment: ~
+  status: approved
+  needs:
+    - dsn
+  covers:
+    - id: sys~motor.thermal-protection-q7m2~1
+      line: 20
+  depends:
+    - id: swr~motor.temp-sensor-c2v6~1
+      line: 17
+  tags:
+    - safety
+    - thermal
+  source: Customer specification ch. 4.2
+  location:
+    path: docs/user-guide.md
+    line: 4

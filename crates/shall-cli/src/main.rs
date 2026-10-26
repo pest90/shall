@@ -39,6 +39,7 @@ enum Command {
     /// and prints its location instead.
     New {
         /// Item type, a level from `shall.toml`, e.g. `swr`.
+        #[arg(value_name = "TYPE")]
         typ: String,
         /// Title of the new item; the readable part of the ID is made from it.
         #[arg(allow_hyphen_values = true)]

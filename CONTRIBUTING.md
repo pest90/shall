@@ -30,6 +30,12 @@ docker run --rm -u "$(id -u):$(id -g)" -v "$PWD:/project" shall check
 - Open an issue first for larger changes, so the design can be discussed.
 - Keep one topic per pull request, and keep pull requests small.
 - `cargo fmt`, `cargo clippy -- -D warnings` and `cargo test` must pass.
+- Update the documentation with the change: [`docs/user-guide.md`](docs/user-guide.md)
+  for anything users see (syntax, configuration, commands, diagnostics),
+  [`README.md`](README.md) if the overview changes, rustdoc for public
+  items. Both describe only what is implemented; mark planned features
+  as planned. A test parses the ```` ```markdown ```` and ```` ```toml ````
+  examples of both files and checks their relative links.
 - `master` has a **linear history**. Pull requests are **squash-merged** only;
   merge commits and rebase-merging are disabled on `master`. The pull request
   title becomes the commit message on `master`, so it must follow the rules

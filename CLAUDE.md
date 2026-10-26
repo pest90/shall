@@ -61,6 +61,13 @@ coverage, console report = MVP).
   tools) goes into the `Dockerfile` in the same change. A toolchain bump
   needs no change there: the image reads `rust-toolchain.toml` and
   `rust-version` itself.
+- Keep the documentation in sync in the same change: user-visible
+  behaviour (syntax, configuration, commands, diagnostics) goes into
+  `docs/user-guide.md` and, if it affects the overview, `README.md`;
+  public Rust items get rustdoc (`missing_docs`, an error in CI) with the
+  rules they implement; decisions and work package notes go into
+  `docs/konzept.md`. The user guide and README describe only what is
+  implemented; planned features are marked as planned.
 - Snapshot tests with `insta`; integration test against
   `fixtures/motor/expected-defects.txt`.
 - Diagnostics format: `path:line: message`.
