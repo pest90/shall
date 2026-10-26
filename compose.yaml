@@ -1,0 +1,31 @@
+# Development environment. Set UID and GID to your own IDs so files
+# written into the repository belong to you:
+#
+#   export UID GID=$(id -g)
+#   docker compose run --rm dev            # shell with the toolchain
+#   docker compose run --rm dev cargo test
+#   docker compose run --rm check          # all pull request checks
+#   docker compose run --rm shall --version
+services:
+  dev:
+    build:
+      context: .
+      target: dev
+      args:
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+    image: shall-dev
+    volumes:
+      - .:/work
+      - cargo-registry:/home/dev/.cargo/registry
+      - target:/home/dev/target
+  check:
+    extends: dev
+    command: scripts/check.sh
+  shall:
+    extends: dev
+    entrypoint: ["cargo", "run", "--quiet", "-p", "shall-cli", "--"]
+
+volumes:
+  cargo-registry:
+  target:

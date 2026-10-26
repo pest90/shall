@@ -52,7 +52,15 @@ coverage, console report = MVP).
 
 ## Conventions
 
-- `cargo fmt`, `cargo clippy -- -D warnings` and `cargo test` must pass.
+- `cargo fmt`, `cargo clippy -- -D warnings` and `cargo test` must pass;
+  `scripts/check.sh` runs all of them plus the MSRV build. Docker:
+  `docker compose run --rm check` (see `CONTRIBUTING.md`).
+- Keep the `Dockerfile` in sync with the local environment: every system
+  package or toolchain installed locally to build, run or test the
+  project (apt packages, Rust toolchains or components, `cargo install`
+  tools) goes into the `Dockerfile` in the same change. A toolchain bump
+  needs no change there: the image reads `rust-toolchain.toml` and
+  `rust-version` itself.
 - Snapshot tests with `insta`; integration test against
   `fixtures/motor/expected-defects.txt`.
 - Diagnostics format: `path:line: message`.

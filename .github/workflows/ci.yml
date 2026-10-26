@@ -44,3 +44,11 @@ jobs:
           rustup override set "$tc"
       - run: cargo test --workspace
       - run: cargo run -p shall-cli -- --version
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build --target check .
+      - run: docker build -t shall .
+      - run: docker run --rm shall --version

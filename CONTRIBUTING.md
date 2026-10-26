@@ -3,6 +3,28 @@
 Thanks for your interest in contributing! This document describes how
 changes get into `shall`.
 
+## Development environment
+
+You can work with a local Rust toolchain (`rustup` picks the version
+from `rust-toolchain.toml`) or entirely in Docker:
+
+```sh
+export UID GID=$(id -g)               # files you write belong to you
+docker compose run --rm dev           # shell with the toolchain
+docker compose run --rm dev cargo test
+docker compose run --rm check         # all pull request checks
+docker compose run --rm shall --version
+```
+
+`scripts/check.sh` runs the same checks as CI: formatting, clippy,
+tests and a build on the MSRV. Without compose:
+
+```sh
+docker build --target check .         # fails if a check fails
+docker build -t shall .               # minimal image with the binary
+docker run --rm -u "$(id -u):$(id -g)" -v "$PWD:/project" shall check
+```
+
 ## Pull requests
 
 - Open an issue first for larger changes, so the design can be discussed.
