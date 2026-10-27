@@ -147,7 +147,7 @@ junit = ["build/test-results/**/*.xml"]
 
 | Key | Meaning |
 | --- | --- |
-| `type` | required; type of the level's items, ASCII letters only |
+| `type` | required; type of the level's items, ASCII letters only; at most one level per type |
 | `name` | required; readable name |
 | `needs` | optional; types that must cover items of this level, unless an item has its own `Needs:` |
 
@@ -430,19 +430,43 @@ shall report [PATH] [--out <DIR>]
 
 Reads and traces the project like `shall check` and writes the result
 into the output directory, by default `site` in the current directory;
-the directory is created if missing. Today this is `trace.json`, the
-whole traced project as JSON; the HTML report built from it is planned
-(M5). stderr shows the written file and the summary of `shall check`;
+the directory is created if missing:
+
+- `index.html`, the report: one self-contained file with embedded CSS
+  that opens from disk without a server;
+- `trace.json`, the whole traced project as JSON, from which the report
+  is made (see below).
+
+stderr shows the written files and the summary of `shall check`;
 defects do not change the exit code, `shall check` decides that.
+
+`index.html` starts with a summary: the number of requirements and
+tags, the test verdicts of the verification tags (with `junit`
+sources; a tag with several targets counts once), the number of errors
+and warnings, and the coverage per level, as the number of items that
+are covered and deep covered, also in percent, rounded down so that
+100 % means complete. Rejected items are not counted, and test results
+do not count as coverage. Then follows one table per level with every
+requirement (tag items are not listed): its coverage, ID, title,
+status and location; copies of a duplicate ID are marked. Coverage has
+a sign and a text for screen readers besides its color, explained in a
+legend: `✓` deep covered, `!` covered but with a gap further down, `✗`
+not covered (with the missing types), `–` rejected. The levels are
+those of `shall.toml`, in their order; types of requirements without a
+level follow, named by their type. If such a type is unknown, which
+`shall check` reports as an error, its items get `?` (with missing
+types, if they have `Needs:`) and their level no coverage. Requirement details with
+their links, the defect list, filters and the graph view are planned
+(M5).
 
 The output directory is not excluded from the project's files. Add it
 to `.gitignore` (e.g. `/site/`), or make sure no pattern in `[sources]`
 matches it; otherwise a pattern such as `**/*.json` reads the tags
 quoted in `trace.json` back in on the next run.
 
-`trace.json` is deterministic: the same project gives the same bytes,
+Both files are deterministic: the same project gives the same bytes,
 with paths relative to the project root, separated by `/`, and without
-timestamps. Its fields:
+timestamps. The fields of `trace.json`:
 
 | Field | Content |
 | --- | --- |
@@ -482,6 +506,10 @@ Each item has:
 - `covered`, `deep_covered` (covered all the way down) and `duplicate`
   (another item has the same type and name); rejected items need
   nothing, so they are always `covered`;
+- `unknown_type`: whether the item's type is unknown, which is an
+  error: `shall.toml` has levels, but the type is no level, no type
+  needed by a level, no verification type and not needed by any item;
+  always `false` for rejected items;
 - `test`, for verification tags with `junit` sources: `name` as runners
   report it (`null` without a test definition), `verdict` (`passed`,
   `failed`, `skipped`, `not_executed`, `no_test`) and `results`, the

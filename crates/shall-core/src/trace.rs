@@ -77,6 +77,11 @@ pub struct TracedItem {
     pub duplicate: bool,
     /// Whether the item has `Status: rejected`.
     pub rejected: bool,
+    /// Whether the item's type is unknown, which is an error: `shall.toml`
+    /// has levels, but the type is no level, no type needed by a level, no
+    /// verification type and not needed by any item. Always false for
+    /// rejected items.
+    pub unknown_type: bool,
 }
 
 /// Reference to an item that tells copies of a duplicate ID apart.
@@ -195,6 +200,18 @@ pub fn trace(items: &[Item], config: &Config) -> Trace {
         .flat_map(|(needs, _)| needs)
         .collect();
 
+    let unknown_type: Vec<bool> = items
+        .iter()
+        .zip(&rejected)
+        .map(|(item, &rejected)| {
+            let typ = item.id.typ();
+            !rejected
+                && !config.levels.is_empty()
+                && !configured.contains(typ)
+                && !needed_by_items.contains(typ)
+        })
+        .collect();
+
     // covered_by[target] = sources with a valid link to the target.
     let mut covered_by: Vec<Vec<usize>> = vec![Vec::new(); items.len()];
     let mut links = Vec::new();
@@ -204,23 +221,21 @@ pub fn trace(items: &[Item], config: &Config) -> Trace {
         }
         let typ = item.id.typ();
         let subject = subject(item);
-        if !config.levels.is_empty() && !configured.contains(typ) {
-            if needed_by_items.contains(typ) {
-                defects.push(Diagnostic::warning(
-                    item.location.clone(),
-                    format!(
-                        "{subject}: type '{typ}' is only known from Needs: of items; \
+        if unknown_type[source] {
+            defects.push(Diagnostic::error(
+                item.location.clone(),
+                format!(
+                    "{subject}: type '{typ}' is not a level, a verification type or needed by any item"
+                ),
+            ));
+        } else if !config.levels.is_empty() && !configured.contains(typ) {
+            defects.push(Diagnostic::warning(
+                item.location.clone(),
+                format!(
+                    "{subject}: type '{typ}' is only known from Needs: of items; \
                          add it to shall.toml if it is no typo"
-                    ),
-                ));
-            } else {
-                defects.push(Diagnostic::error(
-                    item.location.clone(),
-                    format!(
-                        "{subject}: type '{typ}' is not a level, a verification type or needed by any item"
-                    ),
-                ));
-            }
+                ),
+            ));
         }
         let all_links = item
             .covers
@@ -308,6 +323,7 @@ pub fn trace(items: &[Item], config: &Config) -> Trace {
                 deep_covered: false,
                 duplicate: duplicate[position],
                 rejected: rejected[position],
+                unknown_type: unknown_type[position],
             }
         })
         .collect();
@@ -795,6 +811,12 @@ Covers:
             ]
         );
         assert!(item(&trace, "dsn~a~1").deep_covered);
+        // Only the error, not the warning, is an unknown type.
+        assert!(item(&trace, "req~u~1").unknown_type);
+        assert_eq!(
+            trace.items.iter().filter(|item| item.unknown_type).count(),
+            1
+        );
     }
 
     #[test]

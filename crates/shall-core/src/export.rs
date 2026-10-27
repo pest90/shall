@@ -123,6 +123,9 @@ pub struct ItemEntry<'a> {
     pub deep_covered: bool,
     /// Whether another item has the same type and name.
     pub duplicate: bool,
+    /// Whether the item's type is unknown to `shall.toml`, which is an
+    /// error; its coverage then means nothing.
+    pub unknown_type: bool,
     /// The test of a verification tag; none for other items and without
     /// `junit` sources.
     pub test: Option<TestEntry<'a>>,
@@ -305,6 +308,7 @@ fn entry<'a>(item: &'a Item, traced: &'a TracedItem, run: Option<&'a TestRun>) -
         covered: traced.covered,
         deep_covered: traced.deep_covered,
         duplicate: traced.duplicate,
+        unknown_type: traced.unknown_type,
         test: run.map(|run| TestEntry {
             name: run.test.as_deref(),
             verdict: run.verdict,

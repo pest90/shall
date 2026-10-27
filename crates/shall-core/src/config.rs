@@ -120,8 +120,21 @@ pub struct Level {
 
 impl Config {
     /// Parses the contents of `shall.toml`.
+    ///
+    /// Two `[[level]]` tables with the same type are an error, since an
+    /// item's level would be ambiguous.
     pub fn parse(text: &str) -> Result<Self, ConfigError> {
-        toml::from_str(text).map_err(|error| ConfigError(error.to_string()))
+        let config: Self = toml::from_str(text).map_err(|error| ConfigError(error.to_string()))?;
+        let mut seen = std::collections::HashSet::new();
+        for level in &config.levels {
+            if !seen.insert(&level.typ) {
+                return Err(ConfigError(format!(
+                    "more than one [[level]] has type '{}'",
+                    level.typ
+                )));
+            }
+        }
+        Ok(config)
     }
 
     /// Returns the level of the given type.
@@ -186,6 +199,18 @@ junit = ["build/*.xml"]
         assert!(config.level(&typ("impl")).is_none());
         assert!(config.has_parents(&typ("dsn")));
         assert!(!config.has_parents(&typ("swr")));
+    }
+
+    #[test]
+    fn rejects_duplicate_level_types() {
+        let error = Config::parse(
+            "[[level]]\ntype = \"dsn\"\nname = \"A\"\n\n[[level]]\ntype = \"dsn\"\nname = \"B\"\n",
+        )
+        .unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "invalid shall.toml: more than one [[level]] has type 'dsn'"
+        );
     }
 
     #[test]

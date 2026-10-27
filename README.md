@@ -16,10 +16,11 @@ requirements, outdated links, orphaned code and failing tests.
 
 > **Status:** early development, not released yet. Today `shall` traces
 > requirements, code and test tags and gtest or `cargo nextest` results
-> and prints the defects (`shall check`), exports the traced project as
-> `trace.json` (`shall report`), and creates new items with generated IDs
-> (`shall new`). The HTML report and the check modes for CI are being
-> built; see [the plan](docs/konzept.md) (German).
+> and prints the defects (`shall check`), writes a first HTML report with
+> coverage per level and the traced project as `trace.json`
+> (`shall report`), and creates new items with generated IDs
+> (`shall new`). The full HTML report and the check modes for CI are
+> being built; see [the plan](docs/konzept.md) (German).
 
 ## Example
 
@@ -110,8 +111,9 @@ shall check
 
 `shall check` exits with 0 by default, so it can report from the start;
 `--mode strict` makes it fail on every defect, e.g. in a release job.
-`shall report --out site` writes the whole traced project to
-`site/trace.json`, the data source of the coming HTML report.
+`shall report --out site` writes the report `site/index.html`, a single
+file that opens without a server, and the whole traced project as
+`site/trace.json`.
 
 The [user guide](docs/user-guide.md) describes the requirement syntax, the
 configuration and the commands.

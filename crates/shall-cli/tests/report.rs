@@ -29,22 +29,33 @@ fn normalized(json: &str) -> String {
 }
 
 #[test]
-fn writes_trace_json_of_the_fixture() {
+fn writes_the_report_of_the_fixture() {
     let out = tempfile::tempdir().unwrap();
     let target = out.path().join("site").join("nested");
     let output = shall(&fixture(), &["report", "--out", target.to_str().unwrap()]);
     assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
     assert!(output.stdout.is_empty());
+    let index_html = target.join("index.html");
     let trace_json = target.join("trace.json");
     assert_eq!(
         stderr(&output),
         format!(
-            "wrote {}\nnot ok: 4 errors, 0 warnings (8 requirements, 7 tags, 3 test results)\n",
+            "wrote {}\nwrote {}\n\
+             not ok: 4 errors, 0 warnings (8 requirements, 7 tags, 3 test results)\n",
+            index_html.display(),
             trace_json.display()
         )
     );
     let json = fs::read_to_string(&trace_json).unwrap();
-    insta::assert_snapshot!(normalized(&json));
+    insta::assert_snapshot!("trace_json", normalized(&json));
+    let html = fs::read_to_string(&index_html).unwrap();
+    insta::assert_snapshot!(
+        "index_html",
+        html.replace(
+            &format!("shall {}", env!("CARGO_PKG_VERSION")),
+            "shall [version]"
+        )
+    );
 
     // Deterministic: a second run from another directory writes the same.
     let again = out.path().join("again");
@@ -54,6 +65,7 @@ fn writes_trace_json_of_the_fixture() {
     );
     assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
     assert_eq!(fs::read_to_string(again.join("trace.json")).unwrap(), json);
+    assert_eq!(fs::read_to_string(again.join("index.html")).unwrap(), html);
 }
 
 #[test]

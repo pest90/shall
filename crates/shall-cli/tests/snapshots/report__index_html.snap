@@ -1,0 +1,241 @@
+---
+source: crates/shall-cli/tests/report.rs
+expression: "html.replace(&format!(\"shall {}\", env!(\"CARGO_PKG_VERSION\")),\n\"shall [version]\")"
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="generator" content="shall [version]">
+<title>Traceability report</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --fg: #1d1f23;
+  --muted: #5d6470;
+  --bg: #ffffff;
+  --line: #d9dde3;
+  --head: #f3f5f8;
+  --ok-fg: #17663a;
+  --ok-bg: #dff3e4;
+  --warn-fg: #7a5200;
+  --warn-bg: #fbf0d6;
+  --bad-fg: #a3222b;
+  --bad-bg: #f9e0e0;
+  --off-fg: #5d6470;
+  --off-bg: #eceef1;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fg: #e6e8eb;
+    --muted: #a3a9b3;
+    --bg: #16181c;
+    --line: #343840;
+    --head: #20232a;
+    --ok-fg: #8fdcaa;
+    --ok-bg: #173323;
+    --warn-fg: #f0c96a;
+    --warn-bg: #3a2f12;
+    --bad-fg: #f4a3a8;
+    --bad-bg: #3d1c1f;
+    --off-fg: #a3a9b3;
+    --off-bg: #262930;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  padding: 0 1rem 2rem;
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--fg);
+  background: var(--bg);
+}
+header, main, footer { max-width: 72rem; margin: 0 auto; }
+h1 { font-size: 1.6rem; margin: 1.5rem 0 0.25rem; }
+h2 { font-size: 1.25rem; margin: 2rem 0 0.5rem; border-bottom: 1px solid var(--line); padding-bottom: 0.25rem; }
+h3 { font-size: 1rem; margin: 1.25rem 0 0.5rem; }
+code { font: 0.9em ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; overflow-wrap: anywhere; }
+a { color: inherit; }
+.note, footer { color: var(--muted); font-size: 0.875rem; }
+.verdict { display: inline-block; margin: 0.25rem 0 0; padding: 0.15rem 0.6rem; border-radius: 0.3rem; font-weight: 600; }
+.verdict.ok { color: var(--ok-fg); background: var(--ok-bg); }
+.verdict.bad { color: var(--bad-fg); background: var(--bad-bg); }
+.counts { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0; }
+.counts div { min-width: 8rem; padding: 0.5rem 0.75rem; border: 1px solid var(--line); border-radius: 0.4rem; }
+.counts dt { font-size: 0.8rem; color: var(--muted); }
+.counts dd { margin: 0; font-size: 1.3rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; }
+th, td { text-align: left; vertical-align: top; padding: 0.35rem 0.6rem; border-bottom: 1px solid var(--line); }
+th { background: var(--head); font-weight: 600; white-space: nowrap; }
+td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+td.sign { white-space: nowrap; font-weight: 600; }
+tr.ok td.sign, .counts .ok dt { color: var(--ok-fg); }
+tr.partial td.sign, .counts .partial dt { color: var(--warn-fg); }
+tr.missing td.sign, .counts .missing dt { color: var(--bad-fg); }
+tr.rejected td { color: var(--off-fg); }
+tr.ok td.sign { background: var(--ok-bg); }
+tr.partial td.sign { background: var(--warn-bg); }
+tr.missing td.sign { background: var(--bad-bg); }
+tr.rejected td.sign { background: var(--off-bg); }
+.missing-types { font-weight: 400; }
+tr.unknown td.sign, .unknown-type { color: var(--bad-fg); }
+tr.unknown td.sign { background: var(--bad-bg); }
+.legend .ok { color: var(--ok-fg); }
+.legend .partial { color: var(--warn-fg); }
+.legend .missing, .legend .unknown, .duplicate { color: var(--bad-fg); }
+.legend .rejected { color: var(--off-fg); }
+.duplicate { font-size: 0.85rem; font-weight: 600; white-space: nowrap; }
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+</style>
+</head>
+<body>
+<header>
+<h1>Traceability report</h1>
+<p class="verdict bad">✗ not ok:
+4 errors,
+0 warnings</p>
+</header>
+<main>
+<section id="summary">
+<h2>Summary</h2>
+<dl class="counts">
+<div><dt>Requirements</dt><dd>8</dd></div>
+<div><dt>Tags</dt><dd>7</dd></div>
+<div><dt>Errors</dt><dd>4</dd></div>
+<div><dt>Warnings</dt><dd>0</dd></div>
+</dl>
+<h3>Tests</h3>
+<dl class="counts">
+<div class="ok"><dt>✓ Passed</dt><dd>2</dd></div>
+<div class="missing"><dt>✗ Failed</dt><dd>1</dd></div>
+<div class="partial"><dt>! Skipped</dt><dd>0</dd></div>
+<div class="partial"><dt>! Not executed</dt><dd>0</dd></div>
+<div class="partial"><dt>! No test</dt><dd>0</dd></div>
+</dl>
+<p class="note">Verdicts of the verification tags, one per tag. No test: no test definition follows the tag.</p>
+<h3>Coverage per level</h3>
+<div class="scroll">
+<table class="coverage">
+<thead><tr><th>Level</th><th>Counted items</th><th>Covered</th><th>Deep covered</th></tr></thead>
+<tbody>
+<tr>
+<td><a href="#level-sys">L2 – System Requirements</a> <code>sys</code></td>
+<td class="num">2</td>
+<td class="num">2 (100 %)</td>
+<td class="num">1 (50 %)</td>
+</tr>
+<tr>
+<td><a href="#level-swr">L3 – Software Requirements</a> <code>swr</code></td>
+<td class="num">3</td>
+<td class="num">2 (66 %)</td>
+<td class="num">2 (66 %)</td>
+</tr>
+<tr>
+<td><a href="#level-dsn">L3D – Design Decisions</a> <code>dsn</code></td>
+<td class="num">3</td>
+<td class="num">3 (100 %)</td>
+<td class="num">3 (100 %)</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p class="note">Covered: every needed type covers the item with a valid link. Deep covered: covered, and so is everything below. Rejected items are not counted; test results do not count as coverage.</p>
+<p class="note legend">Signs: <span class="ok">✓ deep covered</span>, <span class="partial">! covered, gap below</span>, <span class="missing">✗ not covered</span>, <span class="rejected">– rejected</span>, <span class="unknown">? unknown type (an error)</span>.</p>
+</section>
+<section id="level-sys">
+<h2>L2 – System Requirements <code>sys</code></h2>
+<p class="note">Needs: <code>swr</code></p>
+<div class="scroll">
+<table class="items">
+<thead><tr><th>Coverage</th><th>ID</th><th>Title</th><th>Status</th><th>Location</th></tr></thead>
+<tbody>
+<tr class="partial">
+<td class="sign"><span title="covered, gap below" aria-hidden="true">!</span><span class="sr-only">covered, gap below</span></td>
+<td><code>sys~motor.thermal-protection-q7m2~1</code></td>
+<td>Thermal protection of the motor</td>
+<td>approved</td>
+<td><code>reqs&#x2f;system.md:4</code></td>
+</tr>
+<tr class="ok">
+<td class="sign"><span title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span></td>
+<td><code>sys~motor.emergency-stop-h3x9~1</code></td>
+<td>Emergency stop</td>
+<td>approved</td>
+<td><code>reqs&#x2f;system.md:17</code></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="level-swr">
+<h2>L3 – Software Requirements <code>swr</code></h2>
+<p class="note">Needs: <code>dsn</code></p>
+<div class="scroll">
+<table class="items">
+<thead><tr><th>Coverage</th><th>ID</th><th>Title</th><th>Status</th><th>Location</th></tr></thead>
+<tbody>
+<tr class="ok">
+<td class="sign"><span title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span></td>
+<td><code>swr~motor.overtemp-shutdown-k4f2~2</code></td>
+<td>Shut down the motor on overtemperature</td>
+<td>approved</td>
+<td><code>reqs&#x2f;software.md:4</code></td>
+</tr>
+<tr class="missing">
+<td class="sign"><span title="not covered" aria-hidden="true">✗</span><span class="sr-only">not covered</span> <span class="missing-types">missing: <code>dsn</code></span></td>
+<td><code>swr~motor.overtemp-warning-p8n5~1</code></td>
+<td>Warn before overtemperature</td>
+<td>proposed</td>
+<td><code>reqs&#x2f;software.md:20</code></td>
+</tr>
+<tr class="ok">
+<td class="sign"><span title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span></td>
+<td><code>swr~motor.estop-relay-c2v6~1</code></td>
+<td>Open the motor relay on emergency stop</td>
+<td>approved</td>
+<td><code>reqs&#x2f;software.md:33</code></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="level-dsn">
+<h2>L3D – Design Decisions <code>dsn</code></h2>
+<p class="note">Needs: <code>impl</code>, <code>utest</code></p>
+<div class="scroll">
+<table class="items">
+<thead><tr><th>Coverage</th><th>ID</th><th>Title</th><th>Status</th><th>Location</th></tr></thead>
+<tbody>
+<tr class="ok">
+<td class="sign"><span title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span></td>
+<td><code>dsn~motor.temp-monitor-r5t1~1</code></td>
+<td>Temperature monitoring in the 10 ms task</td>
+<td>approved</td>
+<td><code>reqs&#x2f;design.md:4</code></td>
+</tr>
+<tr class="ok">
+<td class="sign"><span title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span></td>
+<td><code>dsn~motor.shutdown-signal-w9e4~1</code></td>
+<td>Shutdown signal</td>
+<td>approved</td>
+<td><code>reqs&#x2f;design.md:17</code></td>
+</tr>
+<tr class="ok">
+<td class="sign"><span title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span></td>
+<td><code>dsn~motor.relay-driver-b6j3~1</code></td>
+<td>Relay driver</td>
+<td>approved</td>
+<td><code>reqs&#x2f;design.md:30</code></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</main>
+<footer>
+<p>Generated by shall [version].</p>
+</footer>
+</body>
+</html>

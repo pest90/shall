@@ -9,7 +9,12 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
+minijinja = { version = "3.0.4", features = ["serde"] }
+serde = { version = "1.0.229", features = ["derive"] }
 shall-core.workspace = true
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+insta = "1.49.0"

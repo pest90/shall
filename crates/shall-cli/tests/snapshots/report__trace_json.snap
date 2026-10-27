@@ -79,6 +79,7 @@ expression: normalized(&json)
       "covered": true,
       "deep_covered": true,
       "duplicate": false,
+      "unknown_type": false,
       "test": null
     },
     {
@@ -124,6 +125,7 @@ expression: normalized(&json)
       "covered": true,
       "deep_covered": true,
       "duplicate": false,
+      "unknown_type": false,
       "test": null
     },
     {
@@ -169,6 +171,7 @@ expression: normalized(&json)
       "covered": true,
       "deep_covered": true,
       "duplicate": false,
+      "unknown_type": false,
       "test": null
     },
     {
@@ -206,6 +209,7 @@ expression: normalized(&json)
       "covered": true,
       "deep_covered": true,
       "duplicate": false,
+      "unknown_type": false,
       "test": null
     },
     {
@@ -237,6 +241,7 @@ expression: normalized(&json)
       "covered": false,
       "deep_covered": false,
       "duplicate": false,
+      "unknown_type": false,
       "test": null
     },
     {
@@ -274,6 +279,7 @@ expression: normalized(&json)
       "covered": true,
       "deep_covered": true,
       "duplicate": false,
+      "unknown_type": false,
       "test": null
     },
     {
@@ -318,6 +324,7 @@ expression: normalized(&json)
       "covered": true,
       "deep_covered": false,
       "duplicate": false,
+      "unknown_type": false,
       "test": null
     },
     {
@@ -355,6 +362,7 @@ expression: normalized(&json)
       "covered": true,
       "deep_covered": true,
       "duplicate": false,
+      "unknown_type": false,
       "test": null
     },
     {
@@ -384,6 +392,7 @@ expression: normalized(&json)
       "covered": true,
       "deep_covered": true,
       "duplicate": false,
+      "unknown_type": false,
       "test": null
     },
     {
@@ -413,6 +422,7 @@ expression: normalized(&json)
       "covered": true,
       "deep_covered": true,
       "duplicate": false,
+      "unknown_type": false,
       "test": null
     },
     {
@@ -442,6 +452,7 @@ expression: normalized(&json)
       "covered": true,
       "deep_covered": true,
       "duplicate": false,
+      "unknown_type": false,
       "test": null
     },
     {
@@ -471,6 +482,7 @@ expression: normalized(&json)
       "covered": true,
       "deep_covered": true,
       "duplicate": false,
+      "unknown_type": false,
       "test": null
     },
     {
@@ -506,6 +518,7 @@ expression: normalized(&json)
       "covered": true,
       "deep_covered": true,
       "duplicate": false,
+      "unknown_type": false,
       "test": {
         "name": "RelayDriverTest.OpensOnEstop",
         "verdict": "passed",
@@ -547,6 +560,7 @@ expression: normalized(&json)
       "covered": true,
       "deep_covered": true,
       "duplicate": false,
+      "unknown_type": false,
       "test": {
         "name": "Shutdown.DisablesPwmOnOvertemp",
         "verdict": "failed",
@@ -588,6 +602,7 @@ expression: normalized(&json)
       "covered": true,
       "deep_covered": true,
       "duplicate": false,
+      "unknown_type": false,
       "test": {
         "name": "TempMonitor.RaisesFlagAbove85C",
         "verdict": "passed",

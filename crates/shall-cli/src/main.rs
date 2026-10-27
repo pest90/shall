@@ -38,9 +38,9 @@ enum Command {
     },
     /// Write the traced project as static files into the output directory.
     ///
-    /// Writes `trace.json`, the whole graph as JSON; the HTML report is
-    /// planned. Prints the summary of `shall check` to stderr; defects do
-    /// not change the exit code.
+    /// Writes `index.html`, the report as one self-contained file, and
+    /// `trace.json`, the whole graph as JSON. Prints the summary of `shall
+    /// check` to stderr; defects do not change the exit code.
     Report {
         /// A directory in the project; the project root is the closest
         /// directory at or above it with a `shall.toml`.
