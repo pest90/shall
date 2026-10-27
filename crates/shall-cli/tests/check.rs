@@ -38,7 +38,7 @@ fn reports_exactly_the_defects_of_the_fixture() {
         assert_eq!(stdout(&output), expected);
         assert_eq!(
             stderr(&output),
-            "not ok: 4 errors, 0 warnings (8 requirements, 7 tags, 3 test results)\n"
+            "not ok: 4 errors, 0 warnings (9 requirements, 7 tags, 3 test results)\n"
         );
     }
     let output = shall(&fixture(), &["check", "--mode", "strict"]);

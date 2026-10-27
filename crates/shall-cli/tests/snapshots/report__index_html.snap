@@ -101,7 +101,7 @@ tr.unknown td.sign { background: var(--bad-bg); }
 <section id="summary">
 <h2>Summary</h2>
 <dl class="counts">
-<div><dt>Requirements</dt><dd>8</dd></div>
+<div><dt>Requirements</dt><dd>9</dd></div>
 <div><dt>Tags</dt><dd>7</dd></div>
 <div><dt>Errors</dt><dd>4</dd></div>
 <div><dt>Warnings</dt><dd>0</dd></div>
@@ -118,12 +118,13 @@ tr.unknown td.sign { background: var(--bad-bg); }
 <h3>Coverage per level</h3>
 <div class="scroll">
 <table class="coverage">
-<thead><tr><th>Level</th><th>Counted items</th><th>Covered</th><th>Deep covered</th></tr></thead>
+<thead><tr><th>Level</th><th>Counted items</th><th>Covered</th><th>Deep covered</th><th>Verified</th></tr></thead>
 <tbody>
 <tr>
 <td><a href="#level-sys">L2 – System Requirements</a> <code>sys</code></td>
 <td class="num">2</td>
 <td class="num">2 (100 %)</td>
+<td class="num">1 (50 %)</td>
 <td class="num">1 (50 %)</td>
 </tr>
 <tr>
@@ -131,17 +132,26 @@ tr.unknown td.sign { background: var(--bad-bg); }
 <td class="num">3</td>
 <td class="num">2 (66 %)</td>
 <td class="num">2 (66 %)</td>
+<td class="num">1 (33 %)</td>
 </tr>
 <tr>
 <td><a href="#level-dsn">L3D – Design Decisions</a> <code>dsn</code></td>
 <td class="num">3</td>
 <td class="num">3 (100 %)</td>
 <td class="num">3 (100 %)</td>
+<td class="num">2 (66 %)</td>
+</tr>
+<tr>
+<td><a href="#level-vrev">vrev</a></td>
+<td class="num">1</td>
+<td class="num">1 (100 %)</td>
+<td class="num">1 (100 %)</td>
+<td class="num">1 (100 %)</td>
 </tr>
 </tbody>
 </table>
 </div>
-<p class="note">Covered: every needed type covers the item with a valid link. Deep covered: covered, and so is everything below. Rejected items are not counted; test results do not count as coverage.</p>
+<p class="note">Covered: every needed type covers the item with a valid link. Deep covered: covered, and so is everything below. Verified: deep covered, every test below passed and every review or analysis below is approved. Rejected items are not counted; test results do not count as coverage.</p>
 <p class="note legend">Signs: <span class="ok">✓ deep covered</span>, <span class="partial">! covered, gap below</span>, <span class="missing">✗ not covered</span>, <span class="rejected">– rejected</span>, <span class="unknown">? unknown type (an error)</span>.</p>
 </section>
 <section id="level-sys">
@@ -149,10 +159,11 @@ tr.unknown td.sign { background: var(--bad-bg); }
 <p class="note">Needs: <code>swr</code></p>
 <div class="scroll">
 <table class="items">
-<thead><tr><th>Coverage</th><th>ID</th><th>Title</th><th>Status</th><th>Location</th></tr></thead>
+<thead><tr><th>Coverage</th><th>Verified</th><th>ID</th><th>Title</th><th>Status</th><th>Location</th></tr></thead>
 <tbody>
 <tr class="partial">
 <td class="sign"><span title="covered, gap below" aria-hidden="true">!</span><span class="sr-only">covered, gap below</span></td>
+<td class="verified">no</td>
 <td><code>sys~motor.thermal-protection-q7m2~1</code></td>
 <td>Thermal protection of the motor</td>
 <td>approved</td>
@@ -160,6 +171,7 @@ tr.unknown td.sign { background: var(--bad-bg); }
 </tr>
 <tr class="ok">
 <td class="sign"><span title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span></td>
+<td class="verified">yes</td>
 <td><code>sys~motor.emergency-stop-h3x9~1</code></td>
 <td>Emergency stop</td>
 <td>approved</td>
@@ -174,10 +186,11 @@ tr.unknown td.sign { background: var(--bad-bg); }
 <p class="note">Needs: <code>dsn</code></p>
 <div class="scroll">
 <table class="items">
-<thead><tr><th>Coverage</th><th>ID</th><th>Title</th><th>Status</th><th>Location</th></tr></thead>
+<thead><tr><th>Coverage</th><th>Verified</th><th>ID</th><th>Title</th><th>Status</th><th>Location</th></tr></thead>
 <tbody>
 <tr class="ok">
 <td class="sign"><span title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span></td>
+<td class="verified">no</td>
 <td><code>swr~motor.overtemp-shutdown-k4f2~2</code></td>
 <td>Shut down the motor on overtemperature</td>
 <td>approved</td>
@@ -185,6 +198,7 @@ tr.unknown td.sign { background: var(--bad-bg); }
 </tr>
 <tr class="missing">
 <td class="sign"><span title="not covered" aria-hidden="true">✗</span><span class="sr-only">not covered</span> <span class="missing-types">missing: <code>dsn</code></span></td>
+<td class="verified">no</td>
 <td><code>swr~motor.overtemp-warning-p8n5~1</code></td>
 <td>Warn before overtemperature</td>
 <td>proposed</td>
@@ -192,6 +206,7 @@ tr.unknown td.sign { background: var(--bad-bg); }
 </tr>
 <tr class="ok">
 <td class="sign"><span title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span></td>
+<td class="verified">yes</td>
 <td><code>swr~motor.estop-relay-c2v6~1</code></td>
 <td>Open the motor relay on emergency stop</td>
 <td>approved</td>
@@ -206,10 +221,11 @@ tr.unknown td.sign { background: var(--bad-bg); }
 <p class="note">Needs: <code>impl</code>, <code>utest</code></p>
 <div class="scroll">
 <table class="items">
-<thead><tr><th>Coverage</th><th>ID</th><th>Title</th><th>Status</th><th>Location</th></tr></thead>
+<thead><tr><th>Coverage</th><th>Verified</th><th>ID</th><th>Title</th><th>Status</th><th>Location</th></tr></thead>
 <tbody>
 <tr class="ok">
 <td class="sign"><span title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span></td>
+<td class="verified">yes</td>
 <td><code>dsn~motor.temp-monitor-r5t1~1</code></td>
 <td>Temperature monitoring in the 10 ms task</td>
 <td>approved</td>
@@ -217,6 +233,7 @@ tr.unknown td.sign { background: var(--bad-bg); }
 </tr>
 <tr class="ok">
 <td class="sign"><span title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span></td>
+<td class="verified">no</td>
 <td><code>dsn~motor.shutdown-signal-w9e4~1</code></td>
 <td>Shutdown signal</td>
 <td>approved</td>
@@ -224,10 +241,29 @@ tr.unknown td.sign { background: var(--bad-bg); }
 </tr>
 <tr class="ok">
 <td class="sign"><span title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span></td>
+<td class="verified">yes</td>
 <td><code>dsn~motor.relay-driver-b6j3~1</code></td>
 <td>Relay driver</td>
 <td>approved</td>
 <td><code>reqs&#x2f;design.md:30</code></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="level-vrev">
+<h2>vrev</h2>
+<div class="scroll">
+<table class="items">
+<thead><tr><th>Coverage</th><th>Verified</th><th>ID</th><th>Title</th><th>Status</th><th>Location</th></tr></thead>
+<tbody>
+<tr class="ok">
+<td class="sign"><span title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span></td>
+<td class="verified">yes</td>
+<td><code>vrev~motor.relay-driver-review-m3q8~1</code></td>
+<td>Review of the relay driver</td>
+<td>approved</td>
+<td><code>verification&#x2f;relay-driver-review.md:4</code></td>
 </tr>
 </tbody>
 </table>

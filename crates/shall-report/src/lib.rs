@@ -10,13 +10,14 @@
 //!
 //! - the summary counts requirements, tags, test verdicts and defects,
 //!   and shows the coverage of every level: how many of its items that
-//!   are not rejected are covered, and how many deep covered;
+//!   are not rejected are covered, deep covered and
+//!   [verified](shall_core::verify);
 //! - the level tables list the level's requirements (not tag items)
-//!   with ID, title, status, coverage and location. Coverage is shown
-//!   with a sign and words besides the color: `✓` deep covered, `!`
-//!   covered but with a gap further down, `✗` not covered, `–` rejected,
-//!   `?` unknown type; a legend explains them. Copies of a duplicate ID
-//!   are marked.
+//!   with coverage, whether they are verified, ID, title, status and
+//!   location. Coverage is shown with a sign and words besides the
+//!   color: `✓` deep covered, `!` covered but with a gap further down,
+//!   `✗` not covered, `–` rejected, `?` unknown type; a legend explains
+//!   them. Copies of a duplicate ID are marked.
 //!
 //! The levels are those of `shall.toml`, in their order there; types of
 //! requirement items without a level follow in alphabetical order, named
@@ -102,8 +103,10 @@ struct LevelView<'a> {
     counted: usize,
     covered: usize,
     deep_covered: usize,
+    verified: usize,
     covered_percent: Option<u64>,
     deep_percent: Option<u64>,
+    verified_percent: Option<u64>,
     items: Vec<ItemView<'a>>,
 }
 
@@ -119,6 +122,8 @@ struct ItemView<'a> {
     sign: &'static str,
     /// The coverage in words, for the legend and screen readers.
     label: &'static str,
+    /// `yes`, `no`, or `–` for rejected items.
+    verified: &'static str,
     duplicate: bool,
     missing: Vec<&'a str>,
     location: String,
@@ -206,6 +211,7 @@ fn level<'a>(
         .collect();
     let covered = counted.iter().filter(|item| item.covered).count();
     let deep_covered = counted.iter().filter(|item| item.deep_covered).count();
+    let verified = counted.iter().filter(|item| item.verified).count();
     // The type is unknown for all items of a level or none, except
     // rejected ones, which are not counted.
     let known = !counted.iter().any(|item| item.unknown_type);
@@ -217,8 +223,10 @@ fn level<'a>(
         counted: counted.len(),
         covered,
         deep_covered,
+        verified,
         covered_percent: percent(covered, counted.len()),
         deep_percent: percent(deep_covered, counted.len()),
+        verified_percent: percent(verified, counted.len()),
         items: items.into_iter().map(item_view).collect(),
     }
 }
@@ -244,6 +252,11 @@ fn item_view<'a>(item: &'a ItemEntry<'_>) -> ItemView<'a> {
         id: item.id.to_string(),
         title: item.title,
         label,
+        verified: match (item.status, item.verified) {
+            (Status::Rejected, _) => "–",
+            (_, true) => "yes",
+            (_, false) => "no",
+        },
         duplicate: item.duplicate,
         status: item.status.as_str(),
         coverage,
@@ -286,7 +299,7 @@ mod tests {
             "# A\n\n`dns~a-k4f2~1`\n\n# B\n\n`dsn~b-k4f2~1`\n\n# B\n\n`dsn~b-k4f2~1`\n",
         );
         assert!(
-            html.contains("<td colspan=\"2\" class=\"unknown-type\">? unknown type</td>"),
+            html.contains("<td colspan=\"3\" class=\"unknown-type\">? unknown type</td>"),
             "{html}"
         );
         assert!(

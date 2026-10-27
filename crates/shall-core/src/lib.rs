@@ -15,6 +15,7 @@ pub mod markdown;
 pub mod results;
 pub mod tags;
 pub mod trace;
+pub mod verify;
 
 pub use diagnostic::{Diagnostic, Severity};
 pub use id::{ItemId, ItemType, MAX_REVISION, ParseIdError};

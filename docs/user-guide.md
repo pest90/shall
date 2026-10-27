@@ -155,7 +155,7 @@ junit = ["build/test-results/**/*.xml"]
 
 | Key | Meaning |
 | --- | --- |
-| `types` | types that verify, e.g. `utest`; their tags are matched with test results |
+| `types` | types that verify, e.g. `utest` or `vrev`; their tags are matched with test results, their items in requirement files are reviews or analyses (see [Reviews and analyses](#reviews-and-analyses)) |
 | `not-executed` | `error` (default) or `warning`: severity of a test without a result |
 
 ### `[sources]`
@@ -295,6 +295,50 @@ disabled tests), and was not executed if it has no result. Results that
 match no tag are not reported, except failures that gtest records
 outside of any test.
 
+## Reviews and analyses
+
+An item of a verification type written in a requirement file is a
+review or an analysis, by convention of type `vrev` or `vana`. It
+covers what it verifies with `Covers:` like any other item, so a level
+or an item can need it:
+
+```markdown
+## Review of the relay driver
+`vrev~motor.relay-driver-review-m3q8~1`
+
+The relay driver was reviewed against the emergency stop timing.
+
+Status: approved
+
+Covers:
+- dsn~motor.relay-driver-b6j3~1
+```
+
+with `vrev` in `[verification] types` and, for example,
+`needs = ["impl", "utest", "vrev"]` for the design level. A review is evidence
+when it is approved; as for every item, that is also the default without
+`Status:`, so give a review that is still under way `Status: draft`. One
+in `draft` or `proposed` still covers its target, but verifies nothing.
+That is no defect, like a requirement in draft. In the summaries of
+`shall check` and `shall report`, reviews and analyses count as
+requirements.
+
+## Verified
+
+An item is *verified* when everything below it is implemented and
+successfully validated:
+
+- it is deep covered, not rejected, not a copy of a duplicate ID and
+  not of an unknown type;
+- if its type is a verification type: a tag's test passed, a review or
+  analysis is approved;
+- every item covering it with a valid link is verified.
+
+Without `junit` in `[sources]` no test has passed, so nothing that
+needs a test is verified. The status of other items does not matter: a
+requirement in draft can be verified. `shall report` shows which items
+are verified; `shall check` reports only defects.
+
 ## Commands
 
 ### `shall new`
@@ -380,7 +424,7 @@ reqs/design.md:12: dsn~motor.temp-monitor-r5t1~1: covers outdated revision swr~m
 reqs/software.md:20: swr~motor.overtemp-warning-p8n5~1: not covered by required type 'dsn'
 src/fault_log.cpp:3: tag [impl->dsn~motor.fault-log-z2d8~1]: unknown target dsn~motor.fault-log-z2d8~1
 tests/shutdown_test.cpp:5: test Shutdown.DisablesPwmOnOvertemp failed
-not ok: 4 errors, 0 warnings (8 requirements, 7 tags, 3 test results)
+not ok: 4 errors, 0 warnings (9 requirements, 7 tags, 3 test results)
 ```
 
 - `PATH` is a directory in the project, by default the current one; the
@@ -440,24 +484,25 @@ the directory is created if missing:
 stderr shows the written files and the summary of `shall check`;
 defects do not change the exit code, `shall check` decides that.
 
-`index.html` starts with a summary: the number of requirements and
-tags, the test verdicts of the verification tags (with `junit`
-sources; a tag with several targets counts once), the number of errors
-and warnings, and the coverage per level, as the number of items that
-are covered and deep covered, also in percent, rounded down so that
-100 % means complete. Rejected items are not counted, and test results
-do not count as coverage. Then follows one table per level with every
-requirement (tag items are not listed): its coverage, ID, title,
-status and location; copies of a duplicate ID are marked. Coverage has
-a sign and a text for screen readers besides its color, explained in a
-legend: `✓` deep covered, `!` covered but with a gap further down, `✗`
-not covered (with the missing types), `–` rejected. The levels are
-those of `shall.toml`, in their order; types of requirements without a
-level follow, named by their type. If such a type is unknown, which
-`shall check` reports as an error, its items get `?` (with missing
-types, if they have `Needs:`) and their level no coverage. Requirement details with
-their links, the defect list, filters and the graph view are planned
-(M5).
+`index.html` starts with a summary: the number of requirements and tags,
+the test verdicts of the verification tags (with `junit` sources; a tag
+with several targets counts once), the number of errors and warnings,
+and the coverage per level, as the number of items that are covered,
+deep covered and [verified](#verified), also in percent, rounded down so
+that 100 % means complete. Rejected items are not counted, and test
+results do not count as coverage. Then follows one table per level with
+every requirement (tag items are not listed): its coverage, whether it
+is verified (`yes`, `no`, `–` if rejected), ID, title, status and
+location; copies of a duplicate ID are marked. Coverage has a sign and a
+text for screen readers besides its color, explained in a legend: `✓`
+deep covered, `!` covered but with a gap further down, `✗` not covered
+(with the missing types), `–` rejected. The levels are those of
+`shall.toml`, in their order; types of requirements without a level
+follow, named by their type, e.g. those of reviews. If such a type is
+unknown, which `shall check` reports as an error, its items get `?`
+(with missing types, if they have `Needs:`) and their level no coverage.
+Requirement details with their links, the defect list, filters and the
+graph view are planned (M5).
 
 The output directory is not excluded from the project's files. Add it
 to `.gitignore` (e.g. `/site/`), or make sure no pattern in `[sources]`
@@ -510,6 +555,7 @@ Each item has:
   error: `shall.toml` has levels, but the type is no level, no type
   needed by a level, no verification type and not needed by any item;
   always `false` for rejected items;
+- `verified`: whether the item is [verified](#verified);
 - `test`, for verification tags with `junit` sources: `name` as runners
   report it (`null` without a test definition), `verdict` (`passed`,
   `failed`, `skipped`, `not_executed`, `no_test`) and `results`, the

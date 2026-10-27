@@ -11,15 +11,14 @@
 //! - `generator`: name and version of the tool that wrote the file;
 //! - `levels` and `verification_types`: from `shall.toml`;
 //! - `items`: every item ordered by location, with its fields, its
-//!   coverage from [`trace`](crate::trace) and, for verification tags, its
-//!   test and verdict from [`results`](crate::results);
+//!   coverage from [`trace`](crate::trace), whether it is
+//!   [verified](crate::verify) and, for verification tags, its test and
+//!   verdict from [`results`](crate::results);
 //! - `links`: every `Covers:` and `Depends:` link of items that are not
 //!   rejected, with its status;
 //! - `test_results`: every test case read from the JUnit files, also those
 //!   without a tag, or `null` if `[sources]` has no `junit` patterns;
 //! - `defects`: every diagnostic, as `shall check` prints them.
-
-use std::collections::{HashMap, VecDeque};
 
 use serde::Serialize;
 
@@ -28,8 +27,9 @@ use crate::diagnostic::{Diagnostic, Severity};
 use crate::id::{ItemId, ItemType};
 use crate::item::{Item, Location, Origin, Status};
 use crate::junit::{Outcome, TestResult};
-use crate::results::{Evaluation, TestRun, Verdict};
-use crate::trace::{ItemRef, Link, Trace, TracedItem};
+use crate::results::{Evaluation, Verdict};
+use crate::trace::{ItemRef, Link, Trace};
+use crate::verify::{self, Joined};
 
 /// Version of the layout of `trace.json`.
 pub const SCHEMA_VERSION: u32 = 1;
@@ -126,6 +126,9 @@ pub struct ItemEntry<'a> {
     /// Whether the item's type is unknown to `shall.toml`, which is an
     /// error; its coverage then means nothing.
     pub unknown_type: bool,
+    /// Whether everything below the item is implemented and successfully
+    /// validated, see [`verify`](mod@crate::verify).
+    pub verified: bool,
     /// The test of a verification tag; none for other items and without
     /// `junit` sources.
     pub test: Option<TestEntry<'a>>,
@@ -195,27 +198,12 @@ impl<'a> Document<'a> {
     /// If `trace` was not computed for `items`, or the items are in
     /// another order.
     pub fn new(input: Input<'a>) -> Self {
-        // `trace` orders its items by location, keeping the order of items
-        // at the same location, e.g. those of one tag with several targets.
-        let mut items: Vec<&Item> = input.items.iter().collect();
-        items.sort_by(|a, b| a.location.cmp(&b.location));
-        assert_eq!(
-            items.len(),
-            input.trace.items.len(),
-            "trace computed for other items"
-        );
-        let mut runs = input
-            .tests
-            .map(|(_, evaluation)| runs_by_item(evaluation))
-            .unwrap_or_default();
-        let items = items
-            .into_iter()
-            .zip(&input.trace.items)
-            .map(|(item, traced)| {
-                assert_eq!(item.id, traced.id, "trace computed for other items");
-                let run = runs.get_mut(&item_key(item)).and_then(VecDeque::pop_front);
-                entry(item, traced, run)
-            })
+        let joined = verify::join(input.items, input.trace, input.tests.map(|(_, e)| e));
+        let verified = verify::verified(&joined, input.config);
+        let items = joined
+            .iter()
+            .zip(verified)
+            .map(|(joined, verified)| entry(joined, verified))
             .collect();
         Self {
             schema_version: SCHEMA_VERSION,
@@ -268,26 +256,8 @@ impl<'a> Document<'a> {
     }
 }
 
-/// Identifies an item among those at the same location.
-fn item_key(item: &Item) -> (&Location, &ItemId) {
-    (&item.location, &item.id)
-}
-
-/// The runs of `evaluation` by the item they belong to. Runs follow the
-/// order of the items, one per verification tag; items with the same
-/// location and ID take their runs in that order, which sorting by
-/// location keeps.
-fn runs_by_item(evaluation: &Evaluation) -> HashMap<(&Location, &ItemId), VecDeque<&TestRun>> {
-    let mut runs = HashMap::new();
-    for run in &evaluation.runs {
-        runs.entry((&run.location, &run.item))
-            .or_insert_with(VecDeque::new)
-            .push_back(run);
-    }
-    runs
-}
-
-fn entry<'a>(item: &'a Item, traced: &'a TracedItem, run: Option<&'a TestRun>) -> ItemEntry<'a> {
+fn entry<'a>(joined: &Joined<'a>, verified: bool) -> ItemEntry<'a> {
+    let Joined { item, traced, run } = *joined;
     ItemEntry {
         id: &item.id,
         typ: item.id.typ(),
@@ -309,6 +279,7 @@ fn entry<'a>(item: &'a Item, traced: &'a TracedItem, run: Option<&'a TestRun>) -
         deep_covered: traced.deep_covered,
         duplicate: traced.duplicate,
         unknown_type: traced.unknown_type,
+        verified,
         test: run.map(|run| TestEntry {
             name: run.test.as_deref(),
             verdict: run.verdict,
@@ -425,6 +396,10 @@ int helper();
         assert_eq!(items[2]["origin"]["kind"], "tag");
         assert_eq!(items[2]["origin"]["test"]["suite"], "Suite");
         assert_eq!(items[1]["covered_by"].as_array().unwrap().len(), 3);
+        // dsn~b is not verified: one of its tests failed.
+        assert_eq!(items[0]["verified"], true);
+        assert_eq!(items[1]["verified"], false);
+        assert_eq!(items[2]["verified"], true);
         // Results by index, since they all are on line 1.
         assert_eq!(items[2]["test"]["results"], serde_json::json!([2]));
         assert_eq!(items[4]["test"]["results"], serde_json::json!([1]));
@@ -528,7 +503,7 @@ Covers:
                 .as_array()
                 .unwrap()
                 .iter()
-                .all(|item| item["test"].is_null())
+                .all(|item| item["test"].is_null() && item["verified"] == false)
         );
     }
 }

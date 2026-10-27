@@ -4,8 +4,9 @@ A small motor controller used as the reference project for the
 integration tests of `shall` (work package 0.2 in `docs/konzept.md`).
 
 - Three levels: `sys` (system), `swr` (software), `dsn` (design, leaf).
-- Eight requirements in `reqs/`, C++ code in `src/`, gtest tests in
-  `tests/` and the gtest result in `test-results/gtest.xml`.
+- Eight requirements in `reqs/`, a review (`vrev`) in `verification/`,
+  C++ code in `src/`, gtest tests in `tests/` and the gtest result in
+  `test-results/gtest.xml`.
 - The C++ code is not built; the JUnit XML is checked in as if the tests
   had run.
 
@@ -31,4 +32,6 @@ coverage status, not as further defects: for example
 because `swr~motor.overtemp-warning-p8n5~1` below it is uncovered.
 
 `sys~motor.emergency-stop-h3x9~1` and its chain down to the relay driver
-are complete and green.
+are complete and verified: the relay driver is implemented, its test
+passed and its review is approved. The temperature monitor is verified
+too, but the shutdown signal is not, since its test failed.

@@ -109,11 +109,12 @@ tr.unknown td.sign { background: var(--bad-bg); }
 <h3>Coverage per level</h3>
 <div class="scroll">
 <table class="coverage">
-<thead><tr><th>Level</th><th>Counted items</th><th>Covered</th><th>Deep covered</th></tr></thead>
+<thead><tr><th>Level</th><th>Counted items</th><th>Covered</th><th>Deep covered</th><th>Verified</th></tr></thead>
 <tbody>
 <tr>
 <td><a href="#level-dsn">dsn</a></td>
 <td class="num">1</td>
+<td class="num">1 (100 %)</td>
 <td class="num">1 (100 %)</td>
 <td class="num">1 (100 %)</td>
 </tr>
@@ -122,21 +123,23 @@ tr.unknown td.sign { background: var(--bad-bg); }
 <td class="num">1</td>
 <td class="num">1 (100 %)</td>
 <td class="num">1 (100 %)</td>
+<td class="num">1 (100 %)</td>
 </tr>
 </tbody>
 </table>
 </div>
-<p class="note">Covered: every needed type covers the item with a valid link. Deep covered: covered, and so is everything below. Rejected items are not counted; test results do not count as coverage.</p>
+<p class="note">Covered: every needed type covers the item with a valid link. Deep covered: covered, and so is everything below. Verified: deep covered, every test below passed and every review or analysis below is approved. Rejected items are not counted; test results do not count as coverage.</p>
 <p class="note legend">Signs: <span class="ok">✓ deep covered</span>, <span class="partial">! covered, gap below</span>, <span class="missing">✗ not covered</span>, <span class="rejected">– rejected</span>, <span class="unknown">? unknown type (an error)</span>.</p>
 </section>
 <section id="level-dsn">
 <h2>dsn</h2>
 <div class="scroll">
 <table class="items">
-<thead><tr><th>Coverage</th><th>ID</th><th>Title</th><th>Status</th><th>Location</th></tr></thead>
+<thead><tr><th>Coverage</th><th>Verified</th><th>ID</th><th>Title</th><th>Status</th><th>Location</th></tr></thead>
 <tbody>
 <tr class="ok">
 <td class="sign"><span title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span></td>
+<td class="verified">yes</td>
 <td><code>dsn~a-k4f2~1</code></td>
 <td>A</td>
 <td>approved</td>
@@ -144,6 +147,7 @@ tr.unknown td.sign { background: var(--bad-bg); }
 </tr>
 <tr class="rejected">
 <td class="sign"><span title="rejected" aria-hidden="true">–</span><span class="sr-only">rejected</span></td>
+<td class="verified">–</td>
 <td><code>dsn~old-k4f2~1</code></td>
 <td>Old</td>
 <td>rejected</td>
@@ -157,10 +161,11 @@ tr.unknown td.sign { background: var(--bad-bg); }
 <h2>swr</h2>
 <div class="scroll">
 <table class="items">
-<thead><tr><th>Coverage</th><th>ID</th><th>Title</th><th>Status</th><th>Location</th></tr></thead>
+<thead><tr><th>Coverage</th><th>Verified</th><th>ID</th><th>Title</th><th>Status</th><th>Location</th></tr></thead>
 <tbody>
 <tr class="ok">
 <td class="sign"><span title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span></td>
+<td class="verified">yes</td>
 <td><code>swr~b-k4f2~1</code></td>
 <td>&lt;b&gt;Bold&lt;&#x2f;b&gt; &amp; co</td>
 <td>approved</td>

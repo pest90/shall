@@ -17,10 +17,10 @@ name  = "L3D – Design Decisions"
 needs = ["impl", "utest"]
 
 [verification]
-types = ["utest"]
+types = ["utest", "vrev"]
 
 [sources]
-requirements = ["reqs/**/*.md"]
+requirements = ["reqs/**/*.md", "verification/**/*.md"]
 impl  = ["src/**/*.{cpp,hpp}"]
 utest = ["tests/**/*.cpp"]
 junit = ["test-results/**/*.xml"]

@@ -11,7 +11,7 @@ use shall_core::markdown;
 
 /// Documentation files and the number of Markdown and TOML examples in
 /// each, so that a lost or renamed fence is noticed.
-const FILES: [(&str, usize, usize); 2] = [("README.md", 1, 1), ("docs/user-guide.md", 1, 1)];
+const FILES: [(&str, usize, usize); 2] = [("README.md", 1, 1), ("docs/user-guide.md", 2, 1)];
 
 fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")

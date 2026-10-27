@@ -17,7 +17,7 @@ requirements, outdated links, orphaned code and failing tests.
 > **Status:** early development, not released yet. Today `shall` traces
 > requirements, code and test tags and gtest or `cargo nextest` results
 > and prints the defects (`shall check`), writes a first HTML report with
-> coverage per level and the traced project as `trace.json`
+> coverage and verified status per level and the traced project as `trace.json`
 > (`shall report`), and creates new items with generated IDs
 > (`shall new`). The full HTML report and the check modes for CI are
 > being built; see [the plan](docs/konzept.md) (German).
@@ -106,7 +106,7 @@ shall check
 # reqs/software.md:20: swr~motor.overtemp-warning-p8n5~1: not covered by required type 'dsn'
 # src/fault_log.cpp:3: tag [impl->dsn~motor.fault-log-z2d8~1]: unknown target dsn~motor.fault-log-z2d8~1
 # tests/shutdown_test.cpp:5: test Shutdown.DisablesPwmOnOvertemp failed
-# not ok: 4 errors, 0 warnings (8 requirements, 7 tags, 3 test results)
+# not ok: 4 errors, 0 warnings (9 requirements, 7 tags, 3 test results)
 ```
 
 `shall check` exits with 0 by default, so it can report from the start;

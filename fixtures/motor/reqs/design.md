@@ -37,4 +37,4 @@ Status: approved
 Covers:
 - swr~motor.estop-relay-c2v6~1
 
-Needs: impl, utest
+Needs: impl, utest, vrev

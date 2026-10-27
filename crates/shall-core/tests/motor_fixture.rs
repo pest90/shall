@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use shall_core::config::Config;
 use shall_core::results::Verdict;
-use shall_core::{Item, Origin, check, junit, markdown, results, tags, trace};
+use shall_core::{Item, Origin, check, junit, markdown, results, tags, trace, verify};
 
 fn fixture() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/motor")
@@ -13,8 +13,9 @@ fn fixture() -> PathBuf {
 
 fn read_requirements() -> Vec<Item> {
     let root = fixture();
-    let mut paths: Vec<PathBuf> = fs::read_dir(root.join("reqs"))
-        .unwrap()
+    let mut paths: Vec<PathBuf> = ["reqs", "verification"]
+        .iter()
+        .flat_map(|dir| fs::read_dir(root.join(dir)).unwrap())
         .map(|entry| entry.unwrap().path())
         .filter(|path| path.extension().is_some_and(|ext| ext == "md"))
         .collect();
@@ -53,6 +54,7 @@ fn reads_all_items_with_location() {
             "reqs/software.md:33 swr~motor.estop-relay-c2v6~1",
             "reqs/system.md:4 sys~motor.thermal-protection-q7m2~1",
             "reqs/system.md:17 sys~motor.emergency-stop-h3x9~1",
+            "verification/relay-driver-review.md:4 vrev~motor.relay-driver-review-m3q8~1",
         ]
     );
     assert!(check::duplicate_ids(&items).is_empty());
@@ -147,19 +149,41 @@ fn traces_requirement_and_tag_defects() {
         ]
     );
 
+    let verified = verify::verify(&items, &trace, &config, Some(&evaluation));
     let status = |id: &str| {
-        let item = trace
+        let (item, verified) = trace
             .items
             .iter()
-            .find(|item| item.id.to_string() == id)
+            .zip(&verified)
+            .find(|(item, _)| item.id.to_string() == id)
             .unwrap();
-        (item.covered, item.deep_covered)
+        (item.covered, item.deep_covered, *verified)
     };
     // Covered, but not deep: the uncovered warning requirement is below it.
     // The outdated link of the temperature monitor does not count at all.
-    assert_eq!(status("sys~motor.thermal-protection-q7m2~1"), (true, false));
-    assert_eq!(status("swr~motor.overtemp-warning-p8n5~1"), (false, false));
-    // The emergency stop chain is complete down to code and tests.
-    assert_eq!(status("sys~motor.emergency-stop-h3x9~1"), (true, true));
-    assert_eq!(status("dsn~motor.temp-monitor-r5t1~1"), (true, true));
+    assert_eq!(
+        status("sys~motor.thermal-protection-q7m2~1"),
+        (true, false, false)
+    );
+    assert_eq!(
+        status("swr~motor.overtemp-warning-p8n5~1"),
+        (false, false, false)
+    );
+    // The emergency stop chain is complete down to code, a passed test and
+    // an approved review.
+    assert_eq!(
+        status("sys~motor.emergency-stop-h3x9~1"),
+        (true, true, true)
+    );
+    assert_eq!(status("dsn~motor.relay-driver-b6j3~1"), (true, true, true));
+    assert_eq!(status("dsn~motor.temp-monitor-r5t1~1"), (true, true, true));
+    // Deep covered, but its test failed.
+    assert_eq!(
+        status("dsn~motor.shutdown-signal-w9e4~1"),
+        (true, true, false)
+    );
+    assert_eq!(
+        status("swr~motor.overtemp-shutdown-k4f2~2"),
+        (true, true, false)
+    );
 }

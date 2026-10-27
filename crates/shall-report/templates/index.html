@@ -41,7 +41,7 @@
 {% if levels %}
 <div class="scroll">
 <table class="coverage">
-<thead><tr><th>Level</th><th>Counted items</th><th>Covered</th><th>Deep covered</th></tr></thead>
+<thead><tr><th>Level</th><th>Counted items</th><th>Covered</th><th>Deep covered</th><th>Verified</th></tr></thead>
 <tbody>
 {% for level in levels %}
 <tr>
@@ -50,15 +50,16 @@
 {% if level.known %}
 <td class="num">{{ level.covered }}{% if level.covered_percent is not none %} ({{ level.covered_percent }} %){% endif %}</td>
 <td class="num">{{ level.deep_covered }}{% if level.deep_percent is not none %} ({{ level.deep_percent }} %){% endif %}</td>
+<td class="num">{{ level.verified }}{% if level.verified_percent is not none %} ({{ level.verified_percent }} %){% endif %}</td>
 {% else %}
-<td colspan="2" class="unknown-type">? unknown type</td>
+<td colspan="3" class="unknown-type">? unknown type</td>
 {% endif %}
 </tr>
 {% endfor %}
 </tbody>
 </table>
 </div>
-<p class="note">Covered: every needed type covers the item with a valid link. Deep covered: covered, and so is everything below. Rejected items are not counted; test results do not count as coverage.</p>
+<p class="note">Covered: every needed type covers the item with a valid link. Deep covered: covered, and so is everything below. Verified: deep covered, every test below passed and every review or analysis below is approved. Rejected items are not counted; test results do not count as coverage.</p>
 <p class="note legend">Signs: <span class="ok">✓ deep covered</span>, <span class="partial">! covered, gap below</span>, <span class="missing">✗ not covered</span>, <span class="rejected">– rejected</span>, <span class="unknown">? unknown type (an error)</span>.</p>
 {% else %}
 <p>No requirements.</p>
@@ -76,11 +77,12 @@
 {% if level.items %}
 <div class="scroll">
 <table class="items">
-<thead><tr><th>Coverage</th><th>ID</th><th>Title</th><th>Status</th><th>Location</th></tr></thead>
+<thead><tr><th>Coverage</th><th>Verified</th><th>ID</th><th>Title</th><th>Status</th><th>Location</th></tr></thead>
 <tbody>
 {% for item in level.items %}
 <tr class="{{ item.coverage }}">
 <td class="sign"><span title="{{ item.label }}" aria-hidden="true">{{ item.sign }}</span><span class="sr-only">{{ item.label }}</span>{% if item.missing %} <span class="missing-types">missing: {% for typ in item.missing %}<code>{{ typ }}</code>{% if not loop.last %}, {% endif %}{% endfor %}</span>{% endif %}</td>
+<td class="verified">{{ item.verified }}</td>
 <td><code>{{ item.id }}</code>{% if item.duplicate %} <span class="duplicate">✗ duplicate ID</span>{% endif %}</td>
 <td>{{ item.title }}</td>
 <td>{{ item.status }}</td>

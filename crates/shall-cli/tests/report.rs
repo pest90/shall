@@ -41,7 +41,7 @@ fn writes_the_report_of_the_fixture() {
         stderr(&output),
         format!(
             "wrote {}\nwrote {}\n\
-             not ok: 4 errors, 0 warnings (8 requirements, 7 tags, 3 test results)\n",
+             not ok: 4 errors, 0 warnings (9 requirements, 7 tags, 3 test results)\n",
             index_html.display(),
             trace_json.display()
         )

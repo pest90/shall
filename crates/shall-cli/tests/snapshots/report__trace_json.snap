@@ -33,7 +33,8 @@ expression: normalized(&json)
     }
   ],
   "verification_types": [
-    "utest"
+    "utest",
+    "vrev"
   ],
   "items": [
     {
@@ -80,6 +81,7 @@ expression: normalized(&json)
       "deep_covered": true,
       "duplicate": false,
       "unknown_type": false,
+      "verified": true,
       "test": null
     },
     {
@@ -126,6 +128,7 @@ expression: normalized(&json)
       "deep_covered": true,
       "duplicate": false,
       "unknown_type": false,
+      "verified": false,
       "test": null
     },
     {
@@ -149,7 +152,8 @@ expression: normalized(&json)
       },
       "needs": [
         "impl",
-        "utest"
+        "utest",
+        "vrev"
       ],
       "covered_by": [
         {
@@ -165,6 +169,13 @@ expression: normalized(&json)
             "path": "tests/relay_driver_test.cpp",
             "line": 10
           }
+        },
+        {
+          "id": "vrev~motor.relay-driver-review-m3q8~1",
+          "location": {
+            "path": "verification/relay-driver-review.md",
+            "line": 4
+          }
         }
       ],
       "missing": [],
@@ -172,6 +183,7 @@ expression: normalized(&json)
       "deep_covered": true,
       "duplicate": false,
       "unknown_type": false,
+      "verified": true,
       "test": null
     },
     {
@@ -210,6 +222,7 @@ expression: normalized(&json)
       "deep_covered": true,
       "duplicate": false,
       "unknown_type": false,
+      "verified": false,
       "test": null
     },
     {
@@ -242,6 +255,7 @@ expression: normalized(&json)
       "deep_covered": false,
       "duplicate": false,
       "unknown_type": false,
+      "verified": false,
       "test": null
     },
     {
@@ -280,6 +294,7 @@ expression: normalized(&json)
       "deep_covered": true,
       "duplicate": false,
       "unknown_type": false,
+      "verified": true,
       "test": null
     },
     {
@@ -325,6 +340,7 @@ expression: normalized(&json)
       "deep_covered": false,
       "duplicate": false,
       "unknown_type": false,
+      "verified": false,
       "test": null
     },
     {
@@ -363,6 +379,7 @@ expression: normalized(&json)
       "deep_covered": true,
       "duplicate": false,
       "unknown_type": false,
+      "verified": true,
       "test": null
     },
     {
@@ -393,6 +410,7 @@ expression: normalized(&json)
       "deep_covered": true,
       "duplicate": false,
       "unknown_type": false,
+      "verified": true,
       "test": null
     },
     {
@@ -423,6 +441,7 @@ expression: normalized(&json)
       "deep_covered": true,
       "duplicate": false,
       "unknown_type": false,
+      "verified": true,
       "test": null
     },
     {
@@ -453,6 +472,7 @@ expression: normalized(&json)
       "deep_covered": true,
       "duplicate": false,
       "unknown_type": false,
+      "verified": true,
       "test": null
     },
     {
@@ -483,6 +503,7 @@ expression: normalized(&json)
       "deep_covered": true,
       "duplicate": false,
       "unknown_type": false,
+      "verified": true,
       "test": null
     },
     {
@@ -519,6 +540,7 @@ expression: normalized(&json)
       "deep_covered": true,
       "duplicate": false,
       "unknown_type": false,
+      "verified": true,
       "test": {
         "name": "RelayDriverTest.OpensOnEstop",
         "verdict": "passed",
@@ -561,6 +583,7 @@ expression: normalized(&json)
       "deep_covered": true,
       "duplicate": false,
       "unknown_type": false,
+      "verified": false,
       "test": {
         "name": "Shutdown.DisablesPwmOnOvertemp",
         "verdict": "failed",
@@ -603,6 +626,7 @@ expression: normalized(&json)
       "deep_covered": true,
       "duplicate": false,
       "unknown_type": false,
+      "verified": true,
       "test": {
         "name": "TempMonitor.RaisesFlagAbove85C",
         "verdict": "passed",
@@ -610,6 +634,35 @@ expression: normalized(&json)
           0
         ]
       }
+    },
+    {
+      "id": "vrev~motor.relay-driver-review-m3q8~1",
+      "type": "vrev",
+      "name": "motor.relay-driver-review-m3q8",
+      "revision": 1,
+      "title": "Review of the relay driver",
+      "description": "The relay driver was reviewed against the emergency stop timing: the\nrelay opens within the interrupt, no task is involved.",
+      "rationale": null,
+      "comment": null,
+      "status": "approved",
+      "tags": [],
+      "source": null,
+      "location": {
+        "path": "verification/relay-driver-review.md",
+        "line": 4
+      },
+      "origin": {
+        "kind": "requirement"
+      },
+      "needs": [],
+      "covered_by": [],
+      "missing": [],
+      "covered": true,
+      "deep_covered": true,
+      "duplicate": false,
+      "unknown_type": false,
+      "verified": true,
+      "test": null
     }
   ],
   "links": [
@@ -842,6 +895,24 @@ expression: normalized(&json)
       "location": {
         "path": "tests/temp_monitor_test.cpp",
         "line": 5
+      },
+      "status": "valid"
+    },
+    {
+      "kind": "covers",
+      "source": "vrev~motor.relay-driver-review-m3q8~1",
+      "source_location": {
+        "path": "verification/relay-driver-review.md",
+        "line": 4
+      },
+      "target": "dsn~motor.relay-driver-b6j3~1",
+      "target_location": {
+        "path": "reqs/design.md",
+        "line": 30
+      },
+      "location": {
+        "path": "verification/relay-driver-review.md",
+        "line": 12
       },
       "status": "valid"
     }

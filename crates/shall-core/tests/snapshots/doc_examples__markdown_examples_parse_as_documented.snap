@@ -44,3 +44,21 @@ expression: items
     line: 4
   origin:
     kind: requirement
+- id: vrev~motor.relay-driver-review-m3q8~1
+  title: Review of the relay driver
+  description: The relay driver was reviewed against the emergency stop timing.
+  rationale: ~
+  comment: ~
+  status: approved
+  needs: []
+  covers:
+    - id: dsn~motor.relay-driver-b6j3~1
+      line: 9
+  depends: []
+  tags: []
+  source: ~
+  location:
+    path: docs/user-guide.md
+    line: 2
+  origin:
+    kind: requirement
