@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Runs every check a pull request has to pass: formatting, clippy, tests
-# on the pinned toolchain and a build on the MSRV.
+# and rustdoc without warnings on the pinned toolchain, and a build on the
+# MSRV.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -10,4 +11,5 @@ set -x
 cargo fmt --all --check
 cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo test --workspace --locked
+RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked
 cargo "+$msrv" check --workspace --all-targets --locked

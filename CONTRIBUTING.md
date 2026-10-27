@@ -17,7 +17,8 @@ docker compose run --rm shall --version
 ```
 
 `scripts/check.sh` runs the same checks as CI: formatting, clippy,
-tests and a build on the MSRV. Without compose:
+tests, rustdoc without warnings and a build on the MSRV. Without
+compose:
 
 ```sh
 docker build --target check .         # fails if a check fails
@@ -29,7 +30,8 @@ docker run --rm -u "$(id -u):$(id -g)" -v "$PWD:/project" shall check
 
 - Open an issue first for larger changes, so the design can be discussed.
 - Keep one topic per pull request, and keep pull requests small.
-- `cargo fmt`, `cargo clippy -- -D warnings` and `cargo test` must pass.
+- `cargo fmt`, `cargo clippy -- -D warnings`, `cargo test` and
+  `cargo doc` without warnings must pass.
 - Update the documentation with the change: [`docs/user-guide.md`](docs/user-guide.md)
   for anything users see (syntax, configuration, commands, diagnostics),
   [`README.md`](README.md) if the overview changes, rustdoc for public

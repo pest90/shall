@@ -2,8 +2,8 @@
 #
 # Targets:
 #   dev      toolchain for interactive work, used by compose.yaml
-#   check    runs scripts/check.sh (fmt, clippy, tests, MSRV); the build
-#            fails if any check fails
+#   check    runs scripts/check.sh (fmt, clippy, tests, rustdoc, MSRV);
+#            the build fails if any check fails
 #   runtime  (default) minimal image with the `shall` binary
 #
 # The Rust toolchain comes from rust-toolchain.toml and the MSRV from
