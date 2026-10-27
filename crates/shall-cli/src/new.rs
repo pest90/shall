@@ -16,6 +16,8 @@ use shall_core::config::{self, Config};
 use shall_core::create;
 use shall_core::{ItemId, ItemType, Location, markdown};
 
+use crate::project::{find_root, is_markdown};
+
 /// Arguments of `shall new`.
 pub struct NewArgs {
     pub typ: String,
@@ -86,33 +88,9 @@ fn create(
     Ok(format!("{}:{line}: created {id}", target.relative))
 }
 
-/// Returns the closest directory at or above `start` with a `shall.toml`,
-/// with symbolic links resolved.
-fn find_root(start: &Path) -> anyhow::Result<PathBuf> {
-    let root = start
-        .ancestors()
-        .find(|dir| dir.join(config::FILE_NAME).is_file())
-        .with_context(|| {
-            format!(
-                "no {} found in {} or its parents",
-                config::FILE_NAME,
-                start.display()
-            )
-        })?;
-    // dunce avoids Windows `\\?\` paths, which Git does not accept.
-    dunce::canonicalize(root).with_context(|| format!("cannot resolve {}", root.display()))
-}
-
 /// Type and name of an ID; IDs are taken regardless of their revision.
 fn key(id: &ItemId) -> (String, String) {
     (id.typ().to_string(), id.name().to_owned())
-}
-
-/// Whether the path names a Markdown file, by its extension.
-fn is_markdown(path: &Path) -> bool {
-    path.extension()
-        .and_then(|ext| ext.to_str())
-        .is_some_and(|ext| ext.eq_ignore_ascii_case("md") || ext.eq_ignore_ascii_case("markdown"))
 }
 
 /// Collects the IDs of all items in Markdown files of the project,

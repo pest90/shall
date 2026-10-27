@@ -65,8 +65,8 @@ An ID has the form `type~name~revision`, e.g. `swr~motor.overtemp-k4f2~2`.
 
 Every ID that `shall` accepts is also valid in OFT. The convention is to
 increase the revision when the content of an item changes, so that links
-to the old revision become outdated and get reviewed; `shall check` will
-report them (planned, M2). Never rename an ID and never reuse one; let
+to the old revision become outdated and get reviewed; `shall check`
+reports them. Never rename an ID and never reuse one; let
 `shall new` create them.
 
 ### Keywords
@@ -101,8 +101,7 @@ API documentation of `shall_core::markdown`.
 
 ### Checks while reading
 
-The parser detects the following problems. No command shows them yet;
-`shall check` will report them as `path:line: message` (planned, M2).
+The parser detects the following problems; `shall check` reports them.
 
 - invalid IDs, types and statuses
 - near-miss keywords that differ only in case or, for keywords longer
@@ -115,7 +114,8 @@ The parser detects the following problems. No command shows them yet;
 
 ## Configuration: `shall.toml`
 
-`shall.toml` marks the root of a project and describes its levels:
+`shall.toml` marks the root of a project and describes its levels, its
+verification types and the files to read:
 
 ```toml
 [[level]]
@@ -132,16 +132,168 @@ needs = ["dsn"]
 type  = "dsn"
 name  = "L3D – Design Decisions"
 needs = ["impl", "utest"]
+
+[verification]
+types = ["utest"]
+
+[sources]
+requirements = ["reqs/**/*.md"]
+impl  = ["src/**/*.{cpp,hpp}"]
+utest = ["tests/**/*.cpp"]
+junit = ["build/test-results/**/*.xml"]
 ```
+
+### `[[level]]`
 
 | Key | Meaning |
 | --- | --- |
 | `type` | required; type of the level's items, ASCII letters only |
 | `name` | required; readable name |
-| `needs` | optional; types that must cover items of this level |
+| `needs` | optional; types that must cover items of this level, unless an item has its own `Needs:` |
 
-Today the levels are used by `shall new`. Other tables and unknown keys
-are ignored.
+### `[verification]`
+
+| Key | Meaning |
+| --- | --- |
+| `types` | types that verify, e.g. `utest`; their tags are matched with test results |
+| `not-executed` | `error` (default) or `warning`: severity of a test without a result |
+
+### `[sources]`
+
+Glob patterns relative to the project root. `*` stays within a
+directory, `**` spans directories, `{cpp,hpp}` gives alternatives.
+
+| Key | Meaning |
+| --- | --- |
+| `requirements` | requirement files; without it, all Markdown files (`.md`, `.markdown`) of the project |
+| `junit` | JUnit XML files with test results; without it, tests are not matched |
+| any other key | code and test files to scan for tags |
+
+The keys for code and test files only group patterns; the type of an item
+comes from its tag, and a file matched by several keys is read once. If
+there are `[[level]]` tables, a key that is no known type (a level, a
+type needed by a level or a verification type) gets a warning, since it
+is probably a typo. A pattern that matches no file gets a warning, an
+invalid pattern is an error.
+
+Symbolic links are followed. A file that the patterns select through
+several paths, via symbolic or hard links, is read once: under the first
+path without a symbolic link on the way, otherwise under the first. A
+broken link that a pattern selects and a link loop get a warning. Files
+matched by `.gitignore` are skipped: in a Git work tree as Git does,
+with the `.gitignore` files up to the top of the work tree, and nested
+repositories and submodules with their own; outside of one, such as in
+an archive, with those of the project. Global excludes and
+`.git/info/exclude` do not count, so the result does not depend on the
+machine. A JUnit pattern
+that starts with a directory, such as `build/test-results/**/*.xml`,
+also finds ignored files below that directory, since test results are
+usually in an ignored build directory; a pattern such as `**/*.xml`
+follows `.gitignore`.
+
+Tables and keys that are not described here are ignored.
+
+## Tags in code and tests
+
+Code and tests point to the items they implement or verify with tags in
+OFT syntax, usually in a comment:
+
+```cpp
+// [impl->dsn~motor.temp-monitor-r5t1~1]
+void TempMonitor::run(float winding_temp_c) { /* ... */ }
+
+// [utest->dsn~motor.temp-monitor-r5t1~1]
+TEST(TempMonitor, RaisesFlagAbove85C) { /* ... */ }
+```
+
+A tag creates an item of its type, here `impl` and `utest`, that covers
+the target. Its ID is generated from the target's name and a hash of the
+file path and the tag, e.g. `impl~motor.temp-monitor-r5t1-3fa2c1d0~0`;
+it stays the same when other tags are inserted or the target's revision
+changes. Defects of tag items name the tag and point at its line.
+
+| Form | Meaning |
+| --- | --- |
+| `[impl->dsn~a~1]` | an `impl` item covering `dsn~a~1` |
+| `[impl->dsn~a~1, dsn~b~1]` | one item per target |
+| `[impl->dsn~a~1>>utest]` | an item named like the target, without hash, that needs `utest` |
+| `[impl~name~2->dsn~a~1, dsn~b~1]` | one item `impl~name~2` covering both targets |
+| `[impl~~2->dsn~a~1]` | like the first form, with revision 2 |
+
+A text is only a tag if its first target starts like an ID (`type~name`),
+so code such as `values[p->len]` is not mistaken for one. A malformed tag
+that does not start like that, e.g. `[impl->dsn ~a~1]`, is ignored
+without a diagnostic and shows as missing coverage. Short tags
+`[[name:1]]` are not supported.
+
+### Tests
+
+After a tag, `shall` records the test defined right after it: gtest's
+`TEST`, `TEST_F`, `TEST_P`, `TYPED_TEST`, `TYPED_TEST_P` and
+`GTEST_TEST`, or a Rust function with a test attribute (`#[test]`,
+`#[tokio::test]` and similar, `#[rstest]`, `#[test_case(…)]`). Comments,
+attributes, preprocessor lines and further tags in between are skipped;
+a tag in a trailing comment belongs to the code before it on its line.
+
+```rust
+#[cfg(test)]
+mod tests {
+    // [utest->dsn~motor.temp-monitor-r5t1~1]
+    #[test]
+    fn raises_flag_above_85c() { /* ... */ }
+}
+```
+
+For tags of a verification type, `shall check` looks up the test's
+results in the JUnit files:
+
+| Test | Result in JUnit XML (`classname`, `name`) |
+| --- | --- |
+| gtest `TEST(S, N)`, `TEST_F`, `GTEST_TEST` | `S`, `N` |
+| gtest `TEST_P(S, N)` | `S` or `Instance/S`, `N/…` (all instances) |
+| gtest `TYPED_TEST(S, N)`, `TYPED_TEST_P` | `S/…` or `Instance/S/…`, `N` (all instances) |
+| Rust `fn n` in `src/a/b.rs`, `mod tests` | test binary, `a::b::tests::n` |
+| Rust `#[rstest]` with `#[case]`, `#[test_case]` | test binary, `…::n::…` (all cases; also the tests of a module `n` next to the function) |
+
+gtest writes JUnit XML with `--gtest_output=xml:<file>`. Its results
+carry a `file` attribute with the test's source file; a result belongs to
+the file of a verification tag that it names (equal, or ending with `/`
+and the path; the longest such file). Results of another tagged file
+never count, and if some results name the tag's file, only those count,
+so that tests with the same name in other test programs do not match.
+
+For Rust, the module path comes from the file path. The crate is the
+directory before the last `src` component, or before the last `tests`
+component if there is no `src`:
+
+- `src/a/b.rs` and `src/a/b/mod.rs` are `a::b`, also below `src/tests/`;
+- `src/lib.rs`, `src/main.rs`, `src/bin/x.rs`, `src/bin/x/main.rs`,
+  `tests/x.rs` and `tests/x/main.rs` add nothing;
+- `tests/x/a.rs` is module `a` of the integration test `x` or, as shared
+  code, module `x::a` of some test; `tests/common/mod.rs` is the shared
+  module `common`;
+- `#[path]` attributes are not followed.
+
+The results of `cargo nextest` (JUnit output, e.g. in
+`target/nextest/<profile>/junit.xml`) carry the test binary, which must
+fit the file: the library for `src/lib.rs`, the library or the package's
+binary for `src/main.rs` and other modules under `src/`, `crate::bin/x`
+for `src/bin/x.rs`, `crate::x` for `tests/x.rs`; the crate must be the
+package of the `Cargo.toml` in the crate directory (the directory with
+`src/` or `tests/`). nextest leaves ignored tests out of its output, so
+they count as not executed. libtest's own JUnit output (`cargo test --
+-Z unstable-options --format junit`, nightly only) names a test by its
+module as `classname` and its function as `name`, in a
+`<testsuite package="test">`; a result whose `classname::name` is the
+full path matches as well, unless its name already contains `::` or its
+`<testsuite>` is named like its class without `package="test"`, as in
+nextest's output.
+
+A test failed if one of its results failed (`<failure>` or `<error>`),
+was skipped if all of them were skipped (`<skipped>`, or gtest's
+disabled tests), and was not executed if it has no result. Results that
+match no tag are not reported, except failures that gtest records
+outside of any test.
 
 ## Commands
 
@@ -214,6 +366,68 @@ For VSCode, copy [`contrib/vscode/tasks.json`](../contrib/vscode/tasks.json)
 to `.vscode/tasks.json` and run the task "shall: new item" in an open
 requirements file.
 
-### `shall check`, `shall report`
+### `shall check`
 
-Not implemented yet.
+```text
+shall check [PATH] [--mode <report|strict>]
+```
+
+Reads the project, traces it and prints one line per problem, sorted by
+file and line, followed by a summary on stderr:
+
+```text
+reqs/design.md:12: dsn~motor.temp-monitor-r5t1~1: covers outdated revision swr~motor.overtemp-shutdown-k4f2~1 (current revision: 2)
+reqs/software.md:20: swr~motor.overtemp-warning-p8n5~1: not covered by required type 'dsn'
+src/fault_log.cpp:3: tag [impl->dsn~motor.fault-log-z2d8~1]: unknown target dsn~motor.fault-log-z2d8~1
+tests/shutdown_test.cpp:5: test Shutdown.DisablesPwmOnOvertemp failed
+not ok: 4 errors, 0 warnings (8 requirements, 7 tags, 3 test results)
+```
+
+- `PATH` is a directory in the project, by default the current one; the
+  project root is the closest directory at or above it with a
+  `shall.toml`. Paths in the output are relative to the project root.
+- Errors are printed as `path:line: message`, warnings as
+  `path:line: warning: message`.
+- The summary counts tags, not tag items: a tag with several targets
+  counts once.
+
+Reported are the problems found while reading (see above), and:
+
+| Problem | Severity |
+| --- | --- |
+| an item does not have a valid link from every type it needs | error |
+| a link to an unknown ID, an outdated or a not yet existing revision, a rejected item, a duplicate ID, or of a type the target does not need | error |
+| a coverage cycle | error |
+| an item of a type that is no level, no type needed by a level and no verification type | error; a warning if only `Needs:` of items name the type |
+| a test failed | error |
+| a test was skipped | warning |
+| a test was not executed | `[verification] not-executed` |
+| a verification tag without a test definition after it | warning |
+| invalid XML in a JUnit file, also a truncated one; a failure outside of any test | error |
+| a JUnit file without `<testsuites>` or `<testsuite>`, an unreadable attribute | warning |
+| an invalid pattern in `[sources]`; an unreadable or non-UTF-8 file or directory | error |
+| a broken symbolic link, a symbolic link loop, a path that is not UTF-8 | warning |
+| other problems with `[sources]` (see above) | warning |
+
+Only root causes are reported: an item that is covered, but whose
+coverage has a gap further down, is not deep covered, which is no
+defect of its own. Items with `Status: rejected` need no coverage.
+
+| `--mode` | Exit code |
+| --- | --- |
+| `report` (default) | 0, whatever the defects |
+| `strict` | 1 if there is any error or warning, otherwise 0 |
+
+The modes `new` (fail only on new defects) and `mature` (fail on
+defects of mature items), and setting the mode in `shall.toml`, are
+planned (M7.5).
+
+### `shall report`
+
+Not implemented yet (planned, M5).
+
+### Exit codes
+
+All commands exit with 2 if they cannot run, e.g. without a
+`shall.toml`, with an invalid configuration or with an invalid
+argument.

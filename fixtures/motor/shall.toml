@@ -20,6 +20,7 @@ needs = ["impl", "utest"]
 types = ["utest"]
 
 [sources]
+requirements = ["reqs/**/*.md"]
 impl  = ["src/**/*.{cpp,hpp}"]
 utest = ["tests/**/*.cpp"]
 junit = ["test-results/**/*.xml"]

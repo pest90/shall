@@ -196,10 +196,7 @@ pub fn trace(items: &[Item], config: &Config) -> Trace {
             continue;
         }
         let typ = item.id.typ();
-        let subject = match &item.origin {
-            Origin::Tag { text, .. } => format!("tag {text}"),
-            Origin::Requirement => item.id.to_string(),
-        };
+        let subject = subject(item);
         if !config.levels.is_empty() && !configured.contains(typ) {
             if needed_by_items.contains(typ) {
                 defects.push(Diagnostic::warning(
@@ -274,7 +271,7 @@ pub fn trace(items: &[Item], config: &Config) -> Trace {
                 for typ in &missing {
                     defects.push(Diagnostic::error(
                         item.location.clone(),
-                        format!("{}: not covered by required type '{typ}'", item.id),
+                        format!("{}: not covered by required type '{typ}'", subject(item)),
                     ));
                 }
             }
@@ -311,6 +308,15 @@ pub fn trace(items: &[Item], config: &Config) -> Trace {
         items: traced,
         links,
         defects,
+    }
+}
+
+/// How defects name an item: by its ID, or by the tag as written, since
+/// the ID of a tag's item is generated.
+fn subject(item: &Item) -> String {
+    match &item.origin {
+        Origin::Tag { text, .. } => format!("tag {text}"),
+        Origin::Requirement => item.id.to_string(),
     }
 }
 
@@ -368,10 +374,8 @@ fn link_message(
     let target = &link.id;
     // The ID of a tag's item is generated, so its defects name the tag as
     // written; a tag with an unknown target is orphaned code.
-    let (subject, is_tag) = match &item.origin {
-        Origin::Tag { text, .. } => (format!("tag {text}"), true),
-        Origin::Requirement => (item.id.to_string(), false),
-    };
+    let is_tag = matches!(item.origin, Origin::Tag { .. });
+    let subject = subject(item);
     let problem = match status {
         LinkStatus::Valid => return None,
         LinkStatus::Unknown if is_tag => format!("unknown target {target}"),
@@ -996,7 +1000,7 @@ Covers:
             .items;
         let scanned = crate::tags::scan(
             Path::new("a.c"),
-            "// [iml->dsn~x~2]\n// [impl->dsn~x~1]\n// [impl->dsn~gone~1]\n// [impl->dsn~x~2]\n",
+            "// [iml->dsn~x~2]\n// [impl->dsn~x~1]\n// [impl->dsn~gone~1]\n// [impl->dsn~x~2]\n// [impl->dsn~x~2>>utest]\n",
         )
         .unwrap();
         items.extend(scanned.items);
@@ -1008,6 +1012,7 @@ Covers:
                 "a.c:1: tag [iml->dsn~x~2]: covers dsn~x~2, which does not need type 'iml'",
                 "a.c:2: tag [impl->dsn~x~1]: covers outdated revision dsn~x~1 (current revision: 2)",
                 "a.c:3: tag [impl->dsn~gone~1]: unknown target dsn~gone~1",
+                "a.c:5: tag [impl->dsn~x~2>>utest]: not covered by required type 'utest'",
             ]
         );
     }

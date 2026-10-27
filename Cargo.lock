@@ -490,6 +490,7 @@ dependencies = [
  "anyhow",
  "clap",
  "dunce",
+ "globset",
  "ignore",
  "rand",
  "shall-core",

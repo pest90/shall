@@ -1,8 +1,11 @@
 //! Command line interface of `shall`.
 
+mod check;
 mod new;
+mod project;
 
 use std::path::PathBuf;
+use std::process::ExitCode;
 
 use anyhow::bail;
 use clap::{Parser, Subcommand};
@@ -18,11 +21,20 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
-    /// Trace all requirements and report defects.
+    /// Trace all requirements, code and tests and report the defects.
+    ///
+    /// Prints one line `path:line: message` per defect, paths relative to
+    /// the project root, and a summary on stderr. Exit code 0 unless
+    /// `--mode strict` finds defects (1); 2 if the check cannot run.
     Check {
-        /// Project directory containing `shall.toml`.
+        /// A directory in the project; the project root is the closest
+        /// directory at or above it with a `shall.toml`.
         #[arg(default_value = ".")]
         path: PathBuf,
+        /// `report` never fails because of defects, `strict` fails on
+        /// every error or warning.
+        #[arg(long, value_enum, default_value_t = check::Mode::Report)]
+        mode: check::Mode,
     },
     /// Write the HTML/PDF report as static files.
     Report {
@@ -59,9 +71,22 @@ enum Command {
     },
 }
 
-fn main() -> anyhow::Result<()> {
-    match Cli::parse().command {
-        Command::Check { .. } => bail!("`shall check` is not implemented yet (plan: M2)"),
+/// Exit code when a command cannot run, e.g. without `shall.toml`.
+const FAILURE: u8 = 2;
+
+fn main() -> ExitCode {
+    match run(Cli::parse().command) {
+        Ok(code) => code,
+        Err(error) => {
+            eprintln!("Error: {error:#}");
+            ExitCode::from(FAILURE)
+        }
+    }
+}
+
+fn run(command: Command) -> anyhow::Result<ExitCode> {
+    match command {
+        Command::Check { path, mode } => check::run(&check::CheckArgs { path, mode }),
         Command::Report { .. } => bail!("`shall report` is not implemented yet (plan: M5)"),
         Command::New {
             typ,
@@ -75,6 +100,7 @@ fn main() -> anyhow::Result<()> {
             file,
             component,
             no_history,
-        }),
+        })
+        .map(|()| ExitCode::SUCCESS),
     }
 }

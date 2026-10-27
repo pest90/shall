@@ -2,10 +2,10 @@
 
 **Specifications Hooked to Actual Lines of Logic** – requirements as code.
 
-`shall` is meant to trace requirements written in Markdown through all
-levels of a project, from high-level requirements down to the code that
-implements them and the tests that verify them, and to report the gaps:
-uncovered requirements, outdated links, orphaned code and failing tests.
+`shall` traces requirements written in Markdown through all levels of a
+project, from high-level requirements down to the code that implements
+them and the tests that verify them, and reports the gaps: uncovered
+requirements, outdated links, orphaned code and failing tests.
 
 - Requirements live in Markdown files next to the code, in Git, and are
   reviewed in merge requests like any other change.
@@ -14,11 +14,12 @@ uncovered requirements, outdated links, orphaned code and failing tests.
 - Planned: a single binary for Linux, macOS and Windows, deterministic
   output as static files, no server.
 
-> **Status:** early development, not released yet. Today `shall` can
-> parse requirement files (as a library, `shall-core`) and create new
-> items with generated IDs (`shall new`). Tracing (`shall check`), code
-> and test tags and the report (`shall report`) are being built; see
-> [the plan](docs/konzept.md) (German).
+> **Status:** early development, not released yet. Today `shall` traces
+> requirements, code and test tags and gtest or `cargo nextest` results
+> and prints the defects (`shall check`), and creates new items with
+> generated IDs (`shall new`). The HTML report (`shall report`) and the
+> check modes for CI are being built; see [the plan](docs/konzept.md)
+> (German).
 
 ## Example
 
@@ -38,12 +39,15 @@ Covers:
 Needs: dsn
 ```
 
-Planned (work package M3): code and tests point to the design items they
-implement or verify with tags such as
+Code and tests point to the design items they implement or verify with
+tags; test results come from JUnit XML:
 
 ```cpp
 // [impl->dsn~motor.temp-monitor-r5t1~1]
 void TempMonitor::run(float winding_temp_c) { /* ... */ }
+
+// [utest->dsn~motor.temp-monitor-r5t1~1]
+TEST(TempMonitor, RaisesFlagAbove85C) { /* ... */ }
 ```
 
 ## Getting started
@@ -74,6 +78,15 @@ needs = ["dsn"]
 type  = "dsn"
 name  = "Design"
 needs = ["impl", "utest"]
+
+[verification]
+types = ["utest"]
+
+[sources]
+requirements = ["reqs/**/*.md"]
+impl  = ["src/**/*.{cpp,hpp}"]
+utest = ["tests/**/*.cpp"]
+junit = ["build/test-results/**/*.xml"]
 ```
 
 Create items with generated IDs instead of inventing them:
@@ -82,6 +95,21 @@ Create items with generated IDs instead of inventing them:
 shall new swr "Warn before overtemperature" --component motor --file reqs/software.md
 # reqs/software.md:16: created swr~motor.warn-before-overtemperature-p8n5~1
 ```
+
+Check the project; every defect is a line `path:line: message`. For the
+sample project in [`fixtures/motor`](fixtures/motor/README.md):
+
+```sh
+shall check
+# reqs/design.md:12: dsn~motor.temp-monitor-r5t1~1: covers outdated revision swr~motor.overtemp-shutdown-k4f2~1 (current revision: 2)
+# reqs/software.md:20: swr~motor.overtemp-warning-p8n5~1: not covered by required type 'dsn'
+# src/fault_log.cpp:3: tag [impl->dsn~motor.fault-log-z2d8~1]: unknown target dsn~motor.fault-log-z2d8~1
+# tests/shutdown_test.cpp:5: test Shutdown.DisablesPwmOnOvertemp failed
+# not ok: 4 errors, 0 warnings (8 requirements, 7 tags, 3 test results)
+```
+
+`shall check` exits with 0 by default, so it can report from the start;
+`--mode strict` makes it fail on every defect, e.g. in a release job.
 
 The [user guide](docs/user-guide.md) describes the requirement syntax, the
 configuration and the commands.

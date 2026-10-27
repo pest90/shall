@@ -18,11 +18,9 @@ fn prints_version() {
 }
 
 #[test]
-fn stubs_fail_with_message() {
-    for args in [&["check"][..], &["report"]] {
-        let output = shall().args(args).output().unwrap();
-        assert!(!output.status.success(), "{args:?} should fail");
-        let stderr = String::from_utf8(output.stderr).unwrap();
-        assert!(stderr.contains("not implemented yet"), "{args:?}: {stderr}");
-    }
+fn report_stub_fails_with_message() {
+    let output = shall().arg("report").output().unwrap();
+    assert_eq!(output.status.code(), Some(2));
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(stderr.contains("not implemented yet"), "{stderr}");
 }
