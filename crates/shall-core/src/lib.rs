@@ -9,7 +9,9 @@ pub mod create;
 pub mod diagnostic;
 pub mod id;
 pub mod item;
+pub mod junit;
 pub mod markdown;
+pub mod results;
 pub mod tags;
 pub mod trace;
 

@@ -1,10 +1,11 @@
-//! Reads the requirements of the motor fixture (`fixtures/motor`).
+//! Reads and traces the motor fixture (`fixtures/motor`).
 
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use shall_core::config::Config;
-use shall_core::{Item, Origin, check, markdown, tags, trace};
+use shall_core::results::Verdict;
+use shall_core::{Item, Origin, check, junit, markdown, results, tags, trace};
 
 fn fixture() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/motor")
@@ -118,16 +119,33 @@ fn traces_requirement_and_tag_defects() {
     let mut items = read_requirements();
     items.extend(read_tags());
     let trace = trace::trace(&items, &config);
-    let defects: Vec<_> = trace.defects.iter().map(ToString::to_string).collect();
-
-    // Everything from expected-defects.txt except the failing test, which
-    // needs the JUnit results (M4).
-    let expected = fs::read_to_string(fixture().join("expected-defects.txt")).unwrap();
-    let expected: Vec<&str> = expected
-        .lines()
-        .filter(|line| !line.contains("failed"))
+    let xml = Path::new("test-results/gtest.xml");
+    let parsed = junit::parse(xml, &fs::read_to_string(fixture().join(xml)).unwrap()).unwrap();
+    assert_eq!(parsed.diagnostics, []);
+    let evaluation = results::evaluate(&items, &parsed.results, &config, &Default::default());
+    let defects: Vec<_> = trace
+        .defects
+        .iter()
+        .chain(&evaluation.defects)
+        .map(ToString::to_string)
         .collect();
-    assert_eq!(defects, expected);
+
+    let expected = fs::read_to_string(fixture().join("expected-defects.txt")).unwrap();
+    assert_eq!(defects, expected.lines().collect::<Vec<_>>());
+
+    let verdicts: Vec<_> = evaluation
+        .runs
+        .iter()
+        .map(|run| (run.test.as_deref().unwrap(), run.verdict))
+        .collect();
+    assert_eq!(
+        verdicts,
+        [
+            ("RelayDriverTest.OpensOnEstop", Verdict::Passed),
+            ("Shutdown.DisablesPwmOnOvertemp", Verdict::Failed),
+            ("TempMonitor.RaisesFlagAbove85C", Verdict::Passed),
+        ]
+    );
 
     let status = |id: &str| {
         let item = trace

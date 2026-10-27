@@ -8,6 +8,7 @@ use std::collections::BTreeMap;
 use serde::Deserialize;
 use thiserror::Error;
 
+use crate::diagnostic::Severity;
 use crate::id::ItemType;
 
 /// File name of the project configuration.
@@ -72,10 +73,35 @@ fn string_list(value: &toml::Value) -> Option<Vec<&str>> {
 
 /// Types of items that verify others, e.g. tests and reviews.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct Verification {
-    /// Verification types such as `utest`, `itest` or `vrev`.
+    /// Verification types such as `utest`, `itest` or `vrev`. Tags of
+    /// these types are matched with test results.
     #[serde(default)]
     pub types: Vec<ItemType>,
+    /// Severity of a test without result, `error` (default) or `warning`.
+    #[serde(default)]
+    pub not_executed: NotExecuted,
+}
+
+/// Severity of a test without result, see [`Verification::not_executed`].
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum NotExecuted {
+    /// A test without result is an error.
+    #[default]
+    Error,
+    /// A test without result is a warning.
+    Warning,
+}
+
+impl From<NotExecuted> for Severity {
+    fn from(value: NotExecuted) -> Self {
+        match value {
+            NotExecuted::Error => Severity::Error,
+            NotExecuted::Warning => Severity::Warning,
+        }
+    }
 }
 
 /// A level such as system or software requirements.
@@ -139,6 +165,7 @@ needs = ["impl", "utest"]
 
 [verification]
 types = ["utest", "vrev"]
+not-executed = "warning"
 
 [sources]
 impl = ["src/**"]
@@ -149,6 +176,7 @@ junit = ["build/*.xml"]
         .unwrap();
         assert_eq!(config.levels.len(), 2);
         assert_eq!(config.verification.types, [typ("utest"), typ("vrev")]);
+        assert_eq!(config.verification.not_executed, NotExecuted::Warning);
         assert_eq!(config.sources.requirements, None);
         assert_eq!(config.sources.junit, ["build/*.xml"]);
         let code = config.sources.code();
@@ -184,6 +212,15 @@ junit = ["build/*.xml"]
         .unwrap();
         assert_eq!(config.sources.code().len(), 1);
         assert_eq!(config.sources.invalid_keys(), ["exclude", "later"]);
+    }
+
+    #[test]
+    fn rejects_unknown_severities() {
+        let error = Config::parse("[verification]\nnot-executed = \"info\"\n").unwrap_err();
+        assert!(
+            error.to_string().contains("unknown variant `info`"),
+            "{error}"
+        );
     }
 
     #[test]
