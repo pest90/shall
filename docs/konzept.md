@@ -567,8 +567,9 @@ Der Plan hat zwölf Meilensteine; nach M2 gibt es ein nutzbares MVP (Konsole), n
 
 ### M5 – HTML-Report
 
-- [ ] **5.1 JSON-Export (S)**
+- [x] **5.1 JSON-Export (S)**
   - Der komplette Graph als `trace.json` – einzige Datenquelle für den Report und für spätere Auswertungen.
+  - Umsetzung (`shall_core::export`, `shall report --out <dir>`): `schema_version` 1 und `generator` (Name, Version) vorweg, dann `levels`, `verification_types`, `items` (Felder des Items, Coverage aus dem Tracer, bei Prüf-Tags Test und Urteil, die Ergebnisse als Indizes in `test_results`, weil einzeilige JUnit-Dateien Orte mehrdeutig machen), `links` mit Status und den Orten von Quell- und Ziel-Item (Kopien einer doppelten ID bleiben unterscheidbar), `test_results` (alle JUnit-Testfälle, auch ohne Tag; `null` ohne `junit`-Quellen) und `defects` wie `shall check` sie ausgibt. Deterministisch: keine Zeitstempel, Pfade relativ zur Wurzel mit `/`, feste Reihenfolge; ein Snapshot-Test der Fixture prüft das. `--out` ist relativ zum aktuellen Verzeichnis; bis 5.2 schreibt `shall report` nur `trace.json`. Das JSON-Schema dazu folgt mit 10.2, Commit und Build-Info mit 5.7. Offen für 5.3: Links abgelehnter Items fehlen (wie im Tracer), die Detailseite eines abgelehnten Items braucht dafür `covers`/`depends` am Item. Der Ausgabeordner wird nicht von den Projektdateien ausgenommen; das Handbuch rät, ihn zu ignorieren.
 - [ ] **5.2 Seitengerüst (M)**
   - Templates mit `minijinja`; eine einzelne HTML-Datei mit eingebettetem CSS.
   - Startseite: Zusammenfassung (Anzahl Items, Coverage % je Ebene, Defektzahl), dann eine Tabelle pro Ebene.

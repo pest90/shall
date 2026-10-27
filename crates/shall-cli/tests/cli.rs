@@ -16,11 +16,3 @@ fn prints_version() {
         format!("shall {}", env!("CARGO_PKG_VERSION"))
     );
 }
-
-#[test]
-fn report_stub_fails_with_message() {
-    let output = shall().arg("report").output().unwrap();
-    assert_eq!(output.status.code(), Some(2));
-    let stderr = String::from_utf8(output.stderr).unwrap();
-    assert!(stderr.contains("not implemented yet"), "{stderr}");
-}

@@ -7,6 +7,7 @@ pub mod check;
 pub mod config;
 pub mod create;
 pub mod diagnostic;
+pub mod export;
 pub mod id;
 pub mod item;
 pub mod junit;

@@ -424,7 +424,70 @@ planned (M7.5).
 
 ### `shall report`
 
-Not implemented yet (planned, M5).
+```text
+shall report [PATH] [--out <DIR>]
+```
+
+Reads and traces the project like `shall check` and writes the result
+into the output directory, by default `site` in the current directory;
+the directory is created if missing. Today this is `trace.json`, the
+whole traced project as JSON; the HTML report built from it is planned
+(M5). stderr shows the written file and the summary of `shall check`;
+defects do not change the exit code, `shall check` decides that.
+
+The output directory is not excluded from the project's files. Add it
+to `.gitignore` (e.g. `/site/`), or make sure no pattern in `[sources]`
+matches it; otherwise a pattern such as `**/*.json` reads the tags
+quoted in `trace.json` back in on the next run.
+
+`trace.json` is deterministic: the same project gives the same bytes,
+with paths relative to the project root, separated by `/`, and without
+timestamps. Its fields:
+
+| Field | Content |
+| --- | --- |
+| `schema_version` | version of this layout, currently `1`; increased on every change readers must know about |
+| `generator` | `name` (`shall`) and `version` of the tool |
+| `levels` | the `[[level]]` tables: `type`, `name`, `needs` |
+| `verification_types` | `[verification] types` |
+| `items` | every item, ordered by file and line (see below) |
+| `links` | every `Covers:` and `Depends:` link of items that are not rejected: `kind` (`covers`, `depends`), `source` and `source_location` (the item that contains the link), `target` as written, `target_location` (`null` if no item or several have the target's type and name), `location` of the link itself, `status` |
+| `test_results` | every test case of the JUnit files in the order they were read, also those without a tag: `classname`, `name`, `suite`, `outcome` (`passed`, `skipped`, or `failed` with a `message`, which may be `null`), `location`; `null` without `junit` in `[sources]` |
+| `defects` | every problem `shall check` prints, in its order: `severity` (`error`, `warning`), `message`, `location` |
+
+A `location` is `{"path": "reqs/design.md", "line": 12}`. A link's
+`status` is `valid`, `unknown`, `outdated` or `predated` (with the
+target's `current` revision), `ambiguous`, `rejected`, or `unwanted`
+(the target does not need the source's type); only `valid` links count
+as coverage.
+
+Each item has:
+
+- `id`, and its parts `type`, `name` and `revision`;
+- `title`, `description` (Markdown as written), `rationale`, `comment`,
+  `status`, `tags` and `source` from the requirement file; `rationale`,
+  `comment` and `source` are `null` and `tags` is `[]` if absent; tag
+  items have an empty title and description;
+- `location`, the line of the ID or tag;
+- `origin`: `{"kind": "requirement"}`, or `{"kind": "tag", "text": ...,
+  "test": ...}` with the tag as written and the test definition after
+  it, `null` if there is none: `kind` (`gtest`, `gtest_parameterized`,
+  `gtest_typed` or `rust`), `suite` (`null` for Rust), `name`, `module`
+  (the inline Rust modules around the test, outermost first) and
+  `line`;
+- `needs`: the types the item needs, from `Needs:` or its level; empty
+  for rejected items;
+- `covered_by`: `id` and `location` of the items covering it with a
+  valid link; `missing`: the needed types without one;
+- `covered`, `deep_covered` (covered all the way down) and `duplicate`
+  (another item has the same type and name); rejected items need
+  nothing, so they are always `covered`;
+- `test`, for verification tags with `junit` sources: `name` as runners
+  report it (`null` without a test definition), `verdict` (`passed`,
+  `failed`, `skipped`, `not_executed`, `no_test`) and `results`, the
+  ascending positions of its results in `test_results`, starting at 0
+  (several results can share a location in a JUnit file written on one
+  line); otherwise `null`.
 
 ### Exit codes
 

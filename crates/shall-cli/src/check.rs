@@ -21,8 +21,10 @@ use anyhow::Context;
 use clap::ValueEnum;
 use globset::{GlobBuilder, GlobMatcher};
 use shall_core::config::{self, Config};
-use shall_core::results::{self, Packages};
-use shall_core::{Diagnostic, Item, Location, Origin, Severity, junit, markdown, tags, trace};
+use shall_core::junit::{self, TestResult};
+use shall_core::results::{self, Evaluation, Packages};
+use shall_core::trace::{self, Trace};
+use shall_core::{Diagnostic, Item, Location, Origin, Severity, markdown, tags};
 
 use crate::project::{find_root, is_markdown};
 
@@ -46,25 +48,25 @@ const DEFECTS: u8 = 1;
 
 /// Runs the check, prints the defects to stdout and a summary to stderr.
 pub fn run(args: &CheckArgs) -> anyhow::Result<ExitCode> {
-    let report = check(&args.path)?;
-    match print(&report) {
+    let project = analyze(&args.path)?;
+    match print(&project) {
         // The reader went away, e.g. `shall check | head`; stop quietly.
         Err(error) if error.kind() == io::ErrorKind::BrokenPipe => {}
         result => {
             result?;
-            eprintln!("{}", report.summary());
+            eprintln!("{}", project.summary());
         }
     }
-    if args.mode == Mode::Strict && !report.diagnostics.is_empty() {
+    if args.mode == Mode::Strict && !project.diagnostics.is_empty() {
         Ok(ExitCode::from(DEFECTS))
     } else {
         Ok(ExitCode::SUCCESS)
     }
 }
 
-fn print(report: &Report) -> io::Result<()> {
+fn print(project: &Project) -> io::Result<()> {
     let mut out = io::stdout().lock();
-    for diagnostic in &report.diagnostics {
+    for diagnostic in &project.diagnostics {
         writeln!(out, "{}", line(diagnostic))?;
     }
     out.flush()
@@ -79,17 +81,25 @@ fn line(diagnostic: &Diagnostic) -> String {
     }
 }
 
-/// What a check found.
+/// A project, read and traced.
 #[derive(Debug)]
-pub struct Report {
+pub struct Project {
+    /// The parsed `shall.toml`.
+    pub config: Config,
+    /// Items of requirement files and tags, in the order they were read.
+    pub items: Vec<Item>,
+    /// Coverage and links of `items`.
+    pub trace: Trace,
+    /// The test results and their evaluation; none without `junit`
+    /// sources.
+    pub tests: Option<(Vec<TestResult>, Evaluation)>,
     /// All diagnostics, sorted by path and line.
     pub diagnostics: Vec<Diagnostic>,
-    requirements: usize,
+    /// Number of tags; a tag with several targets counts once.
     tags: usize,
-    results: Option<usize>,
 }
 
-impl Report {
+impl Project {
     fn count(&self, severity: Severity) -> usize {
         self.diagnostics
             .iter()
@@ -99,15 +109,24 @@ impl Report {
 
     /// One line such as `not ok: 4 errors, 1 warning (8 requirements, 7
     /// tags, 3 test results)`; a tag with several targets counts once.
-    fn summary(&self) -> String {
+    pub fn summary(&self) -> String {
         let errors = self.count(Severity::Error);
         let warnings = self.count(Severity::Warning);
         let verdict = if errors > 0 { "not ok" } else { "ok" };
+        let requirements = self
+            .items
+            .iter()
+            .filter(|item| item.origin == Origin::Requirement)
+            .count();
         let mut read = vec![
-            plural(self.requirements, "requirement"),
+            plural(requirements, "requirement"),
             plural(self.tags, "tag"),
         ];
-        read.extend(self.results.map(|results| plural(results, "test result")));
+        read.extend(
+            self.tests
+                .as_ref()
+                .map(|(results, _)| plural(results.len(), "test result")),
+        );
         format!(
             "{verdict}: {}, {} ({})",
             plural(errors, "error"),
@@ -126,7 +145,7 @@ fn plural(count: usize, noun: &str) -> String {
 }
 
 /// Reads and traces the project at or above `start`.
-pub fn check(start: &Path) -> anyhow::Result<Report> {
+pub fn analyze(start: &Path) -> anyhow::Result<Project> {
     let root = find_root(start)?;
     let config_path = root.join(config::FILE_NAME);
     let config_text = fs::read_to_string(&config_path)
@@ -199,9 +218,9 @@ pub fn check(start: &Path) -> anyhow::Result<Report> {
         }
     }
     let trace = trace::trace(&items, &config);
-    diagnostics.extend(trace.defects);
+    diagnostics.extend(trace.defects.iter().cloned());
 
-    let mut result_count = None;
+    let mut tests = None;
     if !config.sources.junit.is_empty() {
         let candidates = junit_files(&root, &config.sources.junit, &files, &mut diagnostics);
         let junit_files = unique(
@@ -223,22 +242,20 @@ pub fn check(start: &Path) -> anyhow::Result<Report> {
         }
         let packages = packages(&root, &code_files, &files);
         let evaluation = results::evaluate(&items, &test_results, &config, &packages);
-        diagnostics.extend(evaluation.defects);
-        result_count = Some(test_results.len());
+        diagnostics.extend(evaluation.defects.iter().cloned());
+        tests = Some((test_results, evaluation));
     }
 
     diagnostics.sort_by(|a, b| {
         (a.location.path(), a.location.line()).cmp(&(b.location.path(), b.location.line()))
     });
-    let requirements = items
-        .iter()
-        .filter(|item| item.origin == Origin::Requirement)
-        .count();
-    Ok(Report {
+    Ok(Project {
+        config,
+        items,
+        trace,
+        tests,
         diagnostics,
-        requirements,
         tags: tags.len(),
-        results: result_count,
     })
 }
 

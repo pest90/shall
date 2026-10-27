@@ -1,0 +1,901 @@
+---
+source: crates/shall-cli/tests/report.rs
+expression: normalized(&json)
+---
+{
+  "schema_version": 1,
+  "generator": {
+    "name": "shall",
+    "version": "[version]"
+  },
+  "levels": [
+    {
+      "type": "sys",
+      "name": "L2 – System Requirements",
+      "needs": [
+        "swr"
+      ]
+    },
+    {
+      "type": "swr",
+      "name": "L3 – Software Requirements",
+      "needs": [
+        "dsn"
+      ]
+    },
+    {
+      "type": "dsn",
+      "name": "L3D – Design Decisions",
+      "needs": [
+        "impl",
+        "utest"
+      ]
+    }
+  ],
+  "verification_types": [
+    "utest"
+  ],
+  "items": [
+    {
+      "id": "dsn~motor.temp-monitor-r5t1~1",
+      "type": "dsn",
+      "name": "motor.temp-monitor-r5t1",
+      "revision": 1,
+      "title": "Temperature monitoring in the 10 ms task",
+      "description": "The task `TempMonitor` reads the winding sensor every 10 ms and raises\nthe overtemperature flag above 85 °C.",
+      "rationale": null,
+      "comment": null,
+      "status": "approved",
+      "tags": [],
+      "source": null,
+      "location": {
+        "path": "reqs/design.md",
+        "line": 4
+      },
+      "origin": {
+        "kind": "requirement"
+      },
+      "needs": [
+        "impl",
+        "utest"
+      ],
+      "covered_by": [
+        {
+          "id": "impl~motor.temp-monitor-r5t1-30d36a00~0",
+          "location": {
+            "path": "src/temp_monitor.cpp",
+            "line": 3
+          }
+        },
+        {
+          "id": "utest~motor.temp-monitor-r5t1-088f1f3b~0",
+          "location": {
+            "path": "tests/temp_monitor_test.cpp",
+            "line": 5
+          }
+        }
+      ],
+      "missing": [],
+      "covered": true,
+      "deep_covered": true,
+      "duplicate": false,
+      "test": null
+    },
+    {
+      "id": "dsn~motor.shutdown-signal-w9e4~1",
+      "type": "dsn",
+      "name": "motor.shutdown-signal-w9e4",
+      "revision": 1,
+      "title": "Shutdown signal",
+      "description": "`Shutdown::on_overtemp` switches off the PWM output in the same task\ncycle in which the overtemperature flag is raised.",
+      "rationale": null,
+      "comment": null,
+      "status": "approved",
+      "tags": [],
+      "source": null,
+      "location": {
+        "path": "reqs/design.md",
+        "line": 17
+      },
+      "origin": {
+        "kind": "requirement"
+      },
+      "needs": [
+        "impl",
+        "utest"
+      ],
+      "covered_by": [
+        {
+          "id": "impl~motor.shutdown-signal-w9e4-08847222~0",
+          "location": {
+            "path": "src/shutdown.cpp",
+            "line": 3
+          }
+        },
+        {
+          "id": "utest~motor.shutdown-signal-w9e4-cd2dd8cb~0",
+          "location": {
+            "path": "tests/shutdown_test.cpp",
+            "line": 5
+          }
+        }
+      ],
+      "missing": [],
+      "covered": true,
+      "deep_covered": true,
+      "duplicate": false,
+      "test": null
+    },
+    {
+      "id": "dsn~motor.relay-driver-b6j3~1",
+      "type": "dsn",
+      "name": "motor.relay-driver-b6j3",
+      "revision": 1,
+      "title": "Relay driver",
+      "description": "`RelayDriver` opens the relay directly from the emergency stop\ninterrupt.",
+      "rationale": null,
+      "comment": null,
+      "status": "approved",
+      "tags": [],
+      "source": null,
+      "location": {
+        "path": "reqs/design.md",
+        "line": 30
+      },
+      "origin": {
+        "kind": "requirement"
+      },
+      "needs": [
+        "impl",
+        "utest"
+      ],
+      "covered_by": [
+        {
+          "id": "impl~motor.relay-driver-b6j3-e0b447e3~0",
+          "location": {
+            "path": "src/relay_driver.cpp",
+            "line": 3
+          }
+        },
+        {
+          "id": "utest~motor.relay-driver-b6j3-747ccaf4~0",
+          "location": {
+            "path": "tests/relay_driver_test.cpp",
+            "line": 10
+          }
+        }
+      ],
+      "missing": [],
+      "covered": true,
+      "deep_covered": true,
+      "duplicate": false,
+      "test": null
+    },
+    {
+      "id": "swr~motor.overtemp-shutdown-k4f2~2",
+      "type": "swr",
+      "name": "motor.overtemp-shutdown-k4f2",
+      "revision": 2,
+      "title": "Shut down the motor on overtemperature",
+      "description": "The software shuts down the motor within 100 ms when the winding\ntemperature exceeds 85 °C.",
+      "rationale": "Revision 2 lowered the reaction time from 200 ms to 100 ms.",
+      "comment": null,
+      "status": "approved",
+      "tags": [],
+      "source": null,
+      "location": {
+        "path": "reqs/software.md",
+        "line": 4
+      },
+      "origin": {
+        "kind": "requirement"
+      },
+      "needs": [
+        "dsn"
+      ],
+      "covered_by": [
+        {
+          "id": "dsn~motor.shutdown-signal-w9e4~1",
+          "location": {
+            "path": "reqs/design.md",
+            "line": 17
+          }
+        }
+      ],
+      "missing": [],
+      "covered": true,
+      "deep_covered": true,
+      "duplicate": false,
+      "test": null
+    },
+    {
+      "id": "swr~motor.overtemp-warning-p8n5~1",
+      "type": "swr",
+      "name": "motor.overtemp-warning-p8n5",
+      "revision": 1,
+      "title": "Warn before overtemperature",
+      "description": "The software reports a warning when the winding temperature exceeds\n75 °C.",
+      "rationale": null,
+      "comment": null,
+      "status": "proposed",
+      "tags": [],
+      "source": null,
+      "location": {
+        "path": "reqs/software.md",
+        "line": 20
+      },
+      "origin": {
+        "kind": "requirement"
+      },
+      "needs": [
+        "dsn"
+      ],
+      "covered_by": [],
+      "missing": [
+        "dsn"
+      ],
+      "covered": false,
+      "deep_covered": false,
+      "duplicate": false,
+      "test": null
+    },
+    {
+      "id": "swr~motor.estop-relay-c2v6~1",
+      "type": "swr",
+      "name": "motor.estop-relay-c2v6",
+      "revision": 1,
+      "title": "Open the motor relay on emergency stop",
+      "description": "The software opens the motor relay within 10 ms after the emergency\nstop input becomes active.",
+      "rationale": null,
+      "comment": null,
+      "status": "approved",
+      "tags": [],
+      "source": null,
+      "location": {
+        "path": "reqs/software.md",
+        "line": 33
+      },
+      "origin": {
+        "kind": "requirement"
+      },
+      "needs": [
+        "dsn"
+      ],
+      "covered_by": [
+        {
+          "id": "dsn~motor.relay-driver-b6j3~1",
+          "location": {
+            "path": "reqs/design.md",
+            "line": 30
+          }
+        }
+      ],
+      "missing": [],
+      "covered": true,
+      "deep_covered": true,
+      "duplicate": false,
+      "test": null
+    },
+    {
+      "id": "sys~motor.thermal-protection-q7m2~1",
+      "type": "sys",
+      "name": "motor.thermal-protection-q7m2",
+      "revision": 1,
+      "title": "Thermal protection of the motor",
+      "description": "The drive protects the motor winding against overheating.",
+      "rationale": "Overheating destroys the winding insulation.",
+      "comment": null,
+      "status": "approved",
+      "tags": [],
+      "source": "Customer specification ch. 4.2",
+      "location": {
+        "path": "reqs/system.md",
+        "line": 4
+      },
+      "origin": {
+        "kind": "requirement"
+      },
+      "needs": [
+        "swr"
+      ],
+      "covered_by": [
+        {
+          "id": "swr~motor.overtemp-shutdown-k4f2~2",
+          "location": {
+            "path": "reqs/software.md",
+            "line": 4
+          }
+        },
+        {
+          "id": "swr~motor.overtemp-warning-p8n5~1",
+          "location": {
+            "path": "reqs/software.md",
+            "line": 20
+          }
+        }
+      ],
+      "missing": [],
+      "covered": true,
+      "deep_covered": false,
+      "duplicate": false,
+      "test": null
+    },
+    {
+      "id": "sys~motor.emergency-stop-h3x9~1",
+      "type": "sys",
+      "name": "motor.emergency-stop-h3x9",
+      "revision": 1,
+      "title": "Emergency stop",
+      "description": "The drive stops the motor when the emergency stop input is active.",
+      "rationale": null,
+      "comment": null,
+      "status": "approved",
+      "tags": [],
+      "source": "Customer specification ch. 5.1",
+      "location": {
+        "path": "reqs/system.md",
+        "line": 17
+      },
+      "origin": {
+        "kind": "requirement"
+      },
+      "needs": [
+        "swr"
+      ],
+      "covered_by": [
+        {
+          "id": "swr~motor.estop-relay-c2v6~1",
+          "location": {
+            "path": "reqs/software.md",
+            "line": 33
+          }
+        }
+      ],
+      "missing": [],
+      "covered": true,
+      "deep_covered": true,
+      "duplicate": false,
+      "test": null
+    },
+    {
+      "id": "impl~motor.fault-log-z2d8-14aa3790~0",
+      "type": "impl",
+      "name": "motor.fault-log-z2d8-14aa3790",
+      "revision": 0,
+      "title": "",
+      "description": "",
+      "rationale": null,
+      "comment": null,
+      "status": "approved",
+      "tags": [],
+      "source": null,
+      "location": {
+        "path": "src/fault_log.cpp",
+        "line": 3
+      },
+      "origin": {
+        "kind": "tag",
+        "text": "[impl->dsn~motor.fault-log-z2d8~1]",
+        "test": null
+      },
+      "needs": [],
+      "covered_by": [],
+      "missing": [],
+      "covered": true,
+      "deep_covered": true,
+      "duplicate": false,
+      "test": null
+    },
+    {
+      "id": "impl~motor.relay-driver-b6j3-e0b447e3~0",
+      "type": "impl",
+      "name": "motor.relay-driver-b6j3-e0b447e3",
+      "revision": 0,
+      "title": "",
+      "description": "",
+      "rationale": null,
+      "comment": null,
+      "status": "approved",
+      "tags": [],
+      "source": null,
+      "location": {
+        "path": "src/relay_driver.cpp",
+        "line": 3
+      },
+      "origin": {
+        "kind": "tag",
+        "text": "[impl->dsn~motor.relay-driver-b6j3~1]",
+        "test": null
+      },
+      "needs": [],
+      "covered_by": [],
+      "missing": [],
+      "covered": true,
+      "deep_covered": true,
+      "duplicate": false,
+      "test": null
+    },
+    {
+      "id": "impl~motor.shutdown-signal-w9e4-08847222~0",
+      "type": "impl",
+      "name": "motor.shutdown-signal-w9e4-08847222",
+      "revision": 0,
+      "title": "",
+      "description": "",
+      "rationale": null,
+      "comment": null,
+      "status": "approved",
+      "tags": [],
+      "source": null,
+      "location": {
+        "path": "src/shutdown.cpp",
+        "line": 3
+      },
+      "origin": {
+        "kind": "tag",
+        "text": "[impl->dsn~motor.shutdown-signal-w9e4~1]",
+        "test": null
+      },
+      "needs": [],
+      "covered_by": [],
+      "missing": [],
+      "covered": true,
+      "deep_covered": true,
+      "duplicate": false,
+      "test": null
+    },
+    {
+      "id": "impl~motor.temp-monitor-r5t1-30d36a00~0",
+      "type": "impl",
+      "name": "motor.temp-monitor-r5t1-30d36a00",
+      "revision": 0,
+      "title": "",
+      "description": "",
+      "rationale": null,
+      "comment": null,
+      "status": "approved",
+      "tags": [],
+      "source": null,
+      "location": {
+        "path": "src/temp_monitor.cpp",
+        "line": 3
+      },
+      "origin": {
+        "kind": "tag",
+        "text": "[impl->dsn~motor.temp-monitor-r5t1~1]",
+        "test": null
+      },
+      "needs": [],
+      "covered_by": [],
+      "missing": [],
+      "covered": true,
+      "deep_covered": true,
+      "duplicate": false,
+      "test": null
+    },
+    {
+      "id": "utest~motor.relay-driver-b6j3-747ccaf4~0",
+      "type": "utest",
+      "name": "motor.relay-driver-b6j3-747ccaf4",
+      "revision": 0,
+      "title": "",
+      "description": "",
+      "rationale": null,
+      "comment": null,
+      "status": "approved",
+      "tags": [],
+      "source": null,
+      "location": {
+        "path": "tests/relay_driver_test.cpp",
+        "line": 10
+      },
+      "origin": {
+        "kind": "tag",
+        "text": "[utest->dsn~motor.relay-driver-b6j3~1]",
+        "test": {
+          "kind": "gtest",
+          "suite": "RelayDriverTest",
+          "name": "OpensOnEstop",
+          "module": [],
+          "line": 11
+        }
+      },
+      "needs": [],
+      "covered_by": [],
+      "missing": [],
+      "covered": true,
+      "deep_covered": true,
+      "duplicate": false,
+      "test": {
+        "name": "RelayDriverTest.OpensOnEstop",
+        "verdict": "passed",
+        "results": [
+          2
+        ]
+      }
+    },
+    {
+      "id": "utest~motor.shutdown-signal-w9e4-cd2dd8cb~0",
+      "type": "utest",
+      "name": "motor.shutdown-signal-w9e4-cd2dd8cb",
+      "revision": 0,
+      "title": "",
+      "description": "",
+      "rationale": null,
+      "comment": null,
+      "status": "approved",
+      "tags": [],
+      "source": null,
+      "location": {
+        "path": "tests/shutdown_test.cpp",
+        "line": 5
+      },
+      "origin": {
+        "kind": "tag",
+        "text": "[utest->dsn~motor.shutdown-signal-w9e4~1]",
+        "test": {
+          "kind": "gtest",
+          "suite": "Shutdown",
+          "name": "DisablesPwmOnOvertemp",
+          "module": [],
+          "line": 6
+        }
+      },
+      "needs": [],
+      "covered_by": [],
+      "missing": [],
+      "covered": true,
+      "deep_covered": true,
+      "duplicate": false,
+      "test": {
+        "name": "Shutdown.DisablesPwmOnOvertemp",
+        "verdict": "failed",
+        "results": [
+          1
+        ]
+      }
+    },
+    {
+      "id": "utest~motor.temp-monitor-r5t1-088f1f3b~0",
+      "type": "utest",
+      "name": "motor.temp-monitor-r5t1-088f1f3b",
+      "revision": 0,
+      "title": "",
+      "description": "",
+      "rationale": null,
+      "comment": null,
+      "status": "approved",
+      "tags": [],
+      "source": null,
+      "location": {
+        "path": "tests/temp_monitor_test.cpp",
+        "line": 5
+      },
+      "origin": {
+        "kind": "tag",
+        "text": "[utest->dsn~motor.temp-monitor-r5t1~1]",
+        "test": {
+          "kind": "gtest",
+          "suite": "TempMonitor",
+          "name": "RaisesFlagAbove85C",
+          "module": [],
+          "line": 6
+        }
+      },
+      "needs": [],
+      "covered_by": [],
+      "missing": [],
+      "covered": true,
+      "deep_covered": true,
+      "duplicate": false,
+      "test": {
+        "name": "TempMonitor.RaisesFlagAbove85C",
+        "verdict": "passed",
+        "results": [
+          0
+        ]
+      }
+    }
+  ],
+  "links": [
+    {
+      "kind": "covers",
+      "source": "dsn~motor.temp-monitor-r5t1~1",
+      "source_location": {
+        "path": "reqs/design.md",
+        "line": 4
+      },
+      "target": "swr~motor.overtemp-shutdown-k4f2~1",
+      "target_location": {
+        "path": "reqs/software.md",
+        "line": 4
+      },
+      "location": {
+        "path": "reqs/design.md",
+        "line": 12
+      },
+      "status": "outdated",
+      "current": 2
+    },
+    {
+      "kind": "covers",
+      "source": "dsn~motor.shutdown-signal-w9e4~1",
+      "source_location": {
+        "path": "reqs/design.md",
+        "line": 17
+      },
+      "target": "swr~motor.overtemp-shutdown-k4f2~2",
+      "target_location": {
+        "path": "reqs/software.md",
+        "line": 4
+      },
+      "location": {
+        "path": "reqs/design.md",
+        "line": 25
+      },
+      "status": "valid"
+    },
+    {
+      "kind": "covers",
+      "source": "dsn~motor.relay-driver-b6j3~1",
+      "source_location": {
+        "path": "reqs/design.md",
+        "line": 30
+      },
+      "target": "swr~motor.estop-relay-c2v6~1",
+      "target_location": {
+        "path": "reqs/software.md",
+        "line": 33
+      },
+      "location": {
+        "path": "reqs/design.md",
+        "line": 38
+      },
+      "status": "valid"
+    },
+    {
+      "kind": "covers",
+      "source": "swr~motor.overtemp-shutdown-k4f2~2",
+      "source_location": {
+        "path": "reqs/software.md",
+        "line": 4
+      },
+      "target": "sys~motor.thermal-protection-q7m2~1",
+      "target_location": {
+        "path": "reqs/system.md",
+        "line": 4
+      },
+      "location": {
+        "path": "reqs/software.md",
+        "line": 15
+      },
+      "status": "valid"
+    },
+    {
+      "kind": "covers",
+      "source": "swr~motor.overtemp-warning-p8n5~1",
+      "source_location": {
+        "path": "reqs/software.md",
+        "line": 20
+      },
+      "target": "sys~motor.thermal-protection-q7m2~1",
+      "target_location": {
+        "path": "reqs/system.md",
+        "line": 4
+      },
+      "location": {
+        "path": "reqs/software.md",
+        "line": 28
+      },
+      "status": "valid"
+    },
+    {
+      "kind": "covers",
+      "source": "swr~motor.estop-relay-c2v6~1",
+      "source_location": {
+        "path": "reqs/software.md",
+        "line": 33
+      },
+      "target": "sys~motor.emergency-stop-h3x9~1",
+      "target_location": {
+        "path": "reqs/system.md",
+        "line": 17
+      },
+      "location": {
+        "path": "reqs/software.md",
+        "line": 41
+      },
+      "status": "valid"
+    },
+    {
+      "kind": "covers",
+      "source": "impl~motor.fault-log-z2d8-14aa3790~0",
+      "source_location": {
+        "path": "src/fault_log.cpp",
+        "line": 3
+      },
+      "target": "dsn~motor.fault-log-z2d8~1",
+      "target_location": null,
+      "location": {
+        "path": "src/fault_log.cpp",
+        "line": 3
+      },
+      "status": "unknown"
+    },
+    {
+      "kind": "covers",
+      "source": "impl~motor.relay-driver-b6j3-e0b447e3~0",
+      "source_location": {
+        "path": "src/relay_driver.cpp",
+        "line": 3
+      },
+      "target": "dsn~motor.relay-driver-b6j3~1",
+      "target_location": {
+        "path": "reqs/design.md",
+        "line": 30
+      },
+      "location": {
+        "path": "src/relay_driver.cpp",
+        "line": 3
+      },
+      "status": "valid"
+    },
+    {
+      "kind": "covers",
+      "source": "impl~motor.shutdown-signal-w9e4-08847222~0",
+      "source_location": {
+        "path": "src/shutdown.cpp",
+        "line": 3
+      },
+      "target": "dsn~motor.shutdown-signal-w9e4~1",
+      "target_location": {
+        "path": "reqs/design.md",
+        "line": 17
+      },
+      "location": {
+        "path": "src/shutdown.cpp",
+        "line": 3
+      },
+      "status": "valid"
+    },
+    {
+      "kind": "covers",
+      "source": "impl~motor.temp-monitor-r5t1-30d36a00~0",
+      "source_location": {
+        "path": "src/temp_monitor.cpp",
+        "line": 3
+      },
+      "target": "dsn~motor.temp-monitor-r5t1~1",
+      "target_location": {
+        "path": "reqs/design.md",
+        "line": 4
+      },
+      "location": {
+        "path": "src/temp_monitor.cpp",
+        "line": 3
+      },
+      "status": "valid"
+    },
+    {
+      "kind": "covers",
+      "source": "utest~motor.relay-driver-b6j3-747ccaf4~0",
+      "source_location": {
+        "path": "tests/relay_driver_test.cpp",
+        "line": 10
+      },
+      "target": "dsn~motor.relay-driver-b6j3~1",
+      "target_location": {
+        "path": "reqs/design.md",
+        "line": 30
+      },
+      "location": {
+        "path": "tests/relay_driver_test.cpp",
+        "line": 10
+      },
+      "status": "valid"
+    },
+    {
+      "kind": "covers",
+      "source": "utest~motor.shutdown-signal-w9e4-cd2dd8cb~0",
+      "source_location": {
+        "path": "tests/shutdown_test.cpp",
+        "line": 5
+      },
+      "target": "dsn~motor.shutdown-signal-w9e4~1",
+      "target_location": {
+        "path": "reqs/design.md",
+        "line": 17
+      },
+      "location": {
+        "path": "tests/shutdown_test.cpp",
+        "line": 5
+      },
+      "status": "valid"
+    },
+    {
+      "kind": "covers",
+      "source": "utest~motor.temp-monitor-r5t1-088f1f3b~0",
+      "source_location": {
+        "path": "tests/temp_monitor_test.cpp",
+        "line": 5
+      },
+      "target": "dsn~motor.temp-monitor-r5t1~1",
+      "target_location": {
+        "path": "reqs/design.md",
+        "line": 4
+      },
+      "location": {
+        "path": "tests/temp_monitor_test.cpp",
+        "line": 5
+      },
+      "status": "valid"
+    }
+  ],
+  "test_results": [
+    {
+      "classname": "TempMonitor",
+      "name": "RaisesFlagAbove85C",
+      "suite": "TempMonitor",
+      "outcome": "passed",
+      "location": {
+        "path": "test-results/gtest.xml",
+        "line": 4
+      }
+    },
+    {
+      "classname": "Shutdown",
+      "name": "DisablesPwmOnOvertemp",
+      "suite": "Shutdown",
+      "outcome": "failed",
+      "message": "tests/shutdown_test.cpp:9\nValue of: shutdown.pwm_enabled()\n  Actual: true\nExpected: false\n",
+      "location": {
+        "path": "test-results/gtest.xml",
+        "line": 7
+      }
+    },
+    {
+      "classname": "RelayDriverTest",
+      "name": "OpensOnEstop",
+      "suite": "RelayDriverTest",
+      "outcome": "passed",
+      "location": {
+        "path": "test-results/gtest.xml",
+        "line": 16
+      }
+    }
+  ],
+  "defects": [
+    {
+      "severity": "error",
+      "message": "dsn~motor.temp-monitor-r5t1~1: covers outdated revision swr~motor.overtemp-shutdown-k4f2~1 (current revision: 2)",
+      "location": {
+        "path": "reqs/design.md",
+        "line": 12
+      }
+    },
+    {
+      "severity": "error",
+      "message": "swr~motor.overtemp-warning-p8n5~1: not covered by required type 'dsn'",
+      "location": {
+        "path": "reqs/software.md",
+        "line": 20
+      }
+    },
+    {
+      "severity": "error",
+      "message": "tag [impl->dsn~motor.fault-log-z2d8~1]: unknown target dsn~motor.fault-log-z2d8~1",
+      "location": {
+        "path": "src/fault_log.cpp",
+        "line": 3
+      }
+    },
+    {
+      "severity": "error",
+      "message": "test Shutdown.DisablesPwmOnOvertemp failed",
+      "location": {
+        "path": "tests/shutdown_test.cpp",
+        "line": 5
+      }
+    }
+  ]
+}

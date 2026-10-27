@@ -97,8 +97,10 @@ pub struct TestRun {
     pub test: Option<String>,
     /// The combined outcome.
     pub verdict: Verdict,
-    /// Where the matching results are in the JUnit files.
-    pub results: Vec<Location>,
+    /// The matching results, as ascending indices into the results passed
+    /// to [`evaluate`]: unlike locations, they also tell apart the results
+    /// of a JUnit file written on one line.
+    pub results: Vec<usize>,
 }
 
 /// Combined outcome of the results of a test.
@@ -213,7 +215,13 @@ pub fn evaluate(
             verdict,
             results: matched
                 .iter()
-                .map(|result| result.location.clone())
+                .map(|&result| {
+                    results
+                        .element_offset(result)
+                        .expect("matched results come from `results`")
+                })
+                .collect::<BTreeSet<_>>()
+                .into_iter()
                 .collect(),
         });
     }

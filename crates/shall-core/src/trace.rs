@@ -95,8 +95,15 @@ pub struct Link {
     pub kind: LinkKind,
     /// The item that contains the link.
     pub source: ItemId,
+    /// Where the source item is defined, which tells copies of a
+    /// duplicate ID apart.
+    pub source_location: Location,
     /// The target as written, including the linked revision.
     pub target: ItemId,
+    /// Where the target is defined, if exactly one item has its type and
+    /// name, whatever its revision or status; none for
+    /// [`LinkStatus::Unknown`] and [`LinkStatus::Ambiguous`].
+    pub target_location: Option<Location>,
     /// Where the link is written.
     pub location: Location,
     /// Whether and why the link is valid or not.
@@ -240,10 +247,19 @@ pub fn trace(items: &[Item], config: &Config) -> Trace {
                     message,
                 ));
             }
+            let target_location = match copies
+                .get(&(link.id.typ().as_str(), link.id.name()))
+                .map(Vec::as_slice)
+            {
+                Some([target]) => Some(items[*target].location.clone()),
+                _ => None,
+            };
             links.push(Link {
                 kind,
                 source: item.id.clone(),
+                source_location: item.location.clone(),
                 target: link.id.clone(),
+                target_location,
                 location: item.location.with_line(link.line),
                 status,
             });

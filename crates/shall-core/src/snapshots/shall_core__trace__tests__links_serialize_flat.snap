@@ -4,7 +4,13 @@ expression: trace.links
 ---
 - kind: covers
   source: swr~b~1
+  source_location:
+    path: x.md
+    line: 4
   target: sys~a~1
+  target_location:
+    path: x.md
+    line: 1
   location:
     path: x.md
     line: 7

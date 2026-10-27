@@ -3,11 +3,11 @@
 mod check;
 mod new;
 mod project;
+mod report;
 
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use anyhow::bail;
 use clap::{Parser, Subcommand};
 
 /// Specifications Hooked to Actual Lines of Logic: requirements-as-code
@@ -36,12 +36,18 @@ enum Command {
         #[arg(long, value_enum, default_value_t = check::Mode::Report)]
         mode: check::Mode,
     },
-    /// Write the HTML/PDF report as static files.
+    /// Write the traced project as static files into the output directory.
+    ///
+    /// Writes `trace.json`, the whole graph as JSON; the HTML report is
+    /// planned. Prints the summary of `shall check` to stderr; defects do
+    /// not change the exit code.
     Report {
-        /// Project directory containing `shall.toml`.
+        /// A directory in the project; the project root is the closest
+        /// directory at or above it with a `shall.toml`.
         #[arg(default_value = ".")]
         path: PathBuf,
-        /// Output directory.
+        /// Output directory, created if missing; relative to the current
+        /// directory.
         #[arg(long, default_value = "site")]
         out: PathBuf,
     },
@@ -87,7 +93,7 @@ fn main() -> ExitCode {
 fn run(command: Command) -> anyhow::Result<ExitCode> {
     match command {
         Command::Check { path, mode } => check::run(&check::CheckArgs { path, mode }),
-        Command::Report { .. } => bail!("`shall report` is not implemented yet (plan: M5)"),
+        Command::Report { path, out } => report::run(&report::ReportArgs { path, out }),
         Command::New {
             typ,
             title,

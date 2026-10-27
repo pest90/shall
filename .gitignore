@@ -27,3 +27,6 @@ tarpaulin-report.html
 # OS
 .DS_Store
 Thumbs.db
+
+# Output of shall report
+site/
