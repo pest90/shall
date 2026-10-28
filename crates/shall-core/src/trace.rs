@@ -9,12 +9,24 @@
 //! An item needs the types of its own `Needs:`; without them, the `needs`
 //! of its level. Without any `[[level]]`, only `Needs:` of items apply.
 //!
+//! `Satisfied-by:` is a `Covers:` link written the other way round: the
+//! target covers the item that contains the link. An item with
+//! `Satisfied-by:` needs the types of its targets plus its own `Needs:`,
+//! but not the `needs` of its level, since a reused item takes the place
+//! of the levels below. The target's type must be one of the `targets` of
+//! `[satisfied_by]` in `shall.toml`; a `fallback` type is valid with a
+//! warning. Without any `[[level]]`, every type is allowed. Only allowed
+//! types become needs; without any, the item needs what it would without
+//! `Satisfied-by:`, so a link to a disallowed type neither creates a need
+//! nor hides one.
+//!
 //! A `Covers:` link is valid when its target exists once, in exactly the
 //! linked revision, is not rejected, and needs the type of the linking
 //! item. Every other link is a defect at the line of the link and does
 //! not count as coverage; [`LinkStatus`] lists the cases. `Depends:` links
 //! are checked the same way, except for the needed type, and never count
-//! as coverage.
+//! as coverage; `Satisfied-by:` links are checked against `[satisfied_by]`
+//! instead of the needed type.
 //!
 //! Only root causes are defects:
 //!
@@ -27,8 +39,9 @@
 //!
 //! A type is known if it is a level, needed by a level or a verification
 //! type in `shall.toml`. An item of an unknown type is an error; a type
-//! known only from the `Needs:` of items gets a warning, since it is often
-//! a typo. Without any `[[level]]`, types are not checked.
+//! known only from the `Needs:` or `Satisfied-by:` of items gets a
+//! warning, since it is often a typo. Without any `[[level]]`, types are
+//! not checked.
 
 use std::collections::{HashMap, HashSet, VecDeque};
 
@@ -45,8 +58,8 @@ use crate::item::{Item, Location, Origin, Reference, Status};
 pub struct Trace {
     /// Every item, ordered by location.
     pub items: Vec<TracedItem>,
-    /// Every `Covers:` and `Depends:` link of items that are not rejected,
-    /// ordered by location.
+    /// Every `Covers:`, `Depends:` and `Satisfied-by:` link of items that
+    /// are not rejected, ordered by location.
     pub links: Vec<Link>,
     /// Defects, ordered by location.
     pub defects: Vec<Diagnostic>,
@@ -61,8 +74,8 @@ pub struct TracedItem {
     pub location: Location,
     /// The item's status.
     pub status: Status,
-    /// Types the item needs, from `Needs:` or its level; empty for rejected
-    /// items.
+    /// Types the item needs, from `Needs:` and `Satisfied-by:` or from its
+    /// level; empty for rejected items.
     pub needs: Vec<ItemType>,
     /// Items that cover this item with a valid link, ordered by location.
     pub covered_by: Vec<ItemRef>,
@@ -96,7 +109,7 @@ pub struct ItemRef {
 /// A link from one item to another.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Link {
-    /// `Covers:` or `Depends:`.
+    /// `Covers:`, `Depends:` or `Satisfied-by:`.
     pub kind: LinkKind,
     /// The item that contains the link.
     pub source: ItemId,
@@ -124,6 +137,9 @@ pub enum LinkKind {
     Covers,
     /// `Depends:`: a lateral dependency without effect on coverage.
     Depends,
+    /// `Satisfied-by:`: the target covers the source, e.g. a platform
+    /// capability meets a customer requirement.
+    SatisfiedBy,
 }
 
 /// Status of a [`Link`]. Only [`LinkStatus::Valid`] links count.
@@ -150,6 +166,9 @@ pub enum LinkStatus {
     Rejected,
     /// The target does not need the type of the source (`Covers:` only).
     Unwanted,
+    /// The target's type is neither a target nor a fallback of
+    /// `[satisfied_by]` (`Satisfied-by:` only).
+    Disallowed,
 }
 
 /// Traces `items` against the levels of `config`.
@@ -232,7 +251,7 @@ pub fn trace(items: &[Item], config: &Config) -> Trace {
             defects.push(Diagnostic::warning(
                 item.location.clone(),
                 format!(
-                    "{subject}: type '{typ}' is only known from Needs: of items; \
+                    "{subject}: type '{typ}' is only known from Needs: or Satisfied-by: of items; \
                          add it to shall.toml if it is no typo"
                 ),
             ));
@@ -241,11 +260,16 @@ pub fn trace(items: &[Item], config: &Config) -> Trace {
             .covers
             .iter()
             .map(|link| (LinkKind::Covers, link))
-            .chain(item.depends.iter().map(|link| (LinkKind::Depends, link)));
+            .chain(item.depends.iter().map(|link| (LinkKind::Depends, link)))
+            .chain(
+                item.satisfied_by
+                    .iter()
+                    .map(|link| (LinkKind::SatisfiedBy, link)),
+            );
         for (kind, link) in all_links {
             let resolved = resolve(&copies, &items, &rejected, link);
-            let status = match resolved {
-                Ok(target) if kind == LinkKind::Covers => {
+            let status = match (kind, resolved) {
+                (LinkKind::Covers, Ok(target)) => {
                     if needs[target].contains(item.id.typ()) {
                         covered_by[target].push(source);
                         LinkStatus::Valid
@@ -253,10 +277,45 @@ pub fn trace(items: &[Item], config: &Config) -> Trace {
                         LinkStatus::Unwanted
                     }
                 }
-                Ok(_) => LinkStatus::Valid,
-                Err(status) => status,
+                (LinkKind::SatisfiedBy, Ok(target)) => {
+                    let allowed = &config.satisfied_by;
+                    let target_type = link.id.typ();
+                    if config.levels.is_empty() || allowed.targets.contains(target_type) {
+                        covered_by[source].push(target);
+                        LinkStatus::Valid
+                    } else if allowed.fallback.contains(target_type) {
+                        covered_by[source].push(target);
+                        let prefer = if allowed.targets.is_empty() {
+                            String::new()
+                        } else {
+                            format!("; prefer {}", type_list(&allowed.targets))
+                        };
+                        defects.push(Diagnostic::warning(
+                            item.location.with_line(link.line),
+                            format!(
+                                "{subject}: is satisfied by {}, whose type '{target_type}' \
+                                 is only a fallback{prefer}",
+                                link.id,
+                            ),
+                        ));
+                        LinkStatus::Valid
+                    } else {
+                        LinkStatus::Disallowed
+                    }
+                }
+                (LinkKind::Depends, Ok(_)) => LinkStatus::Valid,
+                (_, Err(status)) => status,
             };
-            if let Some(message) = link_message(kind, item, link, status) {
+            if let Some(mut message) = link_message(kind, item, link, status, config) {
+                if let (LinkStatus::Unwanted, Ok(target)) = (status, resolved)
+                    && needed_without_satisfied_by(items[target], item.id.typ(), config)
+                {
+                    message.push_str(&format!(
+                        "; Satisfied-by: replaces the needs of its level, \
+                         add 'Needs: {}' to it to refine it in the project",
+                        item.id.typ()
+                    ));
+                }
                 defects.push(Diagnostic::error(
                     item.location.with_line(link.line),
                     message,
@@ -352,15 +411,44 @@ fn subject(item: &Item) -> String {
     }
 }
 
-/// Types the item needs: its own `Needs:`, or else those of its level.
+/// Types the item needs: its own `Needs:` and the types of its
+/// `Satisfied-by:` targets, or else those of its level.
+///
+/// Only allowed target types count, so that a link of a wrong type cannot
+/// turn that type into a need; if no target has an allowed type, the item
+/// needs what it would without `Satisfied-by:`.
 fn effective_needs(item: &Item, config: &Config) -> Vec<ItemType> {
-    if !item.needs.is_empty() {
-        return item.needs.clone();
+    let mut needs = item.needs.clone();
+    for link in &item.satisfied_by {
+        let typ = link.id.typ();
+        if satisfied_by_allows(config, typ) && !needs.contains(typ) {
+            needs.push(typ.clone());
+        }
+    }
+    if !needs.is_empty() {
+        return needs;
     }
     config
         .level(item.id.typ())
         .map(|level| level.needs.clone())
         .unwrap_or_default()
+}
+
+/// Whether `Satisfied-by:` may name items of the type: a target or a
+/// fallback of `[satisfied_by]`, or any type without levels.
+fn satisfied_by_allows(config: &Config, typ: &ItemType) -> bool {
+    let allowed = &config.satisfied_by;
+    config.levels.is_empty() || allowed.targets.contains(typ) || allowed.fallback.contains(typ)
+}
+
+/// Whether a `Covers:` link of type `typ` is unwanted only because the
+/// target's `Satisfied-by:` replaces the needs of its level.
+fn needed_without_satisfied_by(target: &Item, typ: &ItemType, config: &Config) -> bool {
+    !target.satisfied_by.is_empty()
+        && target.needs.is_empty()
+        && config
+            .level(target.id.typ())
+            .is_some_and(|level| level.needs.contains(typ))
 }
 
 /// Finds the single target of a link in the linked revision.
@@ -398,10 +486,12 @@ fn link_message(
     item: &Item,
     link: &Reference,
     status: LinkStatus,
+    config: &Config,
 ) -> Option<String> {
     let verb = match kind {
         LinkKind::Covers => "covers",
         LinkKind::Depends => "depends on",
+        LinkKind::SatisfiedBy => "is satisfied by",
     };
     let target = &link.id;
     // The ID of a tag's item is generated, so its defects name the tag as
@@ -426,8 +516,29 @@ fn link_message(
             "{verb} {target}, which does not need type '{}'",
             item.id.typ()
         ),
+        LinkStatus::Disallowed => format!(
+            "{verb} {target}, but type '{}' is no target of [satisfied_by]; allowed: {}",
+            target.typ(),
+            type_list(
+                config
+                    .satisfied_by
+                    .targets
+                    .iter()
+                    .chain(&config.satisfied_by.fallback)
+            )
+        ),
     };
     Some(format!("{subject}: {problem}"))
+}
+
+/// Lists types for a message, e.g. `'cap', 'swr'`.
+fn type_list<'a>(types: impl IntoIterator<Item = &'a ItemType>) -> String {
+    let types: Vec<String> = types.into_iter().map(|typ| format!("'{typ}'")).collect();
+    if types.is_empty() {
+        "none".to_owned()
+    } else {
+        types.join(", ")
+    }
 }
 
 /// Computes deep coverage and reports coverage cycles.
@@ -805,7 +916,7 @@ Covers:
         assert_eq!(
             messages(&trace),
             [
-                "x.md:8: itest~y~0: type 'itest' is only known from Needs: of items; \
+                "x.md:8: itest~y~0: type 'itest' is only known from Needs: or Satisfied-by: of items; \
                  add it to shall.toml if it is no typo",
                 "x.md:16: req~u~1: type 'req' is not a level, a verification type or needed by any item",
             ]
@@ -905,7 +1016,7 @@ Covers:
         assert_eq!(
             messages(&trace),
             [
-                "x.md:4: imlp~x~0: type 'imlp' is only known from Needs: of items; \
+                "x.md:4: imlp~x~0: type 'imlp' is only known from Needs: or Satisfied-by: of items; \
               add it to shall.toml if it is no typo"
             ]
         );
@@ -1085,5 +1196,332 @@ Covers:
             .unwrap();
         assert_eq!(trace.defects.len(), 1, "only the last item lacks coverage");
         assert!(trace.items.iter().all(|item| !item.deep_covered));
+    }
+
+    const PLATFORM: &str = r#"
+[[level]]
+type = "hlr"
+name = "Customer"
+needs = ["swr"]
+
+[[level]]
+type = "cap"
+name = "Capabilities"
+needs = ["impl"]
+
+[[level]]
+type = "swr"
+name = "Software"
+needs = ["impl"]
+
+[satisfied_by]
+fallback = ["swr"]
+"#;
+
+    fn run_platform(text: &str) -> Trace {
+        run_files(&[("x.md", text)], PLATFORM)
+    }
+
+    #[test]
+    fn satisfied_by_covers_the_source() {
+        let trace = run_platform(
+            "\
+`hlr~a~1`
+Satisfied-by:
+- cap~c~1
+
+`cap~c~1`
+
+`impl~i~0`
+Covers:
+- cap~c~1
+",
+        );
+        assert_eq!(messages(&trace), Vec::<String>::new());
+        let a = item(&trace, "hlr~a~1");
+        // The level's `swr` is not needed: the capability takes its place.
+        assert_eq!(a.needs, ["cap".parse::<ItemType>().unwrap()]);
+        assert_eq!(a.covered_by[0].id.to_string(), "cap~c~1");
+        assert!(a.covered && a.deep_covered);
+        assert_eq!(
+            item(&trace, "cap~c~1").covered_by[0].id.to_string(),
+            "impl~i~0"
+        );
+        let link = &trace.links[0];
+        assert_eq!(link.kind, LinkKind::SatisfiedBy);
+        assert_eq!(link.source.to_string(), "hlr~a~1");
+        assert_eq!(link.status, LinkStatus::Valid);
+        assert_eq!(link.location.to_string(), "x.md:3");
+        assert_eq!(link.target_location.as_ref().unwrap().to_string(), "x.md:5");
+        let json = serde_json::to_value(link).unwrap();
+        assert_eq!(json["kind"], "satisfied_by");
+    }
+
+    #[test]
+    fn satisfied_by_adds_to_own_needs() {
+        let trace = run_platform(
+            "\
+`hlr~a~1`
+Needs: swr
+Satisfied-by:
+- cap~c~1
+
+`cap~c~1`
+Needs: impl
+
+`impl~i~0`
+Covers:
+- cap~c~1
+",
+        );
+        assert_eq!(
+            messages(&trace),
+            ["x.md:1: hlr~a~1: not covered by required type 'swr'"]
+        );
+        let a = item(&trace, "hlr~a~1");
+        assert_eq!(a.needs.len(), 2);
+        assert_eq!(a.missing[0].as_str(), "swr");
+    }
+
+    #[test]
+    fn satisfied_by_checks_the_target_type() {
+        let trace = run_platform(
+            "\
+`hlr~a~1`
+Satisfied-by:
+- swr~s~1
+
+`hlr~b~1`
+Satisfied-by:
+- hlr~a~1
+
+`swr~s~1`
+
+`impl~i~0`
+Covers:
+- swr~s~1
+",
+        );
+        assert_eq!(
+            messages(&trace),
+            [
+                "x.md:3: hlr~a~1: is satisfied by swr~s~1, whose type 'swr' is only a \
+                 fallback; prefer 'cap'",
+                // A disallowed type is no need; the level's need applies.
+                "x.md:5: hlr~b~1: not covered by required type 'swr'",
+                "x.md:7: hlr~b~1: is satisfied by hlr~a~1, but type 'hlr' is no target of \
+                 [satisfied_by]; allowed: 'cap', 'swr'",
+            ]
+        );
+        assert_eq!(
+            trace.defects[0].severity,
+            crate::diagnostic::Severity::Warning
+        );
+        assert!(item(&trace, "hlr~a~1").deep_covered);
+        assert_eq!(
+            statuses(&trace),
+            [
+                ("swr~s~1".to_owned(), LinkStatus::Valid),
+                ("hlr~a~1".to_owned(), LinkStatus::Disallowed),
+                ("swr~s~1".to_owned(), LinkStatus::Valid),
+            ]
+        );
+    }
+
+    #[test]
+    fn satisfied_by_reports_invalid_targets() {
+        let trace = run_platform(
+            "\
+`hlr~a~1`
+Satisfied-by:
+- cap~c~1
+- cap~gone~1
+- cap~old~1
+
+`cap~c~2`
+Needs: impl
+
+`cap~old~1`
+Status: rejected
+",
+        );
+        assert_eq!(
+            messages(&trace),
+            [
+                "x.md:1: hlr~a~1: not covered by required type 'cap'",
+                "x.md:3: hlr~a~1: is satisfied by outdated revision cap~c~1 (current revision: 2)",
+                "x.md:4: hlr~a~1: is satisfied by unknown item cap~gone~1",
+                "x.md:5: hlr~a~1: is satisfied by rejected item cap~old~1",
+                "x.md:7: cap~c~2: not covered by required type 'impl'",
+            ]
+        );
+    }
+
+    #[test]
+    fn satisfied_by_needs_the_target_deep_covered() {
+        let trace = run_platform("`hlr~a~1`\nSatisfied-by:\n- cap~c~1\n\n`cap~c~1`\n");
+        // Only the root cause, the uncovered capability, is a defect.
+        assert_eq!(
+            messages(&trace),
+            ["x.md:5: cap~c~1: not covered by required type 'impl'"]
+        );
+        let a = item(&trace, "hlr~a~1");
+        assert!(a.covered);
+        assert!(!a.deep_covered);
+    }
+
+    #[test]
+    fn satisfied_by_can_close_a_cycle() {
+        let trace = run_platform(
+            "`cap~a~1`\nSatisfied-by:\n- cap~b~1\n\n`cap~b~1`\nSatisfied-by:\n- cap~a~1\n",
+        );
+        assert_eq!(
+            messages(&trace),
+            ["x.md:1: cap~a~1: coverage cycle cap~a~1 <- cap~b~1 <- cap~a~1"]
+        );
+        assert!(
+            trace
+                .items
+                .iter()
+                .all(|item| item.covered && !item.deep_covered)
+        );
+    }
+
+    #[test]
+    fn satisfied_by_of_rejected_items_is_ignored() {
+        let trace = run_platform("`hlr~a~1`\nStatus: rejected\nSatisfied-by:\n- cap~gone~1\n");
+        assert_eq!(messages(&trace), Vec::<String>::new());
+        assert!(trace.links.is_empty());
+    }
+
+    #[test]
+    fn without_levels_satisfied_by_accepts_every_type() {
+        let trace = run_files(
+            &[("x.md", "`req~a~1`\nSatisfied-by:\n- dsn~b~1\n\n`dsn~b~1`\n")],
+            "",
+        );
+        assert_eq!(messages(&trace), Vec::<String>::new());
+        assert!(item(&trace, "req~a~1").deep_covered);
+    }
+
+    #[test]
+    fn satisfied_by_target_types_are_known_from_items() {
+        let trace = run("`sys~a~1`\nSatisfied-by:\n- cap~c~1\n\n`cap~c~1`\n");
+        assert_eq!(
+            messages(&trace),
+            [
+                "x.md:5: cap~c~1: type 'cap' is only known from Needs: or Satisfied-by: of \
+                 items; add it to shall.toml if it is no typo"
+            ]
+        );
+    }
+
+    #[test]
+    fn disallowed_and_unknown_types_are_no_needs() {
+        let trace = run_platform(
+            "\
+`hlr~a~1`
+Satisfied-by:
+- hlr~b~1
+- cpa~typo~1
+
+`hlr~b~1`
+Needs: cap
+
+`hlr~z~1`
+Needs: cap
+Covers:
+- hlr~a~1
+",
+        );
+        assert_eq!(
+            messages(&trace),
+            [
+                // The level's need still applies.
+                "x.md:1: hlr~a~1: not covered by required type 'swr'",
+                "x.md:3: hlr~a~1: is satisfied by hlr~b~1, but type 'hlr' is no target of \
+                 [satisfied_by]; allowed: 'cap', 'swr'",
+                "x.md:4: hlr~a~1: is satisfied by unknown item cpa~typo~1",
+                "x.md:6: hlr~b~1: not covered by required type 'cap'",
+                "x.md:9: hlr~z~1: not covered by required type 'cap'",
+                "x.md:12: hlr~z~1: covers hlr~a~1, which does not need type 'hlr'",
+            ]
+        );
+        assert_eq!(item(&trace, "hlr~a~1").needs[0].as_str(), "swr");
+    }
+
+    #[test]
+    fn covers_into_a_satisfied_item_needs_its_own_needs() {
+        let trace = run_platform(
+            "\
+`hlr~a~1`
+Satisfied-by:
+- cap~c~1
+
+`cap~c~1`
+Needs: impl
+
+`swr~s~1`
+Needs: impl
+Covers:
+- hlr~a~1
+
+`impl~i~0`
+Covers:
+- cap~c~1
+- swr~s~1
+",
+        );
+        assert_eq!(
+            messages(&trace),
+            [
+                "x.md:11: swr~s~1: covers hlr~a~1, which does not need type 'swr'; \
+              Satisfied-by: replaces the needs of its level, add 'Needs: swr' to it to \
+              refine it in the project"
+            ]
+        );
+    }
+
+    #[test]
+    fn fallback_without_targets_prefers_nothing() {
+        let config = format!(
+            "{}\n[satisfied_by]\ntargets = []\nfallback = [\"swr\"]\n",
+            PLATFORM.replace("[satisfied_by]\nfallback = [\"swr\"]\n", "")
+        );
+        let trace = run_files(
+            &[(
+                "x.md",
+                "`hlr~a~1`\nSatisfied-by:\n- swr~s~1\n\n`swr~s~1`\nNeeds: impl\n\n`impl~i~0`\nCovers:\n- swr~s~1\n",
+            )],
+            &config,
+        );
+        assert_eq!(
+            messages(&trace),
+            ["x.md:3: hlr~a~1: is satisfied by swr~s~1, whose type 'swr' is only a fallback"]
+        );
+    }
+
+    #[test]
+    fn own_needs_get_no_satisfied_by_hint() {
+        let trace = run_platform(
+            "\
+`hlr~a~1`
+Needs: impl
+Satisfied-by:
+- cap~c~1
+
+`swr~s~1`
+Covers:
+- hlr~a~1
+",
+        );
+        let unwanted: Vec<String> = messages(&trace)
+            .into_iter()
+            .filter(|message| message.contains("does not need"))
+            .collect();
+        assert_eq!(
+            unwanted,
+            ["x.md:8: swr~s~1: covers hlr~a~1, which does not need type 'swr'"]
+        );
     }
 }

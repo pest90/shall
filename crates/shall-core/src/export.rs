@@ -14,8 +14,8 @@
 //!   coverage from [`trace`](crate::trace), whether it is
 //!   [verified](crate::verify) and, for verification tags, its test and
 //!   verdict from [`results`](crate::results);
-//! - `links`: every `Covers:` and `Depends:` link of items that are not
-//!   rejected, with its status;
+//! - `links`: every `Covers:`, `Depends:` and `Satisfied-by:` link of
+//!   items that are not rejected, with its status;
 //! - `test_results`: every test case read from the JUnit files, also those
 //!   without a tag, or `null` if `[sources]` has no `junit` patterns;
 //! - `defects`: every diagnostic, as `shall check` prints them.
@@ -25,7 +25,7 @@ use serde::Serialize;
 use crate::config::Config;
 use crate::diagnostic::{Diagnostic, Severity};
 use crate::id::{ItemId, ItemType};
-use crate::item::{Item, Location, Origin, Status};
+use crate::item::{Item, Location, Origin, Param, Status};
 use crate::junit::{Outcome, TestResult};
 use crate::results::{Evaluation, Verdict};
 use crate::trace::{ItemRef, Link, Trace};
@@ -106,6 +106,8 @@ pub struct ItemEntry<'a> {
     pub tags: &'a [String],
     /// `Source:`.
     pub source: Option<&'a str>,
+    /// `Params:`: parameter values for the item's `Satisfied-by:` links.
+    pub params: &'a [Param],
     /// Where the item is defined.
     pub location: &'a Location,
     /// Requirement file or tag, with the tag's text and test definition.
@@ -270,6 +272,7 @@ fn entry<'a>(joined: &Joined<'a>, verified: bool) -> ItemEntry<'a> {
         status: item.status,
         tags: &item.tags,
         source: item.source.as_deref(),
+        params: &item.params,
         location: &item.location,
         origin: &item.origin,
         needs: &traced.needs,

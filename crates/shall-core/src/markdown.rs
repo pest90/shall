@@ -26,10 +26,27 @@
 //!
 //! Text between the ID and the first keyword is the description; an
 //! explicit `Description:` is allowed. `Rationale:` and `Comment:` take
-//! the text that follows them, `Covers:` and `Depends:` a bullet list of
-//! IDs, `Needs:` and `Tags:` a comma-separated list on the same line or a
+//! the text that follows them, `Covers:`, `Depends:` and `Satisfied-by:` a
+//! bullet list of IDs, `Params:` a bullet list of `name = value` entries,
+//! `Needs:` and `Tags:` a comma-separated list on the same line or a
 //! bullet list, and `Status:` and `Source:` a value on the same line. Lines
 //! inside fenced code blocks are never IDs or keywords.
+//!
+//! `Satisfied-by:` and `Params:` are extensions of shall, unknown to OFT:
+//!
+//! ```markdown
+//! ## Shut down the drive on overtemperature
+//! `hlr~customer-a.overtemp-c3x9~1`
+//!
+//! Satisfied-by:
+//! - cap~motor.overtemp-protection-h6w2~1
+//!
+//! Params:
+//! - motor.shutdown_time_ms = 100
+//! ```
+//!
+//! `Params:` without `Satisfied-by:` gets a warning, since the parameters
+//! then belong to no link.
 //!
 //! Known differences from OFT, relevant for cross-checks with OFT:
 //!
@@ -46,7 +63,7 @@ use std::path::Path;
 
 use crate::diagnostic::Diagnostic;
 use crate::id::{ItemId, ItemType};
-use crate::item::{Item, Location, LocationError, Origin, Reference, Status};
+use crate::item::{Item, Location, LocationError, Origin, Param, Reference, Status};
 
 /// Items and diagnostics read from one Markdown file.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
@@ -96,6 +113,8 @@ enum Keyword {
     Comment,
     Covers,
     Depends,
+    SatisfiedBy,
+    Params,
     Needs,
     Tags,
     Status,
@@ -103,12 +122,14 @@ enum Keyword {
 }
 
 impl Keyword {
-    const ALL: [Keyword; 9] = [
+    const ALL: [Keyword; 11] = [
         Keyword::Description,
         Keyword::Rationale,
         Keyword::Comment,
         Keyword::Covers,
         Keyword::Depends,
+        Keyword::SatisfiedBy,
+        Keyword::Params,
         Keyword::Needs,
         Keyword::Tags,
         Keyword::Status,
@@ -122,6 +143,8 @@ impl Keyword {
             Keyword::Comment => "Comment",
             Keyword::Covers => "Covers",
             Keyword::Depends => "Depends",
+            Keyword::SatisfiedBy => "Satisfied-by",
+            Keyword::Params => "Params",
             Keyword::Needs => "Needs",
             Keyword::Tags => "Tags",
             Keyword::Status => "Status",
@@ -149,8 +172,7 @@ enum Section {
     Description,
     Rationale,
     Comment,
-    /// Bullet list of IDs or types after `Covers:`, `Depends:`, `Needs:`
-    /// or `Tags:`.
+    /// Bullet list after a list keyword such as `Covers:` or `Params:`.
     List(Keyword),
     /// After a keyword whose value is complete; further text belongs to
     /// the description.
@@ -173,6 +195,8 @@ struct ItemBuilder {
     needs: Vec<ItemType>,
     covers: Vec<Reference>,
     depends: Vec<Reference>,
+    satisfied_by: Vec<Reference>,
+    params: Vec<Param>,
     tags: Vec<String>,
     source: Option<String>,
     section: Section,
@@ -368,6 +392,8 @@ impl Parser {
             needs: Vec::new(),
             covers: Vec::new(),
             depends: Vec::new(),
+            satisfied_by: Vec::new(),
+            params: Vec::new(),
             tags: Vec::new(),
             source: None,
             section: Section::Description,
@@ -427,13 +453,18 @@ impl Parser {
                     item.source = Some(value.to_owned());
                 }
             }
-            Keyword::Covers | Keyword::Depends => {
+            Keyword::Covers | Keyword::Depends | Keyword::SatisfiedBy | Keyword::Params => {
                 item.section = Section::List(keyword);
                 if !value.is_empty() {
+                    let entries = if keyword == Keyword::Params {
+                        "'name = value' entries"
+                    } else {
+                        "IDs"
+                    };
                     self.error(
                         number,
                         format!(
-                            "'{}:' expects a list of IDs in the following lines",
+                            "'{}:' expects a list of {entries} in the following lines",
                             keyword.as_str()
                         ),
                     );
@@ -453,6 +484,10 @@ impl Parser {
     }
 
     fn list_entry(&mut self, number: usize, keyword: Keyword, entry: &str) {
+        if keyword == Keyword::Params {
+            self.param(number, entry);
+            return;
+        }
         let entry = match keyword {
             Keyword::Tags => strip_backticks(entry.trim()),
             _ => reference(entry),
@@ -463,19 +498,21 @@ impl Parser {
         }
         let item = self.item.as_mut().expect("lists only exist in items");
         let added = match keyword {
-            Keyword::Covers | Keyword::Depends => entry.parse::<ItemId>().map(|id| {
-                let references = if keyword == Keyword::Covers {
-                    &mut item.covers
-                } else {
-                    &mut item.depends
-                };
-                let new = !references.iter().any(|existing| existing.id == id);
-                if new {
-                    let line = to_u32(number);
-                    references.push(Reference { id, line });
-                }
-                new
-            }),
+            Keyword::Covers | Keyword::Depends | Keyword::SatisfiedBy => {
+                entry.parse::<ItemId>().map(|id| {
+                    let references = match keyword {
+                        Keyword::Covers => &mut item.covers,
+                        Keyword::Depends => &mut item.depends,
+                        _ => &mut item.satisfied_by,
+                    };
+                    let new = !references.iter().any(|existing| existing.id == id);
+                    if new {
+                        let line = to_u32(number);
+                        references.push(Reference { id, line });
+                    }
+                    new
+                })
+            }
             Keyword::Needs => entry.parse::<ItemType>().map(|typ| {
                 let new = !item.needs.contains(&typ);
                 if new {
@@ -502,9 +539,59 @@ impl Parser {
         }
     }
 
+    /// Reads an entry of `Params:` such as `motor.shutdown_time_ms = 100`.
+    fn param(&mut self, number: usize, entry: &str) {
+        // Backticks may enclose the whole entry or its name and value.
+        let entry = unquote(entry);
+        let parsed = entry
+            .split_once('=')
+            .map(|(name, value)| (unquote(name).to_owned(), unquote(value).to_owned()))
+            .filter(|(name, value)| {
+                !name.is_empty()
+                    && !name.contains(|c: char| c.is_whitespace() || c == '`')
+                    && !value.is_empty()
+            });
+        let Some((name, value)) = parsed else {
+            self.error(
+                number,
+                format!("expected 'name = value' in 'Params:', found '{entry}'"),
+            );
+            return;
+        };
+        let item = self.item.as_mut().expect("lists only exist in items");
+        if let Some(first) = item.params.iter().find(|param| param.name == *name) {
+            if first.value == value {
+                self.warning(number, format!("duplicate entry '{entry}' in 'Params:'"));
+            } else {
+                let first = first.line;
+                self.error(
+                    number,
+                    format!("parameter '{name}' is already set in line {first}"),
+                );
+            }
+            return;
+        }
+        item.params.push(Param {
+            name,
+            value,
+            line: to_u32(number),
+        });
+    }
+
     fn finish_item(&mut self) {
         self.flush_deferred();
         let Some(item) = self.item.take() else { return };
+        if !item.seen.contains_key(&Keyword::SatisfiedBy)
+            && let Some(&line) = item.seen.get(&Keyword::Params)
+        {
+            self.warning(
+                line,
+                format!(
+                    "{}: 'Params:' without 'Satisfied-by:'; the parameters belong to no link",
+                    item.id
+                ),
+            );
+        }
         let location = self.location(item.line);
         self.parsed.items.push(Item {
             id: item.id,
@@ -516,6 +603,8 @@ impl Parser {
             needs: item.needs,
             covers: item.covers,
             depends: item.depends,
+            satisfied_by: item.satisfied_by,
+            params: item.params,
             tags: item.tags,
             source: item.source,
             location,
@@ -676,6 +765,16 @@ fn reference(entry: &str) -> &str {
         .map_or(entry, |(text, _)| text);
     let token = entry.split_whitespace().next().unwrap_or("");
     strip_backticks(token)
+}
+
+/// Trims text and strips backticks around it, unless they are part of
+/// inline code inside, as in `` `a` or `b` ``.
+fn unquote(text: &str) -> &str {
+    let text = text.trim();
+    match strip_backticks(text) {
+        inner if !inner.contains('`') => inner.trim(),
+        _ => text,
+    }
 }
 
 fn strip_backticks(text: &str) -> &str {
@@ -1172,5 +1271,134 @@ Tags: safety critical, safety critical
         assert_eq!(edit_distance("neds", "needs"), 1);
         assert_eq!(edit_distance("rationle", "rationale"), 1);
         assert_eq!(edit_distance("", "abc"), 3);
+    }
+
+    #[test]
+    fn reads_satisfied_by_and_params() {
+        let parsed = parse_str(
+            "\
+## Shut down the drive on overtemperature
+`hlr~customer-a.overtemp-c3x9~1`
+
+Satisfied-by:
+- cap~motor.overtemp-protection-h6w2~1
+- [cap~motor.fault-log-u2v8~3](platform.md#log) (log entry)
+
+Params:
+- motor.shutdown_time_ms = 100
+- `motor.limit_c=85`
+- motor.message = over = temp
+- `motor.mode` = `eco`
+- motor.unit = `a` or `b`
+",
+        );
+        assert_eq!(messages(&parsed), Vec::<String>::new());
+        let item = &parsed.items[0];
+        let satisfied: Vec<(String, u32)> = item
+            .satisfied_by
+            .iter()
+            .map(|link| (link.id.to_string(), link.line))
+            .collect();
+        assert_eq!(
+            satisfied,
+            [
+                ("cap~motor.overtemp-protection-h6w2~1".to_owned(), 5),
+                ("cap~motor.fault-log-u2v8~3".to_owned(), 6),
+            ]
+        );
+        assert!(item.covers.is_empty());
+        let params: Vec<(&str, &str, u32)> = item
+            .params
+            .iter()
+            .map(|param| (param.name.as_str(), param.value.as_str(), param.line))
+            .collect();
+        assert_eq!(
+            params,
+            [
+                ("motor.shutdown_time_ms", "100", 9),
+                ("motor.limit_c", "85", 10),
+                ("motor.message", "over = temp", 11),
+                ("motor.mode", "eco", 12),
+                ("motor.unit", "`a` or `b`", 13),
+            ]
+        );
+        assert_eq!(item.description, "");
+    }
+
+    #[test]
+    fn reports_invalid_params() {
+        let parsed = parse_str(
+            "\
+`hlr~x~1`
+Satisfied-by: cap~y~1
+- cap~y~1
+- cap~y~1
+- cap~z
+Params: a = 1
+- a = 1
+- a = 2
+- b
+- = 3
+- c d = 4
+- e =
+- `f g` = 5
+- `a = 1`
+",
+        );
+        assert_eq!(
+            messages(&parsed),
+            [
+                "reqs/x.md:2: 'Satisfied-by:' expects a list of IDs in the following lines",
+                "reqs/x.md:4: duplicate entry 'cap~y~1' in 'Satisfied-by:'",
+                "reqs/x.md:5: invalid ID 'cap~z': expected 'typ~name~revision'",
+                "reqs/x.md:6: 'Params:' expects a list of 'name = value' entries in the following lines",
+                "reqs/x.md:8: parameter 'a' is already set in line 7",
+                "reqs/x.md:9: expected 'name = value' in 'Params:', found 'b'",
+                "reqs/x.md:10: expected 'name = value' in 'Params:', found '= 3'",
+                "reqs/x.md:11: expected 'name = value' in 'Params:', found 'c d = 4'",
+                "reqs/x.md:12: expected 'name = value' in 'Params:', found 'e ='",
+                "reqs/x.md:13: expected 'name = value' in 'Params:', found '`f g` = 5'",
+                "reqs/x.md:14: duplicate entry 'a = 1' in 'Params:'",
+            ]
+        );
+        assert_eq!(parsed.items[0].satisfied_by.len(), 1);
+        assert_eq!(parsed.items[0].params.len(), 1);
+        assert_eq!(parsed.items[0].params[0].value, "1");
+    }
+
+    #[test]
+    fn warns_about_params_without_satisfied_by() {
+        let parsed = parse_str(
+            "`hlr~x~1`\nNeeds: swr\n\nParams:\n- a = 1\n\n`hlr~y~1`\nParams:\n\n\
+             `hlr~z~1`\nSatisfied-by:\n- cap~nope\nParams:\n- a = 1\n",
+        );
+        assert_eq!(
+            messages(&parsed),
+            [
+                "reqs/x.md:4: hlr~x~1: 'Params:' without 'Satisfied-by:'; \
+                 the parameters belong to no link",
+                "reqs/x.md:8: hlr~y~1: 'Params:' without 'Satisfied-by:'; \
+                 the parameters belong to no link",
+                // Only the invalid entry, the keyword is there.
+                "reqs/x.md:12: invalid ID 'cap~nope': expected 'typ~name~revision'",
+            ]
+        );
+        assert_eq!(parsed.items[0].params.len(), 1);
+    }
+
+    #[test]
+    fn suggests_satisfied_by_for_misspellings() {
+        let parsed = parse_str("`hlr~x~1`\nSatisfied-By:\nsatisfied-by:\nParam:\n");
+        assert_eq!(
+            messages(&parsed),
+            [
+                "reqs/x.md:2: 'Satisfied-By:' is not a keyword, did you mean 'Satisfied-by:'? \
+                 The line is read as text",
+                "reqs/x.md:3: 'satisfied-by:' is not a keyword, did you mean 'Satisfied-by:'? \
+                 The line is read as text",
+                "reqs/x.md:4: 'Param:' is not a keyword, did you mean 'Params:'? \
+                 The line is read as text",
+            ]
+        );
     }
 }

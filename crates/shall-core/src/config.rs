@@ -26,6 +26,38 @@ pub struct Config {
     /// Files to read, from the `[sources]` table.
     #[serde(default)]
     pub sources: Sources,
+    /// Allowed targets of `Satisfied-by:`, from the `[satisfied_by]` table.
+    #[serde(default)]
+    pub satisfied_by: SatisfiedBy,
+}
+
+/// Types that items may name in `Satisfied-by:`.
+///
+/// Reused items are meant to be linked through a stable level, e.g. the
+/// capabilities of a platform, so that the platform can rework the levels
+/// below without affecting projects.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct SatisfiedBy {
+    /// Allowed types; `["cap"]` when not given.
+    #[serde(default = "default_targets")]
+    pub targets: Vec<ItemType>,
+    /// Types that are allowed too, but get a warning, e.g. software
+    /// requirements of a platform for a need no capability meets yet.
+    #[serde(default)]
+    pub fallback: Vec<ItemType>,
+}
+
+impl Default for SatisfiedBy {
+    fn default() -> Self {
+        Self {
+            targets: default_targets(),
+            fallback: Vec::new(),
+        }
+    }
+}
+
+fn default_targets() -> Vec<ItemType> {
+    vec!["cap".parse().expect("'cap' is a valid type")]
 }
 
 /// Glob patterns of the files to read, relative to the project root,
@@ -122,7 +154,8 @@ impl Config {
     /// Parses the contents of `shall.toml`.
     ///
     /// Two `[[level]]` tables with the same type are an error, since an
-    /// item's level would be ambiguous.
+    /// item's level would be ambiguous, and so is a type that is both a
+    /// target and a fallback of `[satisfied_by]`.
     pub fn parse(text: &str) -> Result<Self, ConfigError> {
         let config: Self = toml::from_str(text).map_err(|error| ConfigError(error.to_string()))?;
         let mut seen = std::collections::HashSet::new();
@@ -133,6 +166,16 @@ impl Config {
                     level.typ
                 )));
             }
+        }
+        let satisfied_by = &config.satisfied_by;
+        if let Some(typ) = satisfied_by
+            .fallback
+            .iter()
+            .find(|typ| satisfied_by.targets.contains(typ))
+        {
+            return Err(ConfigError(format!(
+                "type '{typ}' is both a target and a fallback of [satisfied_by]"
+            )));
         }
         Ok(config)
     }
@@ -199,6 +242,28 @@ junit = ["build/*.xml"]
         assert!(config.level(&typ("impl")).is_none());
         assert!(config.has_parents(&typ("dsn")));
         assert!(!config.has_parents(&typ("swr")));
+        assert_eq!(config.satisfied_by, SatisfiedBy::default());
+        assert_eq!(config.satisfied_by.targets, [typ("cap")]);
+    }
+
+    #[test]
+    fn reads_satisfied_by_targets() {
+        let config =
+            Config::parse("[satisfied_by]\ntargets = [\"feat\"]\nfallback = [\"swr\", \"dsn\"]\n")
+                .unwrap();
+        assert_eq!(config.satisfied_by.targets, [typ("feat")]);
+        assert_eq!(config.satisfied_by.fallback, [typ("swr"), typ("dsn")]);
+        let config = Config::parse("[satisfied_by]\nfallback = [\"swr\"]\n").unwrap();
+        assert_eq!(config.satisfied_by.targets, [typ("cap")]);
+    }
+
+    #[test]
+    fn rejects_satisfied_by_type_that_is_target_and_fallback() {
+        let error = Config::parse("[satisfied_by]\nfallback = [\"cap\"]\n").unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "invalid shall.toml: type 'cap' is both a target and a fallback of [satisfied_by]"
+        );
     }
 
     #[test]

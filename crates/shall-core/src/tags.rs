@@ -199,6 +199,8 @@ fn tag_items(
         needs: needs.clone(),
         covers,
         depends: Vec::new(),
+        satisfied_by: Vec::new(),
+        params: Vec::new(),
         tags: Vec::new(),
         source: None,
         location: location.clone(),

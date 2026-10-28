@@ -84,12 +84,17 @@ Keywords start at column 0 and are case-sensitive (`Needs:`, not
 | `Tags:` | comma-separated on the same line, or a bullet list |
 | `Covers:` | bullet list of the IDs this item refines (its parents) |
 | `Depends:` | bullet list of IDs this item depends on, without effect on coverage |
+| `Satisfied-by:` | bullet list of the IDs of reused items that meet this item, see [Reused items](#reused-items) |
+| `Params:` | bullet list of `name = value` entries: the parameter values with which the items of `Satisfied-by:` meet this item |
 | `Needs:` | types that must cover this item, comma-separated on the same line or as a bullet list |
 
-Bullet lists use `-`, `*` or `+`. Entries of `Covers:`, `Depends:` and
-`Needs:` may carry text after the ID or be a Markdown link, as in OFT:
-`- sys~x~1 (parent)` or `- [sys~x~1](system.md#x)`. Tags are taken as
-written, without backticks.
+Bullet lists use `-`, `*` or `+`. Entries of `Covers:`, `Depends:`,
+`Satisfied-by:` and `Needs:` may carry text after the ID or be a
+Markdown link, as in OFT: `- sys~x~1 (parent)` or
+`- [sys~x~1](system.md#x)`. Tags are taken as written, without
+backticks; so are the names and values of `Params:`, and an entry may
+be in backticks as a whole. `Satisfied-by:` and `Params:` are extensions of `shall`
+that OFT does not know.
 
 A bullet list continues, across blank lines, until the next keyword or
 the end of the item; other text in between is an error. Put lists last
@@ -109,6 +114,9 @@ The parser detects the following problems; `shall check` reports them.
   stays text)
 - wrong keyword values, duplicate single keywords, duplicate list entries
 - text in a bullet list that is no list entry
+- `Params:` entries that are not `name = value`, with a name without
+  spaces and a value; a parameter set twice to different values
+- `Params:` without `Satisfied-by:` (a warning)
 - code blocks that are never closed
 - duplicate IDs across files, whatever their revision
 
@@ -149,7 +157,7 @@ junit = ["build/test-results/**/*.xml"]
 | --- | --- |
 | `type` | required; type of the level's items, ASCII letters only; at most one level per type |
 | `name` | required; readable name |
-| `needs` | optional; types that must cover items of this level, unless an item has its own `Needs:` |
+| `needs` | optional; types that must cover items of this level, unless an item has its own `Needs:` or a `Satisfied-by:` of an allowed type |
 
 ### `[verification]`
 
@@ -157,6 +165,15 @@ junit = ["build/test-results/**/*.xml"]
 | --- | --- |
 | `types` | types that verify, e.g. `utest` or `vrev`; their tags are matched with test results, their items in requirement files are reviews or analyses (see [Reviews and analyses](#reviews-and-analyses)) |
 | `not-executed` | `error` (default) or `warning`: severity of a test without a result |
+
+### `[satisfied_by]`
+
+| Key | Meaning |
+| --- | --- |
+| `targets` | types that `Satisfied-by:` may name; default `["cap"]` |
+| `fallback` | types that `Satisfied-by:` may name with a warning; default none |
+
+A type cannot be both. See [Reused items](#reused-items).
 
 ### `[sources]`
 
@@ -339,6 +356,70 @@ needs a test is verified. The status of other items does not matter: a
 requirement in draft can be verified. `shall report` shows which items
 are verified; `shall check` reports only defects.
 
+## Reused items
+
+A platform shared by several projects describes what it can do as
+items of a stable level, by convention *capabilities* of type `cap`.
+A customer requirement names the capabilities that meet it with
+`Satisfied-by:`, so the platform does not have to know its customers:
+
+```markdown
+## Shut down the drive on overtemperature
+`hlr~customer-a.overtemp-c3x9~1`
+
+The drive shuts down within 100 ms on overtemperature.
+
+Satisfied-by:
+- cap~motor.overtemp-protection-h6w2~1
+
+Params:
+- motor.shutdown_time_ms = 100
+```
+
+```toml
+[[level]]
+type  = "hlr"
+name  = "Customer Requirements"
+needs = ["swr"]
+
+[[level]]
+type  = "cap"
+name  = "Platform Capabilities"
+needs = ["swr"]
+
+[[level]]
+type  = "swr"
+name  = "Software Requirements"
+needs = ["impl", "utest"]
+
+[satisfied_by]
+targets  = ["cap"]
+fallback = ["swr"]
+```
+
+- `Satisfied-by:` is a `Covers:` written the other way round: the
+  capability covers the customer requirement. The link is checked like
+  a `Covers:` link, against an unknown ID, the revision and so on.
+- An item with `Satisfied-by:` needs the types of its targets and those
+  of its own `Needs:`, but not the `needs` of its level: here,
+  `hlr~customer-a.overtemp-c3x9~1` needs `cap`, not `swr`, so a
+  `Covers:` link from an `swr` item to it is an error. If the platform
+  meets a requirement only in part, add `Needs: swr` and refine the
+  rest in the project. `shall new` writes the level's needs into a new
+  item as `Needs:`; remove that line when you add `Satisfied-by:`. A
+  target of a type that is not allowed is no need; if no target is
+  allowed, the item needs what its level needs.
+- The target's type must be in `[satisfied_by] targets`; a type in
+  `fallback` gets a warning, any other type is an error. Without
+  `[[level]]` tables, every type is allowed.
+- The item is deep covered and verified when its targets are.
+- `Params:` records the parameter values with which the platform meets
+  the requirement. They are part of `trace.json`; showing them in the
+  report next to the link is planned (M5.3).
+
+Workspaces with several projects, imports of the platform and variants
+are planned (M8).
+
 ## Commands
 
 ### `shall new`
@@ -441,8 +522,10 @@ Reported are the problems found while reading (see above), and:
 | --- | --- |
 | an item does not have a valid link from every type it needs | error |
 | a link to an unknown ID, an outdated or a not yet existing revision, a rejected item, a duplicate ID, or of a type the target does not need | error |
+| a `Satisfied-by:` link to a type that is no target or fallback of `[satisfied_by]` | error |
+| a `Satisfied-by:` link to a fallback type | warning |
 | a coverage cycle | error |
-| an item of a type that is no level, no type needed by a level and no verification type | error; a warning if only `Needs:` of items name the type |
+| an item of a type that is no level, no type needed by a level and no verification type | error; a warning if only `Needs:` or `Satisfied-by:` of items name the type |
 | a test failed | error |
 | a test was skipped | warning |
 | a test was not executed | `[verification] not-executed` |
@@ -520,15 +603,17 @@ timestamps. The fields of `trace.json`:
 | `levels` | the `[[level]]` tables: `type`, `name`, `needs` |
 | `verification_types` | `[verification] types` |
 | `items` | every item, ordered by file and line (see below) |
-| `links` | every `Covers:` and `Depends:` link of items that are not rejected: `kind` (`covers`, `depends`), `source` and `source_location` (the item that contains the link), `target` as written, `target_location` (`null` if no item or several have the target's type and name), `location` of the link itself, `status` |
+| `links` | every `Covers:`, `Depends:` and `Satisfied-by:` link of items that are not rejected: `kind` (`covers`, `depends`, `satisfied_by`), `source` and `source_location` (the item that contains the link), `target` as written, `target_location` (`null` if no item or several have the target's type and name), `location` of the link itself, `status` |
 | `test_results` | every test case of the JUnit files in the order they were read, also those without a tag: `classname`, `name`, `suite`, `outcome` (`passed`, `skipped`, or `failed` with a `message`, which may be `null`), `location`; `null` without `junit` in `[sources]` |
 | `defects` | every problem `shall check` prints, in its order: `severity` (`error`, `warning`), `message`, `location` |
 
 A `location` is `{"path": "reqs/design.md", "line": 12}`. A link's
 `status` is `valid`, `unknown`, `outdated` or `predated` (with the
-target's `current` revision), `ambiguous`, `rejected`, or `unwanted`
-(the target does not need the source's type); only `valid` links count
-as coverage.
+target's `current` revision), `ambiguous`, `rejected`, `unwanted`
+(the target does not need the source's type), or `disallowed` (the
+target's type is no `[satisfied_by]` target); only `valid` links count
+as coverage. A valid `Satisfied-by:` link covers its source, not its
+target.
 
 Each item has:
 
@@ -537,6 +622,8 @@ Each item has:
   `status`, `tags` and `source` from the requirement file; `rationale`,
   `comment` and `source` are `null` and `tags` is `[]` if absent; tag
   items have an empty title and description;
+- `params`: the entries of `Params:` with `name`, `value` and `line`,
+  `[]` if absent;
 - `location`, the line of the ID or tag;
 - `origin`: `{"kind": "requirement"}`, or `{"kind": "tag", "text": ...,
   "test": ...}` with the tag as written and the test definition after
@@ -544,8 +631,8 @@ Each item has:
   `gtest_typed` or `rust`), `suite` (`null` for Rust), `name`, `module`
   (the inline Rust modules around the test, outermost first) and
   `line`;
-- `needs`: the types the item needs, from `Needs:` or its level; empty
-  for rejected items;
+- `needs`: the types the item needs, from `Needs:` and the targets of
+  `Satisfied-by:`, or from its level; empty for rejected items;
 - `covered_by`: `id` and `location` of the items covering it with a
   valid link; `missing`: the needed types without one;
 - `covered`, `deep_covered` (covered all the way down) and `duplicate`

@@ -31,6 +31,14 @@ pub struct Item {
     pub covers: Vec<Reference>,
     /// Lateral dependencies without effect on coverage (`Depends:`).
     pub depends: Vec<Reference>,
+    /// Items that satisfy this item (`Satisfied-by:`), e.g. platform
+    /// capabilities meeting a customer requirement: a `Covers:` link
+    /// written the other way round, so the reused item does not have to
+    /// know the items it satisfies.
+    pub satisfied_by: Vec<Reference>,
+    /// Parameter values with which the items of `Satisfied-by:` meet this
+    /// item (`Params:`), in the order written.
+    pub params: Vec<Param>,
     /// Free-form tags (`Tags:`).
     pub tags: Vec<String>,
     /// Origin, e.g. a chapter of a customer specification (`Source:`).
@@ -111,6 +119,17 @@ pub struct Reference {
     /// Target of the link, including the revision the link was made for.
     pub id: ItemId,
     /// Line of the link in the file of the item that contains it.
+    pub line: u32,
+}
+
+/// A parameter value from `Params:`, e.g. `motor.shutdown_time_ms = 100`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Param {
+    /// Name of the parameter, e.g. `motor.shutdown_time_ms`.
+    pub name: String,
+    /// The value as written, e.g. `100`.
+    pub value: String,
+    /// Line of the entry in the file of the item.
     pub line: u32,
 }
 

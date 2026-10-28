@@ -226,7 +226,12 @@ TEST(Suite, Fails) {}
     /// `verify` for the requirements plus the tags above, as
     /// `ID verified` lines in the order of the trace.
     fn run(requirements: &str, with_junit: bool) -> Vec<String> {
-        let config = Config::parse(CONFIG).unwrap();
+        run_with(CONFIG, requirements, with_junit)
+    }
+
+    /// [`run`] with another configuration.
+    fn run_with(config: &str, requirements: &str, with_junit: bool) -> Vec<String> {
+        let config = Config::parse(config).unwrap();
         let mut items = markdown::parse(Path::new("reqs/a.md"), requirements)
             .unwrap()
             .items;
@@ -527,6 +532,38 @@ Status: rejected
         assert_eq!(
             verify(&items, &trace, &config, None),
             [false, false, false, false, true]
+        );
+    }
+
+    #[test]
+    fn satisfied_by_takes_the_verified_status_of_its_targets() {
+        let config = format!("{CONFIG}\n[satisfied_by]\ntargets = [\"dsn\"]\n");
+        let requirements = "\
+`swr~p-k4f2~1`
+Satisfied-by:
+- dsn~a-k4f2~1
+
+`swr~q-k4f2~1`
+Satisfied-by:
+- dsn~a-k4f2~1
+- dsn~b-k4f2~1
+
+`dsn~a-k4f2~1`
+
+`dsn~b-k4f2~1`
+
+`dsn~c-k4f2~1`
+";
+        assert_eq!(
+            run_with(&config, requirements, true),
+            [
+                "swr~p-k4f2~1 true",
+                // The test of dsn~b failed.
+                "swr~q-k4f2~1 false",
+                "dsn~a-k4f2~1 true",
+                "dsn~b-k4f2~1 false",
+                "dsn~c-k4f2~1 true",
+            ]
         );
     }
 }
