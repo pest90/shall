@@ -202,6 +202,7 @@ fn tag_items(
         satisfied_by: Vec::new(),
         params: Vec::new(),
         tags: Vec::new(),
+        features: Vec::new(),
         source: None,
         location: location.clone(),
         origin: Origin::Requirement,

@@ -18,8 +18,8 @@ requirements, outdated links, orphaned code and failing tests.
 > requirements, code and test tags and gtest or `cargo nextest` results
 > and prints the defects (`shall check`), writes a first HTML report with
 > coverage and verified status per level and the traced project as `trace.json`
-> (`shall report`), and creates new items with generated IDs
-> (`shall new`). The full HTML report and the check modes for CI are
+> (`shall report`), also per product variant, and creates new items
+> with generated IDs (`shall new`). The full HTML report and the check modes for CI are
 > being built; see [the plan](docs/konzept.md) (German).
 
 ## Example

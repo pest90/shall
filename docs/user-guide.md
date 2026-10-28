@@ -82,6 +82,7 @@ Keywords start at column 0 and are case-sensitive (`Needs:`, not
 | `Status:` | exactly `draft`, `proposed`, `approved` (default) or `rejected`, on the same line |
 | `Source:` | origin, e.g. a chapter of a customer specification, on the same line |
 | `Tags:` | comma-separated on the same line, or a bullet list |
+| `Features:` | features the item belongs to, comma-separated on the same line or as a bullet list, see [Variants](#variants) |
 | `Covers:` | bullet list of the IDs this item refines (its parents) |
 | `Depends:` | bullet list of IDs this item depends on, without effect on coverage |
 | `Satisfied-by:` | bullet list of the IDs of reused items that meet this item, see [Reused items](#reused-items) |
@@ -92,9 +93,10 @@ Bullet lists use `-`, `*` or `+`. Entries of `Covers:`, `Depends:`,
 `Satisfied-by:` and `Needs:` may carry text after the ID or be a
 Markdown link, as in OFT: `- sys~x~1 (parent)` or
 `- [sys~x~1](system.md#x)`. Tags are taken as written, without
-backticks; so are the names and values of `Params:`, and an entry may
-be in backticks as a whole. `Satisfied-by:` and `Params:` are extensions of `shall`
-that OFT does not know.
+backticks; so are the names and values of `Params:` and features, and
+a `Params:` entry may be in backticks as a whole. `Satisfied-by:`,
+`Params:` and `Features:` are extensions of `shall` that OFT does not
+know.
 
 A bullet list continues, across blank lines, until the next keyword or
 the end of the item; other text in between is an error. Put lists last
@@ -117,6 +119,8 @@ The parser detects the following problems; `shall check` reports them.
 - `Params:` entries that are not `name = value`, with a name without
   spaces and a value; a parameter set twice to different values
 - `Params:` without `Satisfied-by:` (a warning)
+- invalid feature names: as in Cargo, letters, digits, `_`, `-`, `+`
+  and `.`, starting with a letter, a digit or `_`
 - code blocks that are never closed
 - duplicate IDs across files, whatever their revision
 
@@ -174,6 +178,19 @@ junit = ["build/test-results/**/*.xml"]
 | `fallback` | types that `Satisfied-by:` may name with a warning; default none |
 
 A type cannot be both. See [Reused items](#reused-items).
+
+### `[variant.<name>]`
+
+| Key | Meaning |
+| --- | --- |
+| `features` | the features the variant selects; default none |
+| `junit` | JUnit XML files with the test results of the variant's build; without it, those of `[sources]`; `[]` for none |
+
+The name starts with a letter or digit, followed by letters, digits,
+`_` or `-`, and differs from the other names in more than case; reports
+use it as a directory name. Other keys get a warning, since they are
+often typos such as `feature`. See
+[Variants](#variants).
 
 ### `[sources]`
 
@@ -417,8 +434,67 @@ fallback = ["swr"]
   the requirement. They are part of `trace.json`; showing them in the
   report next to the link is planned (M5.3).
 
-Workspaces with several projects, imports of the platform and variants
-are planned (M8).
+Workspaces with several projects and imports of the platform are
+planned (M8).
+
+## Variants
+
+Items that belong to an optional part of the product name its features
+with `Features:`. A variant in `shall.toml` selects features, with the
+names of the Cargo features or CMake options, so that one list drives
+both the build and the trace:
+
+```markdown
+## Read out the fault memory over UDS
+`cap~diag.uds-readout-t4m1~1`
+
+The platform reads out the fault memory over UDS.
+
+Features: diag_uds
+```
+
+```toml
+[[level]]
+type  = "cap"
+name  = "Platform Capabilities"
+needs = ["impl"]
+
+[variant.basis]
+features = ["motor_ctrl", "can"]
+
+[variant.premium]
+features = ["motor_ctrl", "can", "diag_uds"]
+junit = ["build/premium/test-results/*.xml"]
+```
+
+- An item with `Features:` belongs to a variant that selects all of
+  them.
+- An item without `Features:`, such as a code or test tag, belongs to a
+  variant when one of the items it covers does, or when it covers no
+  existing item. So the design, code and tests below a capability
+  follow it into or out of a variant.
+- IDs are global: a duplicate ID is an error in every variant, even if
+  only one copy belongs to it, and links to it are ambiguous. A link to
+  a wrong revision of an item outside the variant is outdated as
+  usual.
+- `Satisfied-by:` and `Depends:` pass no features on: a customer
+  requirement belongs to every variant, and a `Satisfied-by:` or
+  `Depends:` link to an item outside the variant is an error of that
+  variant. A `Covers:` link to such an item is no defect.
+- `shall check --variant <name>` and `shall report --variant <name>`
+  trace only the items of the variant, with its test results. A result
+  that names the file of a tag outside the variant (a gtest `file`
+  attribute, the module path of a Rust test) never counts for a test
+  inside; one that names no file goes to every tag of that test, as
+  without a variant. The summary counts all results read;
+  `shall report --all-variants` writes a report for every variant. Without
+  these options, all items are traced, whatever their features.
+- A feature that no variant selects gets a warning, since it is often a
+  typo; without `[variant.*]` tables, features are not checked.
+
+Expressions such as `Features: ota && !eu_market` are a later
+extension; showing the items that a variant provides but no customer
+requirement asks for is planned (M8.6).
 
 ## Commands
 
@@ -494,7 +570,7 @@ requirements file.
 ### `shall check`
 
 ```text
-shall check [PATH] [--mode <report|strict>]
+shall check [PATH] [--mode <report|strict>] [--variant <NAME>]
 ```
 
 Reads the project, traces it and prints one line per problem, sorted by
@@ -513,6 +589,9 @@ not ok: 4 errors, 0 warnings (9 requirements, 7 tags, 3 test results)
   `shall.toml`. Paths in the output are relative to the project root.
 - Errors are printed as `path:line: message`, warnings as
   `path:line: warning: message`.
+- `--variant` checks only the items of a variant of `shall.toml`, with
+  its test results (see [Variants](#variants)); the summary then starts
+  with `variant <NAME>: `. An unknown variant is an error (exit code 2).
 - The summary counts tags, not tag items: a tag with several targets
   counts once.
 
@@ -525,6 +604,8 @@ Reported are the problems found while reading (see above), and:
 | a `Satisfied-by:` link to a type that is no target or fallback of `[satisfied_by]` | error |
 | a `Satisfied-by:` link to a fallback type | warning |
 | a coverage cycle | error |
+| with `--variant`: a `Satisfied-by:` or `Depends:` link to an item outside the variant | error |
+| a feature that no `[variant.*]` selects | warning |
 | an item of a type that is no level, no type needed by a level and no verification type | error; a warning if only `Needs:` or `Satisfied-by:` of items name the type |
 | a test failed | error |
 | a test was skipped | warning |
@@ -552,7 +633,7 @@ planned (M7.5).
 ### `shall report`
 
 ```text
-shall report [PATH] [--out <DIR>]
+shall report [PATH] [--out <DIR>] [--variant <NAME> | --all-variants]
 ```
 
 Reads and traces the project like `shall check` and writes the result
@@ -563,6 +644,15 @@ the directory is created if missing:
   that opens from disk without a server;
 - `trace.json`, the whole traced project as JSON, from which the report
   is made (see below).
+
+With `--variant`, both contain only the items of the variant (see
+[Variants](#variants)), and the report names the variant and its
+features at the top. With `--all-variants`, every variant gets both
+files in `<DIR>/<variant>/`, and `<DIR>/index.html` is an overview that
+links them, with the verdict and the numbers of errors, warnings,
+requirements and tags of each; stderr ends with one summary per
+variant. Files of earlier runs in `<DIR>`, such as a `trace.json` of
+all items, are left as they are.
 
 stderr shows the written files and the summary of `shall check`;
 defects do not change the exit code, `shall check` decides that.
@@ -598,8 +688,9 @@ timestamps. The fields of `trace.json`:
 
 | Field | Content |
 | --- | --- |
-| `schema_version` | version of this layout, currently `1`; increased on every change readers must know about |
+| `schema_version` | version of this layout, currently `1`; from the first release on, increased on every change readers must know about; until then, fields and values are added without a new version |
 | `generator` | `name` (`shall`) and `version` of the tool |
+| `variant` | the traced variant, `name` and `features`; `null` without `--variant` |
 | `levels` | the `[[level]]` tables: `type`, `name`, `needs` |
 | `verification_types` | `[verification] types` |
 | `items` | every item, ordered by file and line (see below) |
@@ -610,8 +701,9 @@ timestamps. The fields of `trace.json`:
 A `location` is `{"path": "reqs/design.md", "line": 12}`. A link's
 `status` is `valid`, `unknown`, `outdated` or `predated` (with the
 target's `current` revision), `ambiguous`, `rejected`, `unwanted`
-(the target does not need the source's type), or `disallowed` (the
-target's type is no `[satisfied_by]` target); only `valid` links count
+(the target does not need the source's type), `disallowed` (the
+target's type is no `[satisfied_by]` target), or `outside_variant` (the
+target exists, but not in the traced variant); only `valid` links count
 as coverage. A valid `Satisfied-by:` link covers its source, not its
 target.
 
@@ -623,7 +715,7 @@ Each item has:
   `comment` and `source` are `null` and `tags` is `[]` if absent; tag
   items have an empty title and description;
 - `params`: the entries of `Params:` with `name`, `value` and `line`,
-  `[]` if absent;
+  `[]` if absent; `features`: those of `Features:`, `[]` if absent;
 - `location`, the line of the ID or tag;
 - `origin`: `{"kind": "requirement"}`, or `{"kind": "tag", "text": ...,
   "test": ...}` with the tag as written and the test definition after

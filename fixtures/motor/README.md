@@ -9,6 +9,9 @@ integration tests of `shall` (work package 0.2 in `docs/konzept.md`).
   `test-results/gtest.xml`.
 - The C++ code is not built; the JUnit XML is checked in as if the tests
   had run.
+- Two variants: `basis` without and `safety` with the feature `estop` of
+  the emergency stop, which its chain down to code, tests and the review
+  inherits. The defects are the same in both.
 
 ## Deliberate defects
 

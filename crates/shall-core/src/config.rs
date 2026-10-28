@@ -10,6 +10,7 @@ use thiserror::Error;
 
 use crate::diagnostic::Severity;
 use crate::id::ItemType;
+use crate::markdown::is_feature;
 
 /// File name of the project configuration.
 pub const FILE_NAME: &str = "shall.toml";
@@ -29,6 +30,44 @@ pub struct Config {
     /// Allowed targets of `Satisfied-by:`, from the `[satisfied_by]` table.
     #[serde(default)]
     pub satisfied_by: SatisfiedBy,
+    /// Variants by name, from the `[variant.<name>]` tables.
+    #[serde(default, rename = "variant")]
+    pub variants: BTreeMap<String, Variant>,
+}
+
+/// A variant of the product: a selection of features, see
+/// [`crate::variant`].
+#[derive(Debug, Clone, Default, PartialEq, Deserialize)]
+pub struct Variant {
+    /// Selected features, e.g. `["motor_ctrl", "can"]`.
+    #[serde(default)]
+    pub features: Vec<String>,
+    /// JUnit XML files with the test results of this variant's build;
+    /// when not given, those of `[sources]`. An empty list means no test
+    /// results.
+    #[serde(default)]
+    pub junit: Option<Vec<String>>,
+    /// All other keys, see [`Variant::unknown_keys`].
+    #[serde(flatten)]
+    other: BTreeMap<String, toml::Value>,
+}
+
+impl Variant {
+    /// Creates a variant that selects `features`, with the test results
+    /// of `[sources]`.
+    pub fn new(features: Vec<String>) -> Self {
+        Self {
+            features,
+            ..Self::default()
+        }
+    }
+
+    /// Keys of the table other than `features` and `junit`; a later
+    /// version may give them a meaning, but they are often typos such as
+    /// `feature`.
+    pub fn unknown_keys(&self) -> Vec<&str> {
+        self.other.keys().map(String::as_str).collect()
+    }
 }
 
 /// Types that items may name in `Satisfied-by:`.
@@ -155,7 +194,10 @@ impl Config {
     ///
     /// Two `[[level]]` tables with the same type are an error, since an
     /// item's level would be ambiguous, and so is a type that is both a
-    /// target and a fallback of `[satisfied_by]`.
+    /// target and a fallback of `[satisfied_by]`. Variant names must start
+    /// with a letter or digit, followed by letters, digits, `_` or `-`, and
+    /// differ in more than case, since reports use them as directory names
+    /// next to `index.html`; feature names follow Cargo's rules.
     pub fn parse(text: &str) -> Result<Self, ConfigError> {
         let config: Self = toml::from_str(text).map_err(|error| ConfigError(error.to_string()))?;
         let mut seen = std::collections::HashSet::new();
@@ -177,6 +219,26 @@ impl Config {
                 "type '{typ}' is both a target and a fallback of [satisfied_by]"
             )));
         }
+        let mut lower = std::collections::HashMap::new();
+        for (name, variant) in &config.variants {
+            if !is_variant_name(name) {
+                return Err(ConfigError(format!(
+                    "invalid variant name '{name}': expected letters, digits, '_' or '-', \
+                     starting with a letter or a digit"
+                )));
+            }
+            if let Some(other) = lower.insert(name.to_ascii_lowercase(), name) {
+                return Err(ConfigError(format!(
+                    "variant names '{other}' and '{name}' differ only in case"
+                )));
+            }
+            if let Some(feature) = variant.features.iter().find(|f| !is_feature(f)) {
+                return Err(ConfigError(format!(
+                    "invalid feature '{feature}' in [variant.{name}]: expected letters, \
+                     digits, '_', '-', '+' or '.', starting with a letter, a digit or '_'"
+                )));
+            }
+        }
         Ok(config)
     }
 
@@ -190,6 +252,12 @@ impl Config {
     pub fn has_parents(&self, typ: &ItemType) -> bool {
         self.levels.iter().any(|level| level.needs.contains(typ))
     }
+}
+
+fn is_variant_name(name: &str) -> bool {
+    let mut chars = name.chars();
+    chars.next().is_some_and(|c| c.is_ascii_alphanumeric())
+        && chars.all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
 }
 
 /// Error for an invalid `shall.toml`.
@@ -255,6 +323,51 @@ junit = ["build/*.xml"]
         assert_eq!(config.satisfied_by.fallback, [typ("swr"), typ("dsn")]);
         let config = Config::parse("[satisfied_by]\nfallback = [\"swr\"]\n").unwrap();
         assert_eq!(config.satisfied_by.targets, [typ("cap")]);
+    }
+
+    #[test]
+    fn reads_variants() {
+        let config = Config::parse(
+            "[variant.basis]\nfeatures = [\"motor_ctrl\", \"can\"]\n\n\
+             [variant.premium]\nfeatures = [\"diag-uds\"]\njunit = [\"build/premium/*.xml\"]\n",
+        )
+        .unwrap();
+        assert_eq!(
+            config.variants.keys().collect::<Vec<_>>(),
+            ["basis", "premium"]
+        );
+        assert_eq!(config.variants["basis"].features, ["motor_ctrl", "can"]);
+        assert_eq!(config.variants["basis"].junit, None);
+        assert!(config.variants["basis"].unknown_keys().is_empty());
+        let typo = Config::parse("[variant.a]\nfeature = [\"x\"]\n").unwrap();
+        assert_eq!(typo.variants["a"].unknown_keys(), ["feature"]);
+        assert_eq!(
+            config.variants["premium"].junit.as_deref().unwrap(),
+            ["build/premium/*.xml"]
+        );
+    }
+
+    #[test]
+    fn rejects_invalid_variant_and_feature_names() {
+        for (text, message) in [
+            ("[variant.\"../x\"]\n", "invalid variant name '../x'"),
+            ("[variant._x]\n", "invalid variant name '_x'"),
+            (
+                "[variant.\"index.html\"]\n",
+                "invalid variant name 'index.html'",
+            ),
+            (
+                "[variant.Basis]\n[variant.basis]\n",
+                "variant names 'Basis' and 'basis' differ only in case",
+            ),
+            (
+                "[variant.a]\nfeatures = [\"ota nightly\"]\n",
+                "invalid feature 'ota nightly' in [variant.a]",
+            ),
+        ] {
+            let error = Config::parse(text).unwrap_err().to_string();
+            assert!(error.contains(message), "{error}");
+        }
     }
 
     #[test]

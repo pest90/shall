@@ -7,8 +7,11 @@
 //! root and separated by `/`. Its layout:
 //!
 //! - `schema_version`: [`SCHEMA_VERSION`], increased on every change that
-//!   readers have to know about;
+//!   readers have to know about from the first release on; until then
+//!   the layout grows without a new version;
 //! - `generator`: name and version of the tool that wrote the file;
+//! - `variant`: name and features of the traced variant, or `null` when
+//!   all items are traced;
 //! - `levels` and `verification_types`: from `shall.toml`;
 //! - `items`: every item ordered by location, with its fields, its
 //!   coverage from [`trace`](crate::trace), whether it is
@@ -22,7 +25,7 @@
 
 use serde::Serialize;
 
-use crate::config::Config;
+use crate::config::{Config, Variant};
 use crate::diagnostic::{Diagnostic, Severity};
 use crate::id::{ItemId, ItemType};
 use crate::item::{Item, Location, Origin, Param, Status};
@@ -44,6 +47,8 @@ pub struct Document<'a> {
     pub schema_version: u32,
     /// The tool that wrote the document.
     pub generator: Generator,
+    /// The traced variant; none when all items are traced.
+    pub variant: Option<VariantEntry<'a>>,
     /// The levels of `shall.toml`, in their order there.
     pub levels: Vec<LevelEntry<'a>>,
     /// Types whose tags are tests, from `[verification]`.
@@ -66,6 +71,15 @@ pub struct Generator {
     pub name: &'static str,
     /// Version of `shall-core`.
     pub version: &'static str,
+}
+
+/// A variant from `shall.toml`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct VariantEntry<'a> {
+    /// Name of the variant, from `[variant.<name>]`.
+    pub name: &'a str,
+    /// The selected features.
+    pub features: &'a [String],
 }
 
 /// A level of `shall.toml`.
@@ -108,6 +122,8 @@ pub struct ItemEntry<'a> {
     pub source: Option<&'a str>,
     /// `Params:`: parameter values for the item's `Satisfied-by:` links.
     pub params: &'a [Param],
+    /// `Features:`.
+    pub features: &'a [String],
     /// Where the item is defined.
     pub location: &'a Location,
     /// Requirement file or tag, with the tag's text and test definition.
@@ -190,6 +206,9 @@ pub struct Input<'a> {
     pub tests: Option<(&'a [TestResult], &'a Evaluation)>,
     /// Every diagnostic, usually sorted by location.
     pub diagnostics: &'a [Diagnostic],
+    /// Name and selection of the traced variant, whose items `items` are;
+    /// none when all items are traced.
+    pub variant: Option<(&'a str, &'a Variant)>,
 }
 
 impl<'a> Document<'a> {
@@ -213,6 +232,10 @@ impl<'a> Document<'a> {
                 name: GENERATOR,
                 version: env!("CARGO_PKG_VERSION"),
             },
+            variant: input.variant.map(|(name, variant)| VariantEntry {
+                name,
+                features: &variant.features,
+            }),
             levels: input
                 .config
                 .levels
@@ -273,6 +296,7 @@ fn entry<'a>(joined: &Joined<'a>, verified: bool) -> ItemEntry<'a> {
         tags: &item.tags,
         source: item.source.as_deref(),
         params: &item.params,
+        features: &item.features,
         location: &item.location,
         origin: &item.origin,
         needs: &traced.needs,
@@ -354,6 +378,7 @@ int helper();
             trace: &trace,
             tests: with_tests.then_some((parsed.results.as_slice(), &evaluation)),
             diagnostics: &diagnostics,
+            variant: None,
         });
         let text = document.to_json();
         assert!(text.ends_with("}\n"), "{text}");
@@ -480,6 +505,7 @@ Covers:
             trace: &trace,
             tests: None,
             diagnostics: &trace.defects,
+            variant: None,
         });
         let json: serde_json::Value = serde_json::from_str(&document.to_json()).unwrap();
         let link = |n: usize| {

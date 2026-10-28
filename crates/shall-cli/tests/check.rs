@@ -397,3 +397,143 @@ fn nested_repositories_keep_their_own_ignore_rules() {
         stdout(&output)
     );
 }
+
+#[test]
+fn checks_one_variant() {
+    let expected = fs::read_to_string(fixture().join("expected-defects.txt")).unwrap();
+    for (variant, summary) in [
+        (
+            "basis",
+            "variant basis: not ok: 4 errors, 0 warnings (5 requirements, 5 tags, 3 test results)\n",
+        ),
+        (
+            "safety",
+            "variant safety: not ok: 4 errors, 0 warnings (9 requirements, 7 tags, 3 test results)\n",
+        ),
+    ] {
+        let output = shall(&fixture(), &["check", "--variant", variant]);
+        assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+        assert_eq!(stdout(&output), expected);
+        assert_eq!(stderr(&output), summary);
+    }
+    let output = shall(&fixture(), &["check", "--variant", "nope"]);
+    assert_eq!(output.status.code(), Some(2));
+    assert_eq!(
+        stderr(&output),
+        "Error: unknown variant 'nope'; shall.toml defines basis, safety\n"
+    );
+}
+
+#[test]
+fn variants_take_their_own_test_results() {
+    let config = format!(
+        "{LEVELS}
+[sources]
+requirements = [\"reqs/*.md\"]
+utest = [\"tests/*.c\"]
+junit = [\"build/all/*.xml\"]
+
+[variant.a]
+features = [\"x\"]
+junit = [\"build/a/*.xml\"]
+
+[variant.b]
+features = [\"x\", \"y\"]
+junits = []
+"
+    );
+    let failed = b"<testsuite name=\"S\"><testcase classname=\"S\" name=\"T\"><failure/></testcase></testsuite>";
+    let passed = b"<testsuite name=\"S\"><testcase classname=\"S\" name=\"T\"/></testsuite>";
+    let dir = project(
+        &config,
+        &[
+            (
+                "reqs/design.md",
+                b"# A\n`dsn~a~1`\nNeeds: utest\n\n# B\n`dsn~b~1`\nNeeds: utest\nFeatures: y, z\n",
+            ),
+            ("tests/a.c", b"// [utest->dsn~a~1]\nTEST(S, T) {}\n"),
+            ("build/all/r.xml", failed),
+            ("build/a/r.xml", passed),
+        ],
+    );
+    let output = shall(dir.path(), &["check", "--variant", "a"]);
+    assert_eq!(
+        stdout(&output),
+        "reqs/design.md:6: warning: dsn~b~1: feature 'z' is selected by no variant\n\
+         shall.toml:21: warning: [variant.b] key 'junits' is unknown and is ignored\n"
+    );
+    let output = shall(dir.path(), &["check", "--variant", "b"]);
+    assert_eq!(
+        stdout(&output),
+        "reqs/design.md:6: warning: dsn~b~1: feature 'z' is selected by no variant\n\
+         shall.toml:21: warning: [variant.b] key 'junits' is unknown and is ignored\n\
+         tests/a.c:1: test S.T failed\n"
+    );
+    let output = shall(dir.path(), &["check"]);
+    assert_eq!(
+        stdout(&output),
+        "reqs/design.md:6: warning: dsn~b~1: feature 'z' is selected by no variant\n\
+         reqs/design.md:6: dsn~b~1: not covered by required type 'utest'\n\
+         shall.toml:21: warning: [variant.b] key 'junits' is unknown and is ignored\n\
+         tests/a.c:1: test S.T failed\n"
+    );
+}
+
+#[test]
+fn results_of_tests_outside_the_variant_never_count() {
+    let config = format!(
+        "{LEVELS}
+[[level]]
+type  = \"hlr\"
+name  = \"Customer\"
+needs = [\"dsn\"]
+
+[satisfied_by]
+targets = [\"dsn\"]
+
+[sources]
+requirements = [\"reqs/*.md\"]
+utest = [\"tests/*.cpp\"]
+impl = [\"src/*.c\"]
+junit = [\"build/*.xml\"]
+
+[variant.basis]
+features = []
+
+[variant.full]
+features = [\"x\"]
+"
+    );
+    let dir = project(
+        &config,
+        &[
+            (
+                "reqs/design.md",
+                b"# A\n`dsn~a~1`\n\n# B\n`dsn~b~1`\nFeatures: x\n\n# H\n`hlr~h~1`\nSatisfied-by:\n- dsn~b~1\n",
+            ),
+            ("src/a.c", b"// [impl->dsn~a~1, dsn~b~1]\nvoid f();\n"),
+            ("tests/a_test.cpp", b"// [utest->dsn~a~1]\nTEST(S, N) {}\n"),
+            ("tests/b_test.cpp", b"// [utest->dsn~b~1]\nTEST(S, N) {}\n"),
+            (
+                "build/r.xml",
+                b"<testsuite name=\"S\"><testcase classname=\"S\" name=\"N\" file=\"tests/b_test.cpp\"><failure/></testcase></testsuite>",
+            ),
+        ],
+    );
+    let output = shall(dir.path(), &["check", "--variant", "basis"]);
+    assert_eq!(
+        stdout(&output),
+        "reqs/design.md:9: hlr~h~1: not covered by required type 'dsn'\n\
+         reqs/design.md:11: hlr~h~1: is satisfied by dsn~b~1, which is not part of the variant\n\
+         tests/a_test.cpp:1: test S.N was not executed: no result in the JUnit files\n"
+    );
+    assert_eq!(
+        stderr(&output),
+        "variant basis: not ok: 3 errors, 0 warnings (2 requirements, 2 tags, 1 test result)\n"
+    );
+    let output = shall(
+        dir.path(),
+        &["check", "--variant", "basis", "--mode", "strict"],
+    );
+    assert_eq!(output.status.code(), Some(1));
+}

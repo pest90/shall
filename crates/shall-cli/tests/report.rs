@@ -113,3 +113,91 @@ fn fails_without_project() {
     assert_eq!(output.status.code(), Some(2));
     assert!(!dir.path().join("site").exists());
 }
+
+#[test]
+fn writes_a_report_per_variant_and_an_overview() {
+    let out = tempfile::tempdir().unwrap();
+    let site = out.path().join("site");
+    let output = shall(
+        &fixture(),
+        &["report", "--out", site.to_str().unwrap(), "--all-variants"],
+    );
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    let mut expected = String::new();
+    for variant in ["basis", "safety"] {
+        for file in ["index.html", "trace.json"] {
+            expected.push_str(&format!(
+                "wrote {}\n",
+                site.join(variant).join(file).display()
+            ));
+        }
+    }
+    expected.push_str(&format!("wrote {}\n", site.join("index.html").display()));
+    expected.push_str(
+        "variant basis: not ok: 4 errors, 0 warnings (5 requirements, 5 tags, 3 test results)\n\
+         variant safety: not ok: 4 errors, 0 warnings (9 requirements, 7 tags, 3 test results)\n",
+    );
+    assert_eq!(stderr(&output), expected);
+    let overview = fs::read_to_string(site.join("index.html")).unwrap();
+    insta::assert_snapshot!(
+        "overview_html",
+        overview.replace(
+            &format!("shall {}", env!("CARGO_PKG_VERSION")),
+            "shall [version]"
+        )
+    );
+    let basis = fs::read_to_string(site.join("basis").join("trace.json")).unwrap();
+    assert!(
+        basis.contains("\"variant\": {\n    \"name\": \"basis\",\n    \"features\": []\n  },"),
+        "{basis}"
+    );
+    assert!(!basis.contains("emergency-stop"), "{basis}");
+    let safety = fs::read_to_string(site.join("safety").join("index.html")).unwrap();
+    assert!(
+        safety.contains(
+            "<p class=\"variant\">Variant <strong>safety</strong>: <code>estop</code></p>"
+        ),
+        "{safety}"
+    );
+
+    // One variant writes into the output directory itself.
+    let one = out.path().join("one");
+    let output = shall(
+        &fixture(),
+        &[
+            "report",
+            "--out",
+            one.to_str().unwrap(),
+            "--variant",
+            "basis",
+        ],
+    );
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    assert_eq!(fs::read_to_string(one.join("trace.json")).unwrap(), basis);
+}
+
+#[test]
+fn all_variants_needs_variants() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("shall.toml"), "").unwrap();
+    let output = shall(dir.path(), &["report", "--all-variants"]);
+    assert_eq!(output.status.code(), Some(2));
+    assert_eq!(
+        stderr(&output),
+        "Error: --all-variants: shall.toml has no [variant.*]\n"
+    );
+}
+
+#[test]
+fn variant_and_all_variants_exclude_each_other() {
+    let output = shall(
+        &fixture(),
+        &["report", "--variant", "basis", "--all-variants"],
+    );
+    assert_eq!(output.status.code(), Some(2));
+    assert!(
+        stderr(&output).contains("'--variant <VARIANT>' cannot be used with '--all-variants'"),
+        "{}",
+        stderr(&output)
+    );
+}

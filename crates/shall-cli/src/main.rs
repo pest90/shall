@@ -35,6 +35,10 @@ enum Command {
         /// every error or warning.
         #[arg(long, value_enum, default_value_t = check::Mode::Report)]
         mode: check::Mode,
+        /// Check only the items of this variant from `shall.toml`, with
+        /// its test results.
+        #[arg(long)]
+        variant: Option<String>,
     },
     /// Write the traced project as static files into the output directory.
     ///
@@ -50,6 +54,14 @@ enum Command {
         /// directory.
         #[arg(long, default_value = "site")]
         out: PathBuf,
+        /// Report only the items of this variant from `shall.toml`, with
+        /// its test results.
+        #[arg(long, conflicts_with = "all_variants")]
+        variant: Option<String>,
+        /// Write a report for every variant into `<out>/<variant>/` and an
+        /// overview into `<out>/index.html`.
+        #[arg(long)]
+        all_variants: bool,
     },
     /// Create a new item with a generated ID.
     ///
@@ -92,8 +104,26 @@ fn main() -> ExitCode {
 
 fn run(command: Command) -> anyhow::Result<ExitCode> {
     match command {
-        Command::Check { path, mode } => check::run(&check::CheckArgs { path, mode }),
-        Command::Report { path, out } => report::run(&report::ReportArgs { path, out }),
+        Command::Check {
+            path,
+            mode,
+            variant,
+        } => check::run(&check::CheckArgs {
+            path,
+            mode,
+            variant,
+        }),
+        Command::Report {
+            path,
+            out,
+            variant,
+            all_variants,
+        } => report::run(&report::ReportArgs {
+            path,
+            out,
+            variant,
+            all_variants,
+        }),
         Command::New {
             typ,
             title,

@@ -28,6 +28,14 @@
 //! as coverage; `Satisfied-by:` links are checked against `[satisfied_by]`
 //! instead of the needed type.
 //!
+//! When a [variant](crate::variant) is traced, items outside it are left
+//! out. Links to them get the status [`LinkStatus::OutsideVariant`]: no
+//! defect for `Covers:`, since a tag or requirement may serve several
+//! variants, but an error for `Depends:` and `Satisfied-by:`, whose source
+//! needs the target in this variant. A link to a rejected item or a wrong
+//! revision outside the variant is rejected, outdated or predated as
+//! usual, and a duplicate ID stays a duplicate.
+//!
 //! Only root causes are defects:
 //!
 //! - an item that is covered but not deep covered is a consequence of a
@@ -120,7 +128,8 @@ pub struct Link {
     pub target: ItemId,
     /// Where the target is defined, if exactly one item has its type and
     /// name, whatever its revision or status; none for
-    /// [`LinkStatus::Unknown`] and [`LinkStatus::Ambiguous`].
+    /// [`LinkStatus::Unknown`] and [`LinkStatus::Ambiguous`], and for links
+    /// to items outside the traced variant, whatever their status.
     pub target_location: Option<Location>,
     /// Where the link is written.
     pub location: Location,
@@ -169,6 +178,9 @@ pub enum LinkStatus {
     /// The target's type is neither a target nor a fallback of
     /// `[satisfied_by]` (`Satisfied-by:` only).
     Disallowed,
+    /// The target exists, but outside the traced variant; a defect except
+    /// for `Covers:`.
+    OutsideVariant,
 }
 
 /// Traces `items` against the levels of `config`.
@@ -176,9 +188,25 @@ pub enum LinkStatus {
 /// Diagnostics of the parsers are not part of the result; duplicate IDs
 /// are, because they make links ambiguous.
 pub fn trace(items: &[Item], config: &Config) -> Trace {
-    let mut items: Vec<&Item> = items.iter().collect();
+    trace_variant(items, &[], config)
+}
+
+/// Traces the `inside` items of a variant; links to `outside` items get
+/// [`LinkStatus::OutsideVariant`], see [`crate::variant::select`].
+pub fn trace_variant(inside: &[Item], outside: &[Item], config: &Config) -> Trace {
+    // IDs are global: a duplicate is a defect in every variant.
+    let mut defects = check::duplicate_ids(inside.iter().chain(outside));
+    let outside_items = outside;
+    // Revision and rejection of the items outside, by type and name.
+    let mut outside: HashMap<(&str, &str), Vec<(u32, bool)>> = HashMap::new();
+    for item in outside_items {
+        outside
+            .entry((item.id.typ().as_str(), item.id.name()))
+            .or_default()
+            .push((item.id.revision(), item.status == Status::Rejected));
+    }
+    let mut items: Vec<&Item> = inside.iter().collect();
     items.sort_by(|a, b| a.location.cmp(&b.location));
-    let mut defects = check::duplicate_ids(items.iter().copied());
 
     let mut copies: HashMap<(&str, &str), Vec<usize>> = HashMap::new();
     for (position, item) in items.iter().enumerate() {
@@ -189,7 +217,10 @@ pub fn trace(items: &[Item], config: &Config) -> Trace {
     }
     let duplicate: Vec<bool> = items
         .iter()
-        .map(|item| copies[&(item.id.typ().as_str(), item.id.name())].len() > 1)
+        .map(|item| {
+            let key = (item.id.typ().as_str(), item.id.name());
+            copies[&key].len() + outside.get(&key).map_or(0, Vec::len) > 1
+        })
         .collect();
     let rejected: Vec<bool> = items
         .iter()
@@ -267,7 +298,7 @@ pub fn trace(items: &[Item], config: &Config) -> Trace {
                     .map(|link| (LinkKind::SatisfiedBy, link)),
             );
         for (kind, link) in all_links {
-            let resolved = resolve(&copies, &items, &rejected, link);
+            let resolved = resolve(&copies, &outside, &items, &rejected, link);
             let status = match (kind, resolved) {
                 (LinkKind::Covers, Ok(target)) => {
                     if needs[target].contains(item.id.typ()) {
@@ -321,11 +352,11 @@ pub fn trace(items: &[Item], config: &Config) -> Trace {
                     message,
                 ));
             }
-            let target_location = match copies
-                .get(&(link.id.typ().as_str(), link.id.name()))
-                .map(Vec::as_slice)
-            {
-                Some([target]) => Some(items[*target].location.clone()),
+            let key = (link.id.typ().as_str(), link.id.name());
+            let target_location = match copies.get(&key).map(Vec::as_slice) {
+                Some([target]) if !outside.contains_key(&key) => {
+                    Some(items[*target].location.clone())
+                }
                 _ => None,
             };
             links.push(Link {
@@ -454,15 +485,29 @@ fn needed_without_satisfied_by(target: &Item, typ: &ItemType, config: &Config) -
 /// Finds the single target of a link in the linked revision.
 fn resolve(
     copies: &HashMap<(&str, &str), Vec<usize>>,
+    outside: &HashMap<(&str, &str), Vec<(u32, bool)>>,
     items: &[&Item],
     rejected: &[bool],
     link: &Reference,
 ) -> Result<usize, LinkStatus> {
     let key = (link.id.typ().as_str(), link.id.name());
-    let target = match copies.get(&key).map(Vec::as_slice) {
-        None => return Err(LinkStatus::Unknown),
-        Some([target]) => *target,
-        Some(_) => return Err(LinkStatus::Ambiguous),
+    let inside = copies.get(&key).map_or(&[][..], Vec::as_slice);
+    let outside = outside.get(&key).map_or(&[][..], Vec::as_slice);
+    let linked = link.id.revision();
+    let target = match (inside, outside) {
+        ([], []) => return Err(LinkStatus::Unknown),
+        ([target], []) => *target,
+        // A rejection or a wrong revision is the root cause, whichever
+        // variant the target belongs to.
+        ([], [(_, true)]) => return Err(LinkStatus::Rejected),
+        ([], [(current, false)]) => {
+            return Err(match linked.cmp(current) {
+                std::cmp::Ordering::Less => LinkStatus::Outdated { current: *current },
+                std::cmp::Ordering::Greater => LinkStatus::Predated { current: *current },
+                std::cmp::Ordering::Equal => LinkStatus::OutsideVariant,
+            });
+        }
+        _ => return Err(LinkStatus::Ambiguous),
     };
     // A rejected target is the root cause even if the revision differs
     // too: updating the revision would not make the link valid.
@@ -470,7 +515,6 @@ fn resolve(
         return Err(LinkStatus::Rejected);
     }
     let current = items[target].id.revision();
-    let linked = link.id.revision();
     if linked < current {
         Err(LinkStatus::Outdated { current })
     } else if linked > current {
@@ -500,6 +544,8 @@ fn link_message(
     let subject = subject(item);
     let problem = match status {
         LinkStatus::Valid => return None,
+        LinkStatus::OutsideVariant if kind == LinkKind::Covers => return None,
+        LinkStatus::OutsideVariant => format!("{verb} {target}, which is not part of the variant"),
         LinkStatus::Unknown if is_tag => format!("unknown target {target}"),
         LinkStatus::Unknown => format!("{verb} unknown item {target}"),
         LinkStatus::Outdated { current } => {
@@ -1523,5 +1569,109 @@ Covers:
             unwanted,
             ["x.md:8: swr~s~1: covers hlr~a~1, which does not need type 'swr'"]
         );
+    }
+
+    #[test]
+    fn links_out_of_the_variant() {
+        let text = "\
+`hlr~a~1`
+Satisfied-by:
+- cap~in~1
+- cap~out~1
+
+`cap~in~1`
+Needs: impl
+
+`cap~out~1`
+Features: x
+
+`swr~s~1`
+Needs: impl
+Features: y
+Covers:
+- cap~out~1
+Depends:
+- cap~out~1
+
+`impl~i~0`
+Covers:
+- cap~in~1
+- swr~s~1
+";
+        let items = markdown::parse(Path::new("x.md"), text).unwrap().items;
+        let variant = crate::config::Variant::new(vec!["y".to_owned()]);
+        // swr~s~1 is inside by its own feature, although it covers only an
+        // item outside.
+        let selection = crate::variant::select(&items, &variant);
+        let trace = trace_variant(
+            &selection.inside,
+            &selection.outside,
+            &Config::parse(PLATFORM).unwrap(),
+        );
+        assert_eq!(
+            messages(&trace),
+            [
+                "x.md:4: hlr~a~1: is satisfied by cap~out~1, which is not part of the variant",
+                "x.md:18: swr~s~1: depends on cap~out~1, which is not part of the variant",
+            ]
+        );
+        assert!(trace.items.iter().all(|item| item.id.name() != "out"));
+        let out: Vec<&Link> = trace
+            .links
+            .iter()
+            .filter(|link| link.status == LinkStatus::OutsideVariant)
+            .collect();
+        assert_eq!(out.len(), 3, "{out:?}");
+        assert!(out.iter().all(|link| link.target_location.is_none()));
+        // The covering link to the part inside still counts.
+        assert!(item(&trace, "hlr~a~1").covered);
+    }
+
+    #[test]
+    fn duplicates_and_revisions_across_the_variant() {
+        let text = "\
+`cap~dup~1`
+
+`cap~dup~1`
+Features: x
+
+`cap~old~2`
+Features: x
+
+`swr~s~1`
+Needs: impl
+Features: y
+Covers:
+- cap~dup~1
+- cap~old~1
+Depends:
+- cap~old~3
+- cap~gone~1
+
+`cap~gone~1`
+Status: rejected
+Features: x
+";
+        let items = markdown::parse(Path::new("x.md"), text).unwrap().items;
+        let variant = crate::config::Variant::new(vec!["y".to_owned()]);
+        let selection = crate::variant::select(&items, &variant);
+        let trace = trace_variant(
+            &selection.inside,
+            &selection.outside,
+            &Config::parse(PLATFORM).unwrap(),
+        );
+        assert_eq!(
+            messages(&trace),
+            [
+                "x.md:3: duplicate ID cap~dup~1, already defined as cap~dup~1 at x.md:1",
+                "x.md:9: swr~s~1: not covered by required type 'impl'",
+                "x.md:13: swr~s~1: covers cap~dup~1, whose type and name are defined more than once",
+                "x.md:14: swr~s~1: covers outdated revision cap~old~1 (current revision: 2)",
+                "x.md:16: swr~s~1: depends on nonexistent revision cap~old~3 (current revision: 2)",
+                "x.md:17: swr~s~1: depends on rejected item cap~gone~1",
+            ]
+        );
+        assert!(item(&trace, "cap~dup~1").duplicate);
+        assert!(trace.links[0].target_location.is_none());
     }
 }

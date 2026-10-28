@@ -25,6 +25,10 @@
 //! [`TracedItem::unknown_type`](shall_core::trace::TracedItem::unknown_type))
 //! and their level shows no coverage; missing types are still listed.
 //! Percentages are rounded down, so that 100 % means complete.
+//!
+//! The report of a variant names it and its features at the top. For
+//! reports of several variants, [`render_overview`] writes a page that
+//! links them, with the verdict and counts of each.
 
 use std::collections::BTreeSet;
 
@@ -38,6 +42,7 @@ use shall_core::results::Verdict;
 use shall_core::{ItemType, Severity, Status};
 
 const INDEX: &str = include_str!("../templates/index.html");
+const OVERVIEW: &str = include_str!("../templates/overview.html");
 const STYLE: &str = include_str!("../templates/style.css");
 
 /// Renders the start page, `index.html`.
@@ -45,6 +50,47 @@ const STYLE: &str = include_str!("../templates/style.css");
 /// Fails only if a template is broken, since the document's text is
 /// passed to the templates as values, never as template source.
 pub fn render(document: &Document<'_>) -> Result<String, minijinja::Error> {
+    let page = Page::new(document);
+    environment()?
+        .get_template("index.html")?
+        .render(Value::from(Serde(&page)))
+}
+
+/// Renders the overview of the reports of several variants, `index.html`
+/// above the variants' directories: one row per document, in the given
+/// order, linking `<variant>/index.html`.
+///
+/// # Panics
+///
+/// If a document has no variant.
+pub fn render_overview(documents: &[Document<'_>]) -> Result<String, minijinja::Error> {
+    let variants: Vec<OverviewRow> = documents
+        .iter()
+        .map(|document| {
+            let variant = document
+                .variant
+                .as_ref()
+                .expect("the overview lists variants");
+            OverviewRow {
+                name: variant.name,
+                features: variant.features.iter().map(String::as_str).collect(),
+                summary: summary(document),
+            }
+        })
+        .collect();
+    let overview = Overview {
+        generator: documents
+            .first()
+            .map(|document| generator(document))
+            .unwrap_or_default(),
+        variants,
+    };
+    environment()?
+        .get_template("overview.html")?
+        .render(Value::from(Serde(&overview)))
+}
+
+fn environment() -> Result<Environment<'static>, minijinja::Error> {
     let mut env = Environment::new();
     env.set_syntax(
         SyntaxConfig::builder()
@@ -55,11 +101,33 @@ pub fn render(document: &Document<'_>) -> Result<String, minijinja::Error> {
             .expect("valid syntax"),
     );
     env.add_template("index.html", INDEX)?;
+    env.add_template("overview.html", OVERVIEW)?;
     env.add_template("style.css", STYLE)?;
     env.set_undefined_behavior(minijinja::UndefinedBehavior::Strict);
-    let page = Page::new(document);
-    env.get_template("index.html")?
-        .render(Value::from(Serde(&page)))
+    Ok(env)
+}
+
+fn generator(document: &Document<'_>) -> String {
+    format!("{} {}", document.generator.name, document.generator.version)
+}
+
+#[derive(Debug, Serialize)]
+struct Overview<'a> {
+    generator: String,
+    variants: Vec<OverviewRow<'a>>,
+}
+
+#[derive(Debug, Serialize)]
+struct OverviewRow<'a> {
+    name: &'a str,
+    features: Vec<&'a str>,
+    summary: Summary,
+}
+
+#[derive(Debug, Serialize)]
+struct VariantView<'a> {
+    name: &'a str,
+    features: Vec<&'a str>,
 }
 
 /// Everything the template shows, computed here so that the template
@@ -67,6 +135,7 @@ pub fn render(document: &Document<'_>) -> Result<String, minijinja::Error> {
 #[derive(Debug, Serialize)]
 struct Page<'a> {
     generator: String,
+    variant: Option<VariantView<'a>>,
     summary: Summary,
     levels: Vec<LevelView<'a>>,
 }
@@ -131,38 +200,6 @@ struct ItemView<'a> {
 
 impl<'a> Page<'a> {
     fn new(document: &'a Document<'_>) -> Self {
-        let mut summary = Summary::default();
-        let mut tags = BTreeSet::new();
-        let mut tests = Tests::default();
-        for item in &document.items {
-            // A tag with several targets has one item per target, but it
-            // is one tag with one test.
-            let new_tag = match item.origin {
-                Origin::Requirement => {
-                    summary.requirements += 1;
-                    false
-                }
-                Origin::Tag { text, .. } => tags.insert((item.location, text)),
-            };
-            if let Some(test) = item.test.as_ref().filter(|_| new_tag) {
-                match test.verdict {
-                    Verdict::Passed => tests.passed += 1,
-                    Verdict::Failed => tests.failed += 1,
-                    Verdict::Skipped => tests.skipped += 1,
-                    Verdict::NotExecuted => tests.not_executed += 1,
-                    Verdict::NoTest => tests.no_test += 1,
-                }
-            }
-        }
-        summary.tags = tags.len();
-        summary.tests = document.test_results.is_some().then_some(tests);
-        for defect in &document.defects {
-            match defect.severity {
-                Severity::Error => summary.errors += 1,
-                Severity::Warning => summary.warnings += 1,
-            }
-        }
-
         // Requirement types without a level, e.g. misspelled ones, get a
         // table of their own after the levels.
         let configured: BTreeSet<&ItemType> =
@@ -185,11 +222,51 @@ impl<'a> Page<'a> {
             )
             .collect();
         Self {
-            generator: format!("{} {}", document.generator.name, document.generator.version),
-            summary,
+            generator: generator(document),
+            variant: document.variant.as_ref().map(|variant| VariantView {
+                name: variant.name,
+                features: variant.features.iter().map(String::as_str).collect(),
+            }),
+            summary: summary(document),
             levels,
         }
     }
+}
+
+/// Counts of the summary: requirements, tags, test verdicts and defects.
+fn summary(document: &Document<'_>) -> Summary {
+    let mut summary = Summary::default();
+    let mut tags = BTreeSet::new();
+    let mut tests = Tests::default();
+    for item in &document.items {
+        // A tag with several targets has one item per target, but it
+        // is one tag with one test.
+        let new_tag = match item.origin {
+            Origin::Requirement => {
+                summary.requirements += 1;
+                false
+            }
+            Origin::Tag { text, .. } => tags.insert((item.location, text)),
+        };
+        if let Some(test) = item.test.as_ref().filter(|_| new_tag) {
+            match test.verdict {
+                Verdict::Passed => tests.passed += 1,
+                Verdict::Failed => tests.failed += 1,
+                Verdict::Skipped => tests.skipped += 1,
+                Verdict::NotExecuted => tests.not_executed += 1,
+                Verdict::NoTest => tests.no_test += 1,
+            }
+        }
+    }
+    summary.tags = tags.len();
+    summary.tests = document.test_results.is_some().then_some(tests);
+    for defect in &document.defects {
+        match defect.severity {
+            Severity::Error => summary.errors += 1,
+            Severity::Warning => summary.warnings += 1,
+        }
+    }
+    summary
 }
 
 fn level<'a>(
@@ -288,6 +365,7 @@ mod tests {
             trace: &trace,
             tests: None,
             diagnostics: &trace.defects,
+            variant: None,
         }))
         .unwrap()
     }
@@ -373,6 +451,7 @@ mod tests {
             trace: &trace,
             tests: Some((&parsed.results, &evaluation)),
             diagnostics: &[],
+            variant: None,
         }))
         .unwrap();
         assert!(html.contains("<dt>Tags</dt><dd>1</dd>"), "{html}");

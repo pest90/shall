@@ -24,3 +24,11 @@ requirements = ["reqs/**/*.md", "verification/**/*.md"]
 impl  = ["src/**/*.{cpp,hpp}"]
 utest = ["tests/**/*.cpp"]
 junit = ["test-results/**/*.xml"]
+
+# The emergency stop is an option; its chain down to code, tests and the
+# review inherits the feature.
+[variant.basis]
+features = []
+
+[variant.safety]
+features = ["estop"]

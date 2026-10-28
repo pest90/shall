@@ -8,6 +8,7 @@ expression: normalized(&json)
     "name": "shall",
     "version": "[version]"
   },
+  "variant": null,
   "levels": [
     {
       "type": "sys",
@@ -50,6 +51,7 @@ expression: normalized(&json)
       "tags": [],
       "source": null,
       "params": [],
+      "features": [],
       "location": {
         "path": "reqs/design.md",
         "line": 4
@@ -98,6 +100,7 @@ expression: normalized(&json)
       "tags": [],
       "source": null,
       "params": [],
+      "features": [],
       "location": {
         "path": "reqs/design.md",
         "line": 17
@@ -146,6 +149,7 @@ expression: normalized(&json)
       "tags": [],
       "source": null,
       "params": [],
+      "features": [],
       "location": {
         "path": "reqs/design.md",
         "line": 30
@@ -202,6 +206,7 @@ expression: normalized(&json)
       "tags": [],
       "source": null,
       "params": [],
+      "features": [],
       "location": {
         "path": "reqs/software.md",
         "line": 4
@@ -242,6 +247,7 @@ expression: normalized(&json)
       "tags": [],
       "source": null,
       "params": [],
+      "features": [],
       "location": {
         "path": "reqs/software.md",
         "line": 20
@@ -276,6 +282,7 @@ expression: normalized(&json)
       "tags": [],
       "source": null,
       "params": [],
+      "features": [],
       "location": {
         "path": "reqs/software.md",
         "line": 33
@@ -316,6 +323,7 @@ expression: normalized(&json)
       "tags": [],
       "source": "Customer specification ch. 4.2",
       "params": [],
+      "features": [],
       "location": {
         "path": "reqs/system.md",
         "line": 4
@@ -363,6 +371,9 @@ expression: normalized(&json)
       "tags": [],
       "source": "Customer specification ch. 5.1",
       "params": [],
+      "features": [
+        "estop"
+      ],
       "location": {
         "path": "reqs/system.md",
         "line": 17
@@ -403,6 +414,7 @@ expression: normalized(&json)
       "tags": [],
       "source": null,
       "params": [],
+      "features": [],
       "location": {
         "path": "src/fault_log.cpp",
         "line": 3
@@ -435,6 +447,7 @@ expression: normalized(&json)
       "tags": [],
       "source": null,
       "params": [],
+      "features": [],
       "location": {
         "path": "src/relay_driver.cpp",
         "line": 3
@@ -467,6 +480,7 @@ expression: normalized(&json)
       "tags": [],
       "source": null,
       "params": [],
+      "features": [],
       "location": {
         "path": "src/shutdown.cpp",
         "line": 3
@@ -499,6 +513,7 @@ expression: normalized(&json)
       "tags": [],
       "source": null,
       "params": [],
+      "features": [],
       "location": {
         "path": "src/temp_monitor.cpp",
         "line": 3
@@ -531,6 +546,7 @@ expression: normalized(&json)
       "tags": [],
       "source": null,
       "params": [],
+      "features": [],
       "location": {
         "path": "tests/relay_driver_test.cpp",
         "line": 10
@@ -575,6 +591,7 @@ expression: normalized(&json)
       "tags": [],
       "source": null,
       "params": [],
+      "features": [],
       "location": {
         "path": "tests/shutdown_test.cpp",
         "line": 5
@@ -619,6 +636,7 @@ expression: normalized(&json)
       "tags": [],
       "source": null,
       "params": [],
+      "features": [],
       "location": {
         "path": "tests/temp_monitor_test.cpp",
         "line": 5
@@ -663,6 +681,7 @@ expression: normalized(&json)
       "tags": [],
       "source": null,
       "params": [],
+      "features": [],
       "location": {
         "path": "verification/relay-driver-review.md",
         "line": 4

@@ -41,6 +41,9 @@ pub struct Item {
     pub params: Vec<Param>,
     /// Free-form tags (`Tags:`).
     pub tags: Vec<String>,
+    /// Features the item belongs to (`Features:`); a variant contains the
+    /// item only if it selects all of them, see [`crate::variant`].
+    pub features: Vec<String>,
     /// Origin, e.g. a chapter of a customer specification (`Source:`).
     pub source: Option<String>,
     /// Where the item is defined: the line of its ID.

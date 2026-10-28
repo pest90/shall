@@ -20,5 +20,6 @@ The drive stops the motor when the emergency stop input is active.
 
 Status: approved
 Source: Customer specification ch. 5.1
+Features: estop
 
 Needs: swr

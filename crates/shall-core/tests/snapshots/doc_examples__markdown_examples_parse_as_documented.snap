@@ -17,6 +17,7 @@ expression: items
   satisfied_by: []
   params: []
   tags: []
+  features: []
   source: ~
   location:
     path: README.md
@@ -42,6 +43,7 @@ expression: items
   tags:
     - safety
     - thermal
+  features: []
   source: Customer specification ch. 4.2
   location:
     path: docs/user-guide.md
@@ -62,6 +64,7 @@ expression: items
   satisfied_by: []
   params: []
   tags: []
+  features: []
   source: ~
   location:
     path: docs/user-guide.md
@@ -85,6 +88,27 @@ expression: items
       value: "100"
       line: 10
   tags: []
+  features: []
+  source: ~
+  location:
+    path: docs/user-guide.md
+    line: 2
+  origin:
+    kind: requirement
+- id: cap~diag.uds-readout-t4m1~1
+  title: Read out the fault memory over UDS
+  description: The platform reads out the fault memory over UDS.
+  rationale: ~
+  comment: ~
+  status: approved
+  needs: []
+  covers: []
+  depends: []
+  satisfied_by: []
+  params: []
+  tags: []
+  features:
+    - diag_uds
   source: ~
   location:
     path: docs/user-guide.md

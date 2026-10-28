@@ -18,6 +18,7 @@ expression: read_requirements()
   satisfied_by: []
   params: []
   tags: []
+  features: []
   source: ~
   location:
     path: reqs/design.md
@@ -40,6 +41,7 @@ expression: read_requirements()
   satisfied_by: []
   params: []
   tags: []
+  features: []
   source: ~
   location:
     path: reqs/design.md
@@ -63,6 +65,7 @@ expression: read_requirements()
   satisfied_by: []
   params: []
   tags: []
+  features: []
   source: ~
   location:
     path: reqs/design.md
@@ -84,6 +87,7 @@ expression: read_requirements()
   satisfied_by: []
   params: []
   tags: []
+  features: []
   source: ~
   location:
     path: reqs/software.md
@@ -105,6 +109,7 @@ expression: read_requirements()
   satisfied_by: []
   params: []
   tags: []
+  features: []
   source: ~
   location:
     path: reqs/software.md
@@ -126,6 +131,7 @@ expression: read_requirements()
   satisfied_by: []
   params: []
   tags: []
+  features: []
   source: ~
   location:
     path: reqs/software.md
@@ -145,6 +151,7 @@ expression: read_requirements()
   satisfied_by: []
   params: []
   tags: []
+  features: []
   source: Customer specification ch. 4.2
   location:
     path: reqs/system.md
@@ -164,6 +171,8 @@ expression: read_requirements()
   satisfied_by: []
   params: []
   tags: []
+  features:
+    - estop
   source: Customer specification ch. 5.1
   location:
     path: reqs/system.md
@@ -184,6 +193,7 @@ expression: read_requirements()
   satisfied_by: []
   params: []
   tags: []
+  features: []
   source: ~
   location:
     path: verification/relay-driver-review.md

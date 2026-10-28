@@ -28,11 +28,12 @@
 //! explicit `Description:` is allowed. `Rationale:` and `Comment:` take
 //! the text that follows them, `Covers:`, `Depends:` and `Satisfied-by:` a
 //! bullet list of IDs, `Params:` a bullet list of `name = value` entries,
-//! `Needs:` and `Tags:` a comma-separated list on the same line or a
-//! bullet list, and `Status:` and `Source:` a value on the same line. Lines
+//! `Needs:`, `Tags:` and `Features:` a comma-separated list on the same
+//! line or a bullet list, and `Status:` and `Source:` a value on the same line. Lines
 //! inside fenced code blocks are never IDs or keywords.
 //!
-//! `Satisfied-by:` and `Params:` are extensions of shall, unknown to OFT:
+//! `Satisfied-by:`, `Params:` and `Features:` are extensions of shall,
+//! unknown to OFT:
 //!
 //! ```markdown
 //! ## Shut down the drive on overtemperature
@@ -117,12 +118,13 @@ enum Keyword {
     Params,
     Needs,
     Tags,
+    Features,
     Status,
     Source,
 }
 
 impl Keyword {
-    const ALL: [Keyword; 11] = [
+    const ALL: [Keyword; 12] = [
         Keyword::Description,
         Keyword::Rationale,
         Keyword::Comment,
@@ -132,6 +134,7 @@ impl Keyword {
         Keyword::Params,
         Keyword::Needs,
         Keyword::Tags,
+        Keyword::Features,
         Keyword::Status,
         Keyword::Source,
     ];
@@ -147,6 +150,7 @@ impl Keyword {
             Keyword::Params => "Params",
             Keyword::Needs => "Needs",
             Keyword::Tags => "Tags",
+            Keyword::Features => "Features",
             Keyword::Status => "Status",
             Keyword::Source => "Source",
         }
@@ -198,6 +202,7 @@ struct ItemBuilder {
     satisfied_by: Vec<Reference>,
     params: Vec<Param>,
     tags: Vec<String>,
+    features: Vec<String>,
     source: Option<String>,
     section: Section,
     seen: HashMap<Keyword, usize>,
@@ -395,6 +400,7 @@ impl Parser {
             satisfied_by: Vec::new(),
             params: Vec::new(),
             tags: Vec::new(),
+            features: Vec::new(),
             source: None,
             section: Section::Description,
             seen: HashMap::new(),
@@ -470,7 +476,7 @@ impl Parser {
                     );
                 }
             }
-            Keyword::Needs | Keyword::Tags => {
+            Keyword::Needs | Keyword::Tags | Keyword::Features => {
                 if value.is_empty() {
                     item.section = Section::List(keyword);
                 } else {
@@ -489,7 +495,7 @@ impl Parser {
             return;
         }
         let entry = match keyword {
-            Keyword::Tags => strip_backticks(entry.trim()),
+            Keyword::Tags | Keyword::Features => strip_backticks(entry.trim()),
             _ => reference(entry),
         };
         if entry.is_empty() {
@@ -498,8 +504,9 @@ impl Parser {
         }
         let item = self.item.as_mut().expect("lists only exist in items");
         let added = match keyword {
-            Keyword::Covers | Keyword::Depends | Keyword::SatisfiedBy => {
-                entry.parse::<ItemId>().map(|id| {
+            Keyword::Covers | Keyword::Depends | Keyword::SatisfiedBy => entry
+                .parse::<ItemId>()
+                .map(|id| {
                     let references = match keyword {
                         Keyword::Covers => &mut item.covers,
                         Keyword::Depends => &mut item.depends,
@@ -512,20 +519,37 @@ impl Parser {
                     }
                     new
                 })
-            }
-            Keyword::Needs => entry.parse::<ItemType>().map(|typ| {
-                let new = !item.needs.contains(&typ);
-                if new {
-                    item.needs.push(typ);
-                }
-                new
-            }),
+                .map_err(|error| error.to_string()),
+            Keyword::Needs => entry
+                .parse::<ItemType>()
+                .map(|typ| {
+                    let new = !item.needs.contains(&typ);
+                    if new {
+                        item.needs.push(typ);
+                    }
+                    new
+                })
+                .map_err(|error| error.to_string()),
             Keyword::Tags => {
                 let new = !item.tags.iter().any(|tag| tag == entry);
                 if new {
                     item.tags.push(entry.to_owned());
                 }
                 Ok(new)
+            }
+            Keyword::Features => {
+                if is_feature(entry) {
+                    let new = !item.features.iter().any(|feature| feature == entry);
+                    if new {
+                        item.features.push(entry.to_owned());
+                    }
+                    Ok(new)
+                } else {
+                    Err(format!(
+                        "invalid feature '{entry}': expected letters, digits, '_', '-', '+' or '.', \
+                         starting with a letter, a digit or '_'"
+                    ))
+                }
             }
             _ => unreachable!("only list keywords have entries"),
         };
@@ -535,7 +559,7 @@ impl Parser {
                 number,
                 format!("duplicate entry '{entry}' in '{}:'", keyword.as_str()),
             ),
-            Err(error) => self.error(number, error.to_string()),
+            Err(error) => self.error(number, error),
         }
     }
 
@@ -606,6 +630,7 @@ impl Parser {
             satisfied_by: item.satisfied_by,
             params: item.params,
             tags: item.tags,
+            features: item.features,
             source: item.source,
             location,
             origin: Origin::Requirement,
@@ -775,6 +800,16 @@ fn unquote(text: &str) -> &str {
         inner if !inner.contains('`') => inner.trim(),
         _ => text,
     }
+}
+
+/// Whether the text is a valid feature name, as Cargo accepts them, so
+/// that a feature list can drive both the build and the trace.
+pub(crate) fn is_feature(text: &str) -> bool {
+    let mut chars = text.chars();
+    chars
+        .next()
+        .is_some_and(|c| c.is_ascii_alphanumeric() || c == '_')
+        && chars.all(|c| c.is_ascii_alphanumeric() || "_-+.".contains(c))
 }
 
 fn strip_backticks(text: &str) -> &str {
@@ -1400,5 +1435,24 @@ Params: a = 1
                  The line is read as text",
             ]
         );
+    }
+
+    #[test]
+    fn reads_features() {
+        let parsed = parse_str(
+            "`cap~x~1`\nFeatures: diag_uds, `ota`, can-fd, ota\n\n`cap~y~1`\nFeatures:\n- motor+ctrl\n- 2.0\n- -x\n- a b\n",
+        );
+        assert_eq!(
+            messages(&parsed),
+            [
+                "reqs/x.md:2: duplicate entry 'ota' in 'Features:'",
+                "reqs/x.md:8: invalid feature '-x': expected letters, digits, '_', '-', '+' or \
+                 '.', starting with a letter, a digit or '_'",
+                "reqs/x.md:9: invalid feature 'a b': expected letters, digits, '_', '-', '+' or \
+                 '.', starting with a letter, a digit or '_'",
+            ]
+        );
+        assert_eq!(parsed.items[0].features, ["diag_uds", "ota", "can-fd"]);
+        assert_eq!(parsed.items[1].features, ["motor+ctrl", "2.0"]);
     }
 }

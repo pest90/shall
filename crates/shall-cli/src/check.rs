@@ -24,7 +24,7 @@ use shall_core::config::{self, Config};
 use shall_core::junit::{self, TestResult};
 use shall_core::results::{self, Evaluation, Packages};
 use shall_core::trace::{self, Trace};
-use shall_core::{Diagnostic, Item, Location, Origin, Severity, markdown, tags};
+use shall_core::{Diagnostic, Item, Location, Origin, Severity, markdown, tags, variant};
 
 use crate::project::{find_root, is_markdown};
 
@@ -41,6 +41,7 @@ pub enum Mode {
 pub struct CheckArgs {
     pub path: PathBuf,
     pub mode: Mode,
+    pub variant: Option<String>,
 }
 
 /// Exit code when defects fail the check.
@@ -48,7 +49,7 @@ const DEFECTS: u8 = 1;
 
 /// Runs the check, prints the defects to stdout and a summary to stderr.
 pub fn run(args: &CheckArgs) -> anyhow::Result<ExitCode> {
-    let project = analyze(&args.path)?;
+    let project = analyze(&args.path, args.variant.as_deref())?;
     match print(&project) {
         // The reader went away, e.g. `shall check | head`; stop quietly.
         Err(error) if error.kind() == io::ErrorKind::BrokenPipe => {}
@@ -86,7 +87,10 @@ fn line(diagnostic: &Diagnostic) -> String {
 pub struct Project {
     /// The parsed `shall.toml`.
     pub config: Config,
-    /// Items of requirement files and tags, in the order they were read.
+    /// Name of the traced variant; none when all items are traced.
+    pub variant: Option<String>,
+    /// Items of requirement files and tags, in the order they were read;
+    /// only those of the variant, if one is traced.
     pub items: Vec<Item>,
     /// Coverage and links of `items`.
     pub trace: Trace,
@@ -108,7 +112,8 @@ impl Project {
     }
 
     /// One line such as `not ok: 4 errors, 1 warning (8 requirements, 7
-    /// tags, 3 test results)`; a tag with several targets counts once.
+    /// tags, 3 test results)`, after `variant <name>: ` for a variant; a
+    /// tag with several targets counts once.
     pub fn summary(&self) -> String {
         let errors = self.count(Severity::Error);
         let warnings = self.count(Severity::Warning);
@@ -127,8 +132,13 @@ impl Project {
                 .as_ref()
                 .map(|(results, _)| plural(results.len(), "test result")),
         );
+        let variant = self
+            .variant
+            .as_ref()
+            .map(|name| format!("variant {name}: "))
+            .unwrap_or_default();
         format!(
-            "{verdict}: {}, {} ({})",
+            "{variant}{verdict}: {}, {} ({})",
             plural(errors, "error"),
             plural(warnings, "warning"),
             read.join(", ")
@@ -144,21 +154,52 @@ fn plural(count: usize, noun: &str) -> String {
     }
 }
 
-/// Reads and traces the project at or above `start`.
-pub fn analyze(start: &Path) -> anyhow::Result<Project> {
+/// Reads and traces the project at or above `start`, or only the items of
+/// the named variant.
+pub fn analyze(start: &Path, variant: Option<&str>) -> anyhow::Result<Project> {
+    read_project(start)?.trace(variant)
+}
+
+/// A project read but not traced yet, so that it can be traced once per
+/// variant.
+pub struct ReadProject {
+    root: PathBuf,
+    config: Config,
+    config_text: String,
+    /// All files of the project, relative to the root and sorted.
+    files: Vec<String>,
+    /// The code and test files that were scanned for tags.
+    code_files: BTreeSet<String>,
+    items: Vec<Item>,
+    /// Diagnostics of `shall.toml` and of reading the files.
+    diagnostics: Vec<Diagnostic>,
+}
+
+/// Reads the configuration, the requirement files and the tags of the
+/// project at or above `start`.
+pub fn read_project(start: &Path) -> anyhow::Result<ReadProject> {
     let root = find_root(start)?;
     let config_path = root.join(config::FILE_NAME);
     let config_text = fs::read_to_string(&config_path)
         .with_context(|| format!("cannot read {}", config_path.display()))?;
     let config = Config::parse(&config_text)?;
     let mut diagnostics = Vec::new();
-    let sources = Sources { text: &config_text };
+    let sources = Sources::new(&config_text, "sources");
 
     for key in config.sources.invalid_keys() {
         diagnostics.push(Diagnostic::warning(
             sources.location(key),
             format!("[sources] key '{key}' is not a list of patterns and is ignored"),
         ));
+    }
+    for (name, variant) in &config.variants {
+        let table = Sources::new(&config_text, &format!("variant.{name}"));
+        for key in variant.unknown_keys() {
+            diagnostics.push(Diagnostic::warning(
+                table.location(key),
+                format!("[variant.{name}] key '{key}' is unknown and is ignored"),
+            ));
+        }
     }
     let code = config.sources.code();
     if !config.levels.is_empty() {
@@ -204,59 +245,125 @@ pub fn analyze(start: &Path) -> anyhow::Result<Project> {
             diagnostics.extend(parsed.diagnostics);
         }
     }
-    let mut tags = BTreeSet::new();
     for file in &code_files {
         if let Some(text) = read(&root, file, &mut diagnostics)? {
             let scanned = tags::scan(Path::new(file), &text)?;
-            for item in &scanned.items {
-                if let Origin::Tag { text, .. } = &item.origin {
-                    tags.insert((item.location.clone(), text.clone()));
-                }
-            }
             items.extend(scanned.items);
             diagnostics.extend(scanned.diagnostics);
         }
     }
-    let trace = trace::trace(&items, &config);
-    diagnostics.extend(trace.defects.iter().cloned());
+    diagnostics.extend(variant::check_features(&items, &config));
+    Ok(ReadProject {
+        root,
+        config,
+        config_text,
+        files,
+        code_files,
+        items,
+        diagnostics,
+    })
+}
 
-    let mut tests = None;
-    if !config.sources.junit.is_empty() {
-        let candidates = junit_files(&root, &config.sources.junit, &files, &mut diagnostics);
-        let junit_files = unique(
-            &root,
-            sources.select(
-                &candidates,
-                "junit",
-                &config.sources.junit,
-                &mut diagnostics,
-            ),
-        );
-        let mut test_results = Vec::new();
-        for file in &junit_files {
-            if let Some(text) = read(&root, file, &mut diagnostics)? {
-                let parsed = junit::parse(Path::new(file), &text)?;
-                test_results.extend(parsed.results);
-                diagnostics.extend(parsed.diagnostics);
-            }
-        }
-        let packages = packages(&root, &code_files, &files);
-        let evaluation = results::evaluate(&items, &test_results, &config, &packages);
-        diagnostics.extend(evaluation.defects.iter().cloned());
-        tests = Some((test_results, evaluation));
+impl ReadProject {
+    /// The configuration.
+    pub fn config(&self) -> &Config {
+        &self.config
     }
 
-    diagnostics.sort_by(|a, b| {
-        (a.location.path(), a.location.line()).cmp(&(b.location.path(), b.location.line()))
-    });
-    Ok(Project {
-        config,
-        items,
-        trace,
-        tests,
-        diagnostics,
-        tags: tags.len(),
-    })
+    /// Traces all items, or only those of the named variant, and evaluates
+    /// the test results: those of the variant's `junit` patterns if it has
+    /// any, otherwise those of `[sources]`.
+    pub fn trace(&self, variant: Option<&str>) -> anyhow::Result<Project> {
+        let config = &self.config;
+        let mut diagnostics = self.diagnostics.clone();
+        let selected = variant
+            .map(|name| {
+                config
+                    .variants
+                    .get_key_value(name)
+                    .ok_or_else(|| unknown_variant(name, config))
+            })
+            .transpose()?;
+        let (items, outside) = match selected {
+            Some((_, variant)) => {
+                let selection = variant::select(&self.items, variant);
+                (selection.inside, selection.outside)
+            }
+            None => (self.items.clone(), Vec::new()),
+        };
+        let trace = trace::trace_variant(&items, &outside, config);
+        diagnostics.extend(trace.defects.iter().cloned());
+
+        let (junit, sources) = match selected {
+            Some((name, variant)) if variant.junit.is_some() => (
+                variant.junit.as_deref().unwrap_or_default(),
+                Sources::new(&self.config_text, &format!("variant.{name}")),
+            ),
+            _ => (
+                config.sources.junit.as_slice(),
+                Sources::new(&self.config_text, "sources"),
+            ),
+        };
+        let mut tests = None;
+        if !junit.is_empty() {
+            let candidates = junit_files(&self.root, junit, &self.files, &mut diagnostics);
+            let junit_files = unique(
+                &self.root,
+                sources.select(&candidates, "junit", junit, &mut diagnostics),
+            );
+            let mut test_results = Vec::new();
+            for file in &junit_files {
+                if let Some(text) = read(&self.root, file, &mut diagnostics)? {
+                    let parsed = junit::parse(Path::new(file), &text)?;
+                    test_results.extend(parsed.results);
+                    diagnostics.extend(parsed.diagnostics);
+                }
+            }
+            let packages = packages(&self.root, &self.code_files, &self.files);
+            let evaluation =
+                results::evaluate_variant(&items, &outside, &test_results, config, &packages);
+            diagnostics.extend(evaluation.defects.iter().cloned());
+            tests = Some((test_results, evaluation));
+        }
+
+        diagnostics.sort_by(|a, b| {
+            (a.location.path(), a.location.line()).cmp(&(b.location.path(), b.location.line()))
+        });
+        let tags: BTreeSet<(&Location, &str)> = items
+            .iter()
+            .filter_map(|item| match &item.origin {
+                Origin::Tag { text, .. } => Some((&item.location, text.as_str())),
+                Origin::Requirement => None,
+            })
+            .collect();
+        let tags = tags.len();
+        Ok(Project {
+            config: config.clone(),
+            variant: selected.map(|(name, _)| name.clone()),
+            items,
+            trace,
+            tests,
+            diagnostics,
+            tags,
+        })
+    }
+}
+
+/// The error for a variant that `shall.toml` does not define.
+fn unknown_variant(name: &str, config: &Config) -> anyhow::Error {
+    if config.variants.is_empty() {
+        anyhow::anyhow!(
+            "unknown variant '{name}': {} has no [variant.*]",
+            config::FILE_NAME
+        )
+    } else {
+        let names: Vec<&str> = config.variants.keys().map(String::as_str).collect();
+        anyhow::anyhow!(
+            "unknown variant '{name}'; {} defines {}",
+            config::FILE_NAME,
+            names.join(", ")
+        )
+    }
 }
 
 /// Package names of the crates that contain the Rust files among
@@ -296,31 +403,40 @@ fn manifest_dir<'a>(file: &'a str, manifests: &HashSet<&str>) -> Option<&'a str>
     manifests.contains("").then_some("")
 }
 
-/// The `[sources]` table of `shall.toml`, for patterns and locations.
+/// A table of `shall.toml` with patterns, such as `[sources]` or
+/// `[variant.premium]`, for patterns and locations.
 struct Sources<'a> {
     text: &'a str,
+    /// Name of the table, e.g. `sources`.
+    table: String,
 }
 
-impl Sources<'_> {
-    /// Location of a key of `[sources]` in `shall.toml`: its line, the
-    /// line of a table `[sources.<key>]`, the `[sources]` table itself, or
-    /// the first line.
+impl<'a> Sources<'a> {
+    fn new(text: &'a str, table: &str) -> Self {
+        Self {
+            text,
+            table: table.to_owned(),
+        }
+    }
+
+    /// Location of a key of the table in `shall.toml`: its line, the line
+    /// of a table `[<table>.<key>]`, the table itself, or the first line.
     fn location(&self, key: &str) -> Location {
         let mut table = None;
         let mut found = None;
         let mut current = String::new();
-        let dotted = format!("sources.{key}");
+        let dotted = format!("{}.{key}", self.table);
         for (index, line) in self.text.lines().enumerate() {
             let line = line.split_once('#').map_or(line, |(code, _)| code).trim();
             if line.starts_with('[') {
                 current = line.trim_matches(['[', ']']).trim().to_owned();
-                if current == "sources" {
+                if current == self.table {
                     table.get_or_insert(index + 1);
                 } else if current == dotted {
                     found = Some(index + 1);
                     break;
                 }
-            } else if (current == "sources" && is_key(line, key))
+            } else if (current == self.table && is_key(line, key))
                 || (current.is_empty() && is_key(line, &dotted))
             {
                 found = Some(index + 1);
@@ -354,7 +470,8 @@ impl Sources<'_> {
                     diagnostics.push(Diagnostic::error(
                         self.location(key),
                         format!(
-                            "[sources] invalid pattern '{pattern}' of '{key}': {}",
+                            "[{}] invalid pattern '{pattern}' of '{key}': {}",
+                            self.table,
                             error.kind()
                         ),
                     ));
@@ -369,7 +486,10 @@ impl Sources<'_> {
             if !matched {
                 diagnostics.push(Diagnostic::warning(
                     self.location(key),
-                    format!("[sources] pattern '{pattern}' of '{key}' matches no file"),
+                    format!(
+                        "[{}] pattern '{pattern}' of '{key}' matches no file",
+                        self.table
+                    ),
                 ));
             }
         }
@@ -700,19 +820,23 @@ mod tests {
 
     #[test]
     fn finds_keys_of_the_sources_table() {
-        let sources = Sources {
-            text: "[[level]]\nimpl = 1\n[sources] # code\n# impl\nutest = []\n\"impl\" = [] # x\n[sources.x]\n",
-        };
+        let sources = Sources::new(
+            "[[level]]\nimpl = 1\n[sources] # code\n# impl\nutest = []\n\"impl\" = [] # x\n[sources.x]\n",
+            "sources",
+        );
         assert_eq!(sources.location("impl").line(), 6);
         assert_eq!(sources.location("utest").line(), 5);
         assert_eq!(sources.location("x").line(), 7);
         assert_eq!(sources.location("missing").line(), 3);
-        assert_eq!(Sources { text: "" }.location("x").line(), 1);
-        let dotted = Sources {
-            text: "sources.impl = []\n[sources]\njunit = []\n",
-        };
+        assert_eq!(Sources::new("", "sources").location("x").line(), 1);
+        let dotted = Sources::new("sources.impl = []\n[sources]\njunit = []\n", "sources");
         assert_eq!(dotted.location("impl").line(), 1);
         assert_eq!(dotted.location("junit").line(), 3);
+        let variant = Sources::new(
+            "[sources]\njunit = []\n[variant.a]\nfeatures = []\njunit = []\n",
+            "variant.a",
+        );
+        assert_eq!(variant.location("junit").line(), 5);
     }
 
     #[test]

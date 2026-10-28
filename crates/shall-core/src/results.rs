@@ -152,8 +152,26 @@ pub fn evaluate(
     config: &Config,
     packages: &Packages,
 ) -> Evaluation {
-    let tagged: BTreeSet<&str> = items
+    evaluate_variant(items, &[], results, config, packages)
+}
+
+/// Matches the results to the tests of the verification tags in the
+/// `inside` items of a [variant](crate::variant). The files of `outside`
+/// tags still own the results that name them, so that such a result never
+/// counts for an equally named test inside; a result that names no file,
+/// such as a gtest result without `file` attribute, goes to every tag of
+/// that test in the variant, as without a variant.
+pub fn evaluate_variant(
+    inside: &[Item],
+    outside: &[Item],
+    results: &[TestResult],
+    config: &Config,
+    packages: &Packages,
+) -> Evaluation {
+    let items = inside;
+    let tagged: BTreeSet<&str> = inside
         .iter()
+        .chain(outside)
         .filter(|item| {
             matches!(item.origin, Origin::Tag { test: Some(_), .. })
                 && config.verification.types.contains(item.id.typ())
