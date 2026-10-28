@@ -128,6 +128,8 @@ pub struct ItemEntry<'a> {
     pub location: &'a Location,
     /// Requirement file or tag, with the tag's text and test definition.
     pub origin: &'a Origin,
+    /// The `[[import]]` the item comes from; none for the project's own.
+    pub import: Option<&'a str>,
     /// Types the item needs, from `Needs:` or its level; empty for
     /// rejected items.
     pub needs: &'a [ItemType],
@@ -299,6 +301,7 @@ fn entry<'a>(joined: &Joined<'a>, verified: bool) -> ItemEntry<'a> {
         features: &item.features,
         location: &item.location,
         origin: &item.origin,
+        import: item.import.as_deref(),
         needs: &traced.needs,
         covered_by: &traced.covered_by,
         missing: &traced.missing,

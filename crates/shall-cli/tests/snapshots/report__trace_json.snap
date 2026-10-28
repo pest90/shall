@@ -59,6 +59,7 @@ expression: normalized(&json)
       "origin": {
         "kind": "requirement"
       },
+      "import": null,
       "needs": [
         "impl",
         "utest"
@@ -108,6 +109,7 @@ expression: normalized(&json)
       "origin": {
         "kind": "requirement"
       },
+      "import": null,
       "needs": [
         "impl",
         "utest"
@@ -157,6 +159,7 @@ expression: normalized(&json)
       "origin": {
         "kind": "requirement"
       },
+      "import": null,
       "needs": [
         "impl",
         "utest",
@@ -214,6 +217,7 @@ expression: normalized(&json)
       "origin": {
         "kind": "requirement"
       },
+      "import": null,
       "needs": [
         "dsn"
       ],
@@ -255,6 +259,7 @@ expression: normalized(&json)
       "origin": {
         "kind": "requirement"
       },
+      "import": null,
       "needs": [
         "dsn"
       ],
@@ -290,6 +295,7 @@ expression: normalized(&json)
       "origin": {
         "kind": "requirement"
       },
+      "import": null,
       "needs": [
         "dsn"
       ],
@@ -331,6 +337,7 @@ expression: normalized(&json)
       "origin": {
         "kind": "requirement"
       },
+      "import": null,
       "needs": [
         "swr"
       ],
@@ -381,6 +388,7 @@ expression: normalized(&json)
       "origin": {
         "kind": "requirement"
       },
+      "import": null,
       "needs": [
         "swr"
       ],
@@ -424,6 +432,7 @@ expression: normalized(&json)
         "text": "[impl->dsn~motor.fault-log-z2d8~1]",
         "test": null
       },
+      "import": null,
       "needs": [],
       "covered_by": [],
       "missing": [],
@@ -457,6 +466,7 @@ expression: normalized(&json)
         "text": "[impl->dsn~motor.relay-driver-b6j3~1]",
         "test": null
       },
+      "import": null,
       "needs": [],
       "covered_by": [],
       "missing": [],
@@ -490,6 +500,7 @@ expression: normalized(&json)
         "text": "[impl->dsn~motor.shutdown-signal-w9e4~1]",
         "test": null
       },
+      "import": null,
       "needs": [],
       "covered_by": [],
       "missing": [],
@@ -523,6 +534,7 @@ expression: normalized(&json)
         "text": "[impl->dsn~motor.temp-monitor-r5t1~1]",
         "test": null
       },
+      "import": null,
       "needs": [],
       "covered_by": [],
       "missing": [],
@@ -562,6 +574,7 @@ expression: normalized(&json)
           "line": 11
         }
       },
+      "import": null,
       "needs": [],
       "covered_by": [],
       "missing": [],
@@ -607,6 +620,7 @@ expression: normalized(&json)
           "line": 6
         }
       },
+      "import": null,
       "needs": [],
       "covered_by": [],
       "missing": [],
@@ -652,6 +666,7 @@ expression: normalized(&json)
           "line": 6
         }
       },
+      "import": null,
       "needs": [],
       "covered_by": [],
       "missing": [],
@@ -689,6 +704,7 @@ expression: normalized(&json)
       "origin": {
         "kind": "requirement"
       },
+      "import": null,
       "needs": [],
       "covered_by": [],
       "missing": [],

@@ -537,3 +537,396 @@ features = [\"x\"]
     );
     assert_eq!(output.status.code(), Some(1));
 }
+
+/// A workspace with a platform and a customer project that imports it.
+fn workspace() -> tempfile::TempDir {
+    let platform_config = br#"
+[[level]]
+type  = "cap"
+name  = "Capabilities"
+needs = ["impl", "utest"]
+
+[verification]
+types = ["utest"]
+
+[sources]
+requirements = ["reqs/*.md"]
+impl  = ["src/*.cpp"]
+utest = ["tests/*.cpp"]
+junit = ["build/*.xml"]
+"#;
+    let project_config = br#"
+[[level]]
+type  = "hlr"
+name  = "Customer"
+needs = ["swr"]
+
+[[import]]
+name = "plat"
+path = "../../platform"
+
+[sources]
+requirements = ["reqs/*.md"]
+"#;
+    project(
+        "[workspace]\nmembers = [\"platform\", \"projects/*\"]\n",
+        &[
+            ("platform/shall.toml", platform_config),
+            (
+                "platform/reqs/cap.md",
+                b"# Caps\n\n## Protect\n`cap~protect~1`\n\n## Log\n`cap~log~1`\n",
+            ),
+            ("platform/src/protect.cpp", b"// [impl->cap~protect~1]\nvoid p();\n"),
+            (
+                "platform/tests/protect_test.cpp",
+                b"// [utest->cap~protect~1]\nTEST(Protect, Works) {}\n",
+            ),
+            (
+                "platform/build/r.xml",
+                b"<testsuite name=\"Protect\"><testcase classname=\"Protect\" name=\"Works\" file=\"tests/protect_test.cpp\"/></testsuite>",
+            ),
+            ("projects/a/shall.toml", project_config),
+            (
+                "projects/a/reqs/customer.md",
+                b"# Customer\n\n## Protect the motor\n`hlr~a.protect~1`\n\nSatisfied-by:\n- cap~protect~1\n\nParams:\n- limit_c = 85\n",
+            ),
+        ],
+    )
+}
+
+#[test]
+fn checks_a_project_with_its_imports() {
+    let dir = workspace();
+    let output = shall(&dir.path().join("projects/a"), &["check"]);
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    // Paths are relative to the workspace root.
+    assert_eq!(
+        stdout(&output),
+        "platform/reqs/cap.md:7: cap~log~1: not covered by required type 'impl'\n\
+         platform/reqs/cap.md:7: cap~log~1: not covered by required type 'utest'\n"
+    );
+    assert_eq!(
+        stderr(&output),
+        "not ok: 2 errors, 0 warnings (3 requirements, 2 tags, 1 test result)\n"
+    );
+
+    // The report marks the imported items.
+    let site = dir.path().join("site");
+    let output = shall(
+        &dir.path().join("projects/a"),
+        &["report", "--out", site.to_str().unwrap()],
+    );
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    let json = fs::read_to_string(site.join("trace.json")).unwrap();
+    assert!(json.contains("\"import\": \"plat\""), "{json}");
+    assert!(
+        json.contains("\"path\": \"projects/a/reqs/customer.md\""),
+        "{json}"
+    );
+    let output = shall(dir.path(), &["report", "--out", site.to_str().unwrap()]);
+    assert_eq!(output.status.code(), Some(2));
+    assert!(
+        stderr(&output).contains("describes a workspace, not a project"),
+        "{}",
+        stderr(&output)
+    );
+}
+
+#[test]
+fn checks_every_member_of_a_workspace() {
+    let dir = workspace();
+    let expected_defects = "platform/reqs/cap.md:7: cap~log~1: not covered by required type 'impl'\n\
+         platform/reqs/cap.md:7: cap~log~1: not covered by required type 'utest'\n";
+    let expected_summaries = "platform: not ok: 2 errors, 0 warnings (2 requirements, 2 tags, 1 test result)\n\
+         projects/a: not ok: 2 errors, 0 warnings (3 requirements, 2 tags, 1 test result)\n\
+         workspace: not ok: 2 errors, 0 warnings (2 projects)\n";
+    for (subdir, args) in [
+        ("", &["check"][..]),
+        ("projects/a", &["check", "--workspace"]),
+    ] {
+        let output = shall(&dir.path().join(subdir), args);
+        assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+        // The platform's defects are reported once.
+        assert_eq!(stdout(&output), expected_defects);
+        assert_eq!(stderr(&output), expected_summaries);
+    }
+    let output = shall(dir.path(), &["check", "--mode", "strict"]);
+    assert_eq!(output.status.code(), Some(1));
+}
+
+#[test]
+fn reports_problems_with_imports() {
+    let dir = workspace();
+    let a = dir.path().join("projects/a");
+    let config = fs::read_to_string(a.join("shall.toml")).unwrap();
+
+    let elsewhere = tempfile::tempdir().unwrap();
+    fs::write(elsewhere.path().join("shall.toml"), "").unwrap();
+    fs::write(
+        a.join("shall.toml"),
+        config.replace(
+            "../../platform",
+            &elsewhere.path().to_string_lossy().replace('\\', "/"),
+        ),
+    )
+    .unwrap();
+    let output = shall(&a, &["check"]);
+    assert_eq!(output.status.code(), Some(2));
+    assert!(
+        stderr(&output).contains("is outside the workspace"),
+        "{}",
+        stderr(&output)
+    );
+
+    fs::write(a.join("shall.toml"), config.replace("../../platform", "..")).unwrap();
+    let output = shall(&a, &["check"]);
+    assert_eq!(output.status.code(), Some(2));
+    assert!(
+        stderr(&output).contains("has no shall.toml"),
+        "{}",
+        stderr(&output)
+    );
+
+    fs::write(a.join("shall.toml"), config.replace("../../platform", ".")).unwrap();
+    let output = shall(&a, &["check"]);
+    assert!(
+        stderr(&output).contains("a project cannot import itself"),
+        "{}",
+        stderr(&output)
+    );
+
+    // Imports of an import are not followed yet, also when written as an
+    // inline array.
+    fs::write(a.join("shall.toml"), &config).unwrap();
+    let platform = dir.path().join("platform/shall.toml");
+    let platform_config = fs::read_to_string(&platform).unwrap();
+    fs::write(
+        &platform,
+        format!("import = [{{ name = \"a\", path = \"../projects/a\" }}]\n{platform_config}"),
+    )
+    .unwrap();
+    let output = shall(&a, &["check"]);
+    assert!(
+        stdout(&output).contains("platform/shall.toml:1: warning: the imports of 'plat'"),
+        "{}",
+        stdout(&output)
+    );
+    let mut platform_config = platform_config;
+    platform_config.push_str("\n[[import]]\nname = \"a\"\npath = \"../projects/a\"\n");
+    fs::write(&platform, platform_config).unwrap();
+    let output = shall(&a, &["check"]);
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    assert!(
+        stdout(&output).contains(
+            "platform/shall.toml:16: warning: the imports of 'plat' are not followed; \
+             transitive imports are planned (M8.2)"
+        ),
+        "{}",
+        stdout(&output)
+    );
+}
+
+#[test]
+fn projects_must_be_members_of_their_workspace() {
+    let dir = workspace();
+    fs::write(
+        dir.path().join("shall.toml"),
+        "[workspace]\nmembers = [\"platform\"]\n",
+    )
+    .unwrap();
+    let output = shall(&dir.path().join("projects/a"), &["check"]);
+    assert_eq!(output.status.code(), Some(2));
+    assert!(
+        stderr(&output).contains("is not a member of the workspace"),
+        "{}",
+        stderr(&output)
+    );
+    fs::write(
+        dir.path().join("shall.toml"),
+        "[workspace]\nmembers = [\"platform\", \"missing\"]\n",
+    )
+    .unwrap();
+    let output = shall(dir.path(), &["check"]);
+    assert!(
+        stderr(&output).contains("member 'missing' of"),
+        "{}",
+        stderr(&output)
+    );
+    let output = shall(dir.path(), &["check", "--variant", "x"]);
+    assert_eq!(output.status.code(), Some(2));
+}
+
+#[test]
+fn imports_need_a_workspace_and_a_valid_one() {
+    let dir = workspace();
+    let a = dir.path().join("projects/a");
+    fs::write(dir.path().join("shall.toml"), "[workspace\n").unwrap();
+    let output = shall(&a, &["check"]);
+    assert_eq!(output.status.code(), Some(2));
+    assert!(
+        stderr(&output).contains(&format!("in {}", dir.path().join("shall.toml").display())),
+        "{}",
+        stderr(&output)
+    );
+    fs::remove_file(dir.path().join("shall.toml")).unwrap();
+    let output = shall(&a, &["check"]);
+    assert_eq!(output.status.code(), Some(2));
+    assert!(
+        stderr(&output).contains("is outside the project; import other projects"),
+        "{}",
+        stderr(&output)
+    );
+}
+
+#[test]
+fn nested_projects_and_test_files_belong_to_their_own_project() {
+    let dir = workspace();
+    // A project nested in the platform keeps its Markdown to itself.
+    let platform = dir.path().join("platform/shall.toml");
+    let config = fs::read_to_string(&platform).unwrap();
+    fs::write(&platform, config.replace("\"reqs/*.md\"", "\"**/*.md\"")).unwrap();
+    fs::create_dir_all(dir.path().join("platform/vendor/x/reqs")).unwrap();
+    fs::write(dir.path().join("platform/vendor/x/shall.toml"), "").unwrap();
+    fs::write(
+        dir.path().join("platform/vendor/x/reqs/x.md"),
+        "# X\n`cap~vendor~1`\n",
+    )
+    .unwrap();
+    // A relative `file` attribute with `..`, as Meson writes it, still
+    // names the test file of the platform.
+    fs::write(
+        dir.path().join("platform/tests/other_test.cpp"),
+        "// [utest->cap~log~1]\nTEST(Protect, Works) {}\n",
+    )
+    .unwrap();
+    fs::write(
+        dir.path().join("platform/build/r.xml"),
+        "<testsuite name=\"Protect\"><testcase classname=\"Protect\" name=\"Works\" \
+         file=\"build/../tests/protect_test.cpp\"><failure/></testcase></testsuite>",
+    )
+    .unwrap();
+    let output = shall(&dir.path().join("projects/a"), &["check"]);
+    assert_eq!(
+        stdout(&output),
+        "platform/reqs/cap.md:7: cap~log~1: not covered by required type 'impl'\n\
+         platform/tests/other_test.cpp:1: test Protect.Works was not executed: no result in the JUnit files\n\
+         platform/tests/protect_test.cpp:1: test Protect.Works failed\n"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn members_must_stay_inside_the_workspace() {
+    let dir = workspace();
+    let outside = tempfile::tempdir().unwrap();
+    fs::write(outside.path().join("shall.toml"), "").unwrap();
+    std::os::unix::fs::symlink(outside.path(), dir.path().join("projects/b")).unwrap();
+    let output = shall(dir.path(), &["check"]);
+    assert_eq!(output.status.code(), Some(2));
+    assert!(
+        stderr(&output).contains("outside the workspace"),
+        "{}",
+        stderr(&output)
+    );
+}
+
+#[test]
+fn imported_projects_keep_their_own_configuration() {
+    let dir = workspace();
+    // The platform satisfies a capability by another one, with the
+    // default `[satisfied_by]`, which the project replaces; the project
+    // has code of a type only its import knows.
+    let a = dir.path().join("projects/a/shall.toml");
+    let config = fs::read_to_string(&a).unwrap();
+    fs::write(
+        &a,
+        format!(
+            "{}\n[satisfied_by]\ntargets = [\"hlr\"]\n",
+            config.replace(
+                "requirements = [\"reqs/*.md\"]",
+                "requirements = [\"reqs/*.md\"]\nimpl = [\"src/*.cpp\"]",
+            )
+        ),
+    )
+    .unwrap();
+    fs::create_dir_all(dir.path().join("projects/a/src")).unwrap();
+    fs::write(dir.path().join("projects/a/src/a.cpp"), "void a();\n").unwrap();
+    fs::write(
+        dir.path().join("platform/reqs/more.md"),
+        "# More\n\n## Combined\n`cap~combined~1`\nNeeds: impl, utest\nSatisfied-by:\n- cap~protect~1\n",
+    )
+    .unwrap();
+    let output = shall(&dir.path().join("projects/a"), &["check"]);
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    assert_eq!(
+        stdout(&output),
+        "platform/reqs/cap.md:7: cap~log~1: not covered by required type 'impl'\n\
+         platform/reqs/cap.md:7: cap~log~1: not covered by required type 'utest'\n\
+         platform/reqs/more.md:4: cap~combined~1: not covered by required type 'impl'\n\
+         platform/reqs/more.md:4: cap~combined~1: not covered by required type 'utest'\n"
+    );
+}
+
+#[test]
+fn imports_and_workspaces_need_members() {
+    let dir = workspace();
+    // A project inside the workspace that is no member cannot be imported.
+    fs::create_dir_all(dir.path().join("lib")).unwrap();
+    fs::write(dir.path().join("lib/shall.toml"), "").unwrap();
+    let a = dir.path().join("projects/a/shall.toml");
+    let config = fs::read_to_string(&a).unwrap();
+    fs::write(&a, config.replace("../../platform", "../../lib")).unwrap();
+    let output = shall(&dir.path().join("projects/a"), &["check"]);
+    assert_eq!(output.status.code(), Some(2));
+    assert!(
+        stderr(&output).contains("lib is not a member of the workspace"),
+        "{}",
+        stderr(&output)
+    );
+    fs::write(dir.path().join("shall.toml"), "[workspace]\n").unwrap();
+    let output = shall(dir.path(), &["check"]);
+    assert_eq!(output.status.code(), Some(2));
+    assert!(
+        stderr(&output).contains("lists no [workspace] members"),
+        "{}",
+        stderr(&output)
+    );
+}
+
+#[test]
+fn a_broken_project_above_is_no_workspace() {
+    let dir = project("[[level\n", &[("inner/shall.toml", b"")]);
+    let output = shall(&dir.path().join("inner"), &["check"]);
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+}
+
+#[test]
+fn the_search_for_a_workspace_stops_at_the_work_tree() {
+    let dir = project(
+        "[workspace]\nmembers = [\"other\"]\n",
+        &[("other/shall.toml", b""), ("repo/shall.toml", b"")],
+    );
+    // A repository of its own, e.g. a submodule with a `.git` file.
+    fs::write(
+        dir.path().join("repo/.git"),
+        "gitdir: ../.git/modules/repo\n",
+    )
+    .unwrap();
+    let output = shall(&dir.path().join("repo"), &["check"]);
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    // A quoted key is a workspace too.
+    fs::write(
+        dir.path().join("shall.toml"),
+        "\"workspace\" = { members = [\"other\"] }\n",
+    )
+    .unwrap();
+    fs::create_dir_all(dir.path().join("third")).unwrap();
+    fs::write(dir.path().join("third/shall.toml"), "").unwrap();
+    let output = shall(&dir.path().join("third"), &["check"]);
+    assert_eq!(output.status.code(), Some(2));
+    assert!(
+        stderr(&output).contains("is not a member of the workspace"),
+        "{}",
+        stderr(&output)
+    );
+}

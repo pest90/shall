@@ -25,6 +25,7 @@ expression: read_requirements()
     line: 4
   origin:
     kind: requirement
+  import: ~
 - id: dsn~motor.shutdown-signal-w9e4~1
   title: Shutdown signal
   description: "`Shutdown::on_overtemp` switches off the PWM output in the same task\ncycle in which the overtemperature flag is raised."
@@ -48,6 +49,7 @@ expression: read_requirements()
     line: 17
   origin:
     kind: requirement
+  import: ~
 - id: dsn~motor.relay-driver-b6j3~1
   title: Relay driver
   description: "`RelayDriver` opens the relay directly from the emergency stop\ninterrupt."
@@ -72,6 +74,7 @@ expression: read_requirements()
     line: 30
   origin:
     kind: requirement
+  import: ~
 - id: swr~motor.overtemp-shutdown-k4f2~2
   title: Shut down the motor on overtemperature
   description: "The software shuts down the motor within 100 ms when the winding\ntemperature exceeds 85 °C."
@@ -94,6 +97,7 @@ expression: read_requirements()
     line: 4
   origin:
     kind: requirement
+  import: ~
 - id: swr~motor.overtemp-warning-p8n5~1
   title: Warn before overtemperature
   description: "The software reports a warning when the winding temperature exceeds\n75 °C."
@@ -116,6 +120,7 @@ expression: read_requirements()
     line: 20
   origin:
     kind: requirement
+  import: ~
 - id: swr~motor.estop-relay-c2v6~1
   title: Open the motor relay on emergency stop
   description: "The software opens the motor relay within 10 ms after the emergency\nstop input becomes active."
@@ -138,6 +143,7 @@ expression: read_requirements()
     line: 33
   origin:
     kind: requirement
+  import: ~
 - id: sys~motor.thermal-protection-q7m2~1
   title: Thermal protection of the motor
   description: The drive protects the motor winding against overheating.
@@ -158,6 +164,7 @@ expression: read_requirements()
     line: 4
   origin:
     kind: requirement
+  import: ~
 - id: sys~motor.emergency-stop-h3x9~1
   title: Emergency stop
   description: The drive stops the motor when the emergency stop input is active.
@@ -179,6 +186,7 @@ expression: read_requirements()
     line: 17
   origin:
     kind: requirement
+  import: ~
 - id: vrev~motor.relay-driver-review-m3q8~1
   title: Review of the relay driver
   description: "The relay driver was reviewed against the emergency stop timing: the\nrelay opens within the interrupt, no task is involved."
@@ -200,3 +208,4 @@ expression: read_requirements()
     line: 4
   origin:
     kind: requirement
+  import: ~

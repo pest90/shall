@@ -205,8 +205,9 @@ directory, `**` spans directories, `{cpp,hpp}` gives alternatives.
 
 The keys for code and test files only group patterns; the type of an item
 comes from its tag, and a file matched by several keys is read once. If
-there are `[[level]]` tables, a key that is no known type (a level, a
-type needed by a level or a verification type) gets a warning, since it
+there are `[[level]]` tables, also in the imports, a key that is no
+known type (a level, a type needed by a level or a verification type,
+also of the imports) gets a warning, since it
 is probably a typo. A pattern that matches no file gets a warning, an
 invalid pattern is an error.
 
@@ -225,7 +226,9 @@ also finds ignored files below that directory, since test results are
 usually in an ignored build directory; a pattern such as `**/*.xml`
 follows `.gitignore`.
 
-Tables and keys that are not described here are ignored.
+`[[import]]` and `[workspace]` are described in
+[Workspaces and imports](#workspaces-and-imports). Tables and keys that
+are not described here are ignored.
 
 ## Tags in code and tests
 
@@ -296,9 +299,10 @@ and the path; the longest such file). Results of another tagged file
 never count, and if some results name the tag's file, only those count,
 so that tests with the same name in other test programs do not match.
 
-For Rust, the module path comes from the file path. The crate is the
-directory before the last `src` component, or before the last `tests`
-component if there is no `src`:
+For Rust, the module path comes from the file path below the project
+root, also in a workspace. The crate is the directory before the last
+`src` component, or before the last `tests` component if there is no
+`src`:
 
 - `src/a/b.rs` and `src/a/b/mod.rs` are `a::b`, also below `src/tests/`;
 - `src/lib.rs`, `src/main.rs`, `src/bin/x.rs`, `src/bin/x/main.rs`,
@@ -434,8 +438,85 @@ fallback = ["swr"]
   the requirement. They are part of `trace.json`; showing them in the
   report next to the link is planned (M5.3).
 
-Workspaces with several projects and imports of the platform are
-planned (M8).
+In a repository with several projects, the platform is a project of
+its own that customer projects import, see
+[Workspaces and imports](#workspaces-and-imports).
+
+## Workspaces and imports
+
+A repository with several projects has a `shall.toml` with a
+`[workspace]` at its root that lists them; each member has its own
+`shall.toml`:
+
+```text
+repo/
+  shall.toml            # [workspace]
+  platform/
+    shall.toml          # levels cap, swr, dsn; sources
+  projects/
+    customer-a/
+      shall.toml        # level hlr; [[import]] of the platform
+```
+
+```toml
+# repo/shall.toml
+[workspace]
+members = ["platform", "projects/*"]
+```
+
+```toml
+# repo/projects/customer-a/shall.toml
+[[level]]
+type  = "hlr"
+name  = "Customer Requirements"
+needs = ["swr"]
+
+[[import]]
+name = "plat"
+path = "../../platform"
+```
+
+- `members` are directories relative to the workspace root; `*` matches
+  one directory level. Every member needs a `shall.toml`; a pattern that
+  matches none, for example because `.gitignore` ignores the directory,
+  is an error, and so is a member that a symbolic link leads out of the
+  workspace, and so is a `[workspace]` without members. A project below
+  a workspace must be a member; the search for a workspace above a
+  project stops at the top of its Git work tree, so `shall check` in a
+  submodule or a nested repository checks it on its own; as a member, it
+  is still checked with the workspace. The workspace `shall.toml` is no
+  project: it has only `[workspace]`.
+- An `[[import]]` makes the items, levels and verification types of
+  another project of the repository part of this project's trace, so
+  that customer requirements can name platform items in
+  `Satisfied-by:`. Its test results come from its own `[sources]
+  junit`. A level that both define must need the same types. The
+  `targets` and `fallback` types of `[satisfied_by]` are joined: a type
+  is a target if the project or an import makes it one, otherwise a
+  fallback if one of them does. The
+  features of imported items are selected by the variants of the
+  importing project; only the imported project's own variants check
+  their names.
+- `path` is relative to the importing project and must name a member
+  of the workspace; it always follows the current state of the files, so a
+  `rev` is an error. Imports from other repositories (`git`, `rev`)
+  and the imports of an import (a warning for now) are planned (M8.2,
+  M8.3).
+- IDs are not renamed by an import; a duplicate ID in a project and
+  its imports is an error as within one project. Members that do not
+  import each other are not compared.
+- Paths in diagnostics and in `trace.json` are relative to the
+  workspace root, e.g. `platform/reqs/cap.md:7`, wherever `shall` runs.
+  Files of a project nested in another one belong to the inner project
+  only.
+- `shall check` in the workspace root, or `shall check --workspace` in
+  a member, checks every member with its imports; the requirement and
+  code files of each project are read once, also if several projects
+  import it, its test results once per importing project. Defects of a
+  shared project are printed once, followed by one summary per member
+  and one for the workspace. `shall new` checks the IDs of its own project only.
+- `shall report` reports one project; reports of a whole workspace are
+  planned.
 
 ## Variants
 
@@ -570,7 +651,7 @@ requirements file.
 ### `shall check`
 
 ```text
-shall check [PATH] [--mode <report|strict>] [--variant <NAME>]
+shall check [PATH] [--mode <report|strict>] [--variant <NAME> | --workspace]
 ```
 
 Reads the project, traces it and prints one line per problem, sorted by
@@ -586,7 +667,10 @@ not ok: 4 errors, 0 warnings (9 requirements, 7 tags, 3 test results)
 
 - `PATH` is a directory in the project, by default the current one; the
   project root is the closest directory at or above it with a
-  `shall.toml`. Paths in the output are relative to the project root.
+  `shall.toml`. Paths in the output are relative to the project root,
+  or to the workspace root in a workspace.
+- In a workspace root, and with `--workspace`, every member is checked
+  (see [Workspaces and imports](#workspaces-and-imports)).
 - Errors are printed as `path:line: message`, warnings as
   `path:line: warning: message`.
 - `--variant` checks only the items of a variant of `shall.toml`, with
@@ -691,8 +775,8 @@ timestamps. The fields of `trace.json`:
 | `schema_version` | version of this layout, currently `1`; from the first release on, increased on every change readers must know about; until then, fields and values are added without a new version |
 | `generator` | `name` (`shall`) and `version` of the tool |
 | `variant` | the traced variant, `name` and `features`; `null` without `--variant` |
-| `levels` | the `[[level]]` tables: `type`, `name`, `needs` |
-| `verification_types` | `[verification] types` |
+| `levels` | the `[[level]]` tables: `type`, `name`, `needs`; also those of the imports |
+| `verification_types` | `[verification] types`, also those of the imports |
 | `items` | every item, ordered by file and line (see below) |
 | `links` | every `Covers:`, `Depends:` and `Satisfied-by:` link of items that are not rejected: `kind` (`covers`, `depends`, `satisfied_by`), `source` and `source_location` (the item that contains the link), `target` as written, `target_location` (`null` if no item or several have the target's type and name), `location` of the link itself, `status` |
 | `test_results` | every test case of the JUnit files in the order they were read, also those without a tag: `classname`, `name`, `suite`, `outcome` (`passed`, `skipped`, or `failed` with a `message`, which may be `null`), `location`; `null` without `junit` in `[sources]` |
@@ -717,6 +801,8 @@ Each item has:
 - `params`: the entries of `Params:` with `name`, `value` and `line`,
   `[]` if absent; `features`: those of `Features:`, `[]` if absent;
 - `location`, the line of the ID or tag;
+- `import`: the name of the `[[import]]` the item comes from, `null`
+  for the project's own items;
 - `origin`: `{"kind": "requirement"}`, or `{"kind": "tag", "text": ...,
   "test": ...}` with the tag as written and the test definition after
   it, `null` if there is none: `kind` (`gtest`, `gtest_parameterized`,

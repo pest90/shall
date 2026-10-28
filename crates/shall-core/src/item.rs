@@ -50,6 +50,10 @@ pub struct Item {
     pub location: Location,
     /// Whether the item comes from a requirement file or a tag in code.
     pub origin: Origin,
+    /// Name of the `[[import]]` the item comes from; none for items of the
+    /// traced project itself. Set by whoever reads the imports, not by the
+    /// parsers.
+    pub import: Option<String>,
 }
 
 /// Where an item comes from.
@@ -183,6 +187,20 @@ impl Location {
         self.line
     }
 
+    /// Returns the location below the directory `dir`, a path relative to
+    /// the project root separated by `/`, e.g. `platform/reqs/x.md` for
+    /// `reqs/x.md` below `platform`; the same location for an empty `dir`.
+    pub fn prefixed(&self, dir: &str) -> Self {
+        let dir = dir.trim_end_matches('/');
+        if dir.is_empty() {
+            return self.clone();
+        }
+        Self {
+            path: format!("{dir}/{}", self.path),
+            line: self.line,
+        }
+    }
+
     /// Returns the same file at another line.
     pub fn with_line(&self, line: u32) -> Self {
         Self {
@@ -272,6 +290,17 @@ mod tests {
         let location = Location::new(&Path::new("reqs").join("l3").join("x.md"), 42).unwrap();
         assert_eq!(location.path(), "reqs/l3/x.md");
         assert_eq!(location.to_string(), "reqs/l3/x.md:42");
+    }
+
+    #[test]
+    fn location_can_be_prefixed() {
+        let location = Location::new(Path::new("reqs/x.md"), 3).unwrap();
+        assert_eq!(
+            location.prefixed("platform").to_string(),
+            "platform/reqs/x.md:3"
+        );
+        assert_eq!(location.prefixed("a/b/").to_string(), "a/b/reqs/x.md:3");
+        assert_eq!(location.prefixed(""), location);
     }
 
     #[test]

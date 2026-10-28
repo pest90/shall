@@ -206,6 +206,7 @@ fn tag_items(
         source: None,
         location: location.clone(),
         origin: Origin::Requirement,
+        import: None,
     };
 
     if let Some(name) = captures

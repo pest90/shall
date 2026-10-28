@@ -1,7 +1,8 @@
 //! Keeps the examples in the documentation valid and meaningful:
 //! ```` ```markdown ```` blocks must parse without diagnostics and are
 //! pinned by a snapshot, ```` ```toml ```` blocks must be valid
-//! configurations, and relative links must point to existing files.
+//! configurations of a project or a workspace, and relative links must
+//! point to existing files.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -11,7 +12,7 @@ use shall_core::markdown;
 
 /// Documentation files and the number of Markdown and TOML examples in
 /// each, so that a lost or renamed fence is noticed.
-const FILES: [(&str, usize, usize); 2] = [("README.md", 1, 1), ("docs/user-guide.md", 4, 3)];
+const FILES: [(&str, usize, usize); 2] = [("README.md", 1, 1), ("docs/user-guide.md", 4, 5)];
 
 fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
@@ -68,10 +69,15 @@ fn toml_examples_are_valid_configurations() {
         assert_eq!(examples.len(), toml_count, "TOML examples in {file}");
         for block in examples {
             let config = Config::parse(&block).unwrap_or_else(|e| panic!("{file}: {e}"));
+            if config.workspace.is_some() {
+                continue;
+            }
             assert!(!config.levels.is_empty(), "{file}: no levels in\n{block}");
             for level in &config.levels {
                 for need in &level.needs {
+                    // Imported projects bring levels of their own.
                     let known = config.level(need).is_some()
+                        || !config.imports.is_empty()
                         || ["impl", "utest", "itest"].contains(&need.as_str());
                     assert!(known, "{file}: {} needs unknown type {need}", level.typ);
                 }

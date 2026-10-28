@@ -121,20 +121,49 @@ pub enum Verdict {
 
 /// Package names of Rust crates, by the directory of their `Cargo.toml`
 /// relative to the project root (`""` for the root itself), e.g.
-/// `crates/core` → `proj-core`.
+/// `crates/core` → `proj-core`, and the directories of the projects whose
+/// files are traced together, e.g. the members of a workspace.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct Packages(BTreeMap<String, String>);
+pub struct Packages {
+    names: BTreeMap<String, String>,
+    projects: BTreeSet<String>,
+}
 
 impl Packages {
     /// Adds the package of the `Cargo.toml` in `dir`, if it defines one.
     pub fn add(&mut self, dir: impl Into<String>, cargo_toml: &str) {
         if let Some(name) = package_name(cargo_toml) {
-            self.0.insert(dir.into(), name);
+            self.names.insert(dir.into(), name);
+        }
+    }
+
+    /// Adds the directory of a project below the root, such as
+    /// `platform` in a workspace: the path of a Rust file below it is read
+    /// from there, so that a project in a directory named `src` or `tests`
+    /// is no crate root.
+    pub fn add_project(&mut self, dir: impl Into<String>) {
+        let dir = dir.into();
+        if !dir.is_empty() {
+            self.projects.insert(dir);
         }
     }
 
     fn get(&self, dir: &str) -> Option<&str> {
-        self.0.get(dir).map(String::as_str)
+        self.names.get(dir).map(String::as_str)
+    }
+
+    /// Splits a path into the closest project directory and the rest.
+    fn split_project<'p>(&self, path: &'p str) -> (Option<&'p str>, &'p str) {
+        self.projects
+            .iter()
+            .filter(|dir| {
+                path.strip_prefix(dir.as_str())
+                    .is_some_and(|rest| rest.starts_with('/'))
+            })
+            .max_by_key(|dir| dir.len())
+            .map_or((None, path), |dir| {
+                (Some(&path[..dir.len()]), &path[dir.len() + 1..])
+            })
     }
 }
 
@@ -357,7 +386,7 @@ impl<'a> Index<'a> {
             }
             _ => {
                 let mut first = None;
-                for file in RustFile::interpretations(path) {
+                for file in RustFile::interpretations_in(path, self.packages) {
                     let full = file.path_of(test);
                     let matched = file.select(&full, &self.rust_candidates(&full), self.packages);
                     if !matched.is_empty() {
@@ -466,6 +495,25 @@ struct RustFile {
 }
 
 impl RustFile {
+    /// The possible readings of a path below the closest project
+    /// directory of `packages`, the likelier first.
+    fn interpretations_in(path: &str, packages: &Packages) -> Vec<Self> {
+        let (project, rest) = packages.split_project(path);
+        let mut files = Self::interpretations(rest);
+        if let Some(project) = project {
+            for file in &mut files {
+                file.crate_dir = file.crate_dir.take().map(|dir| {
+                    if dir.is_empty() {
+                        project.to_owned()
+                    } else {
+                        format!("{project}/{dir}")
+                    }
+                });
+            }
+        }
+        files
+    }
+
     /// The possible readings of a path, the likelier first.
     fn interpretations(path: &str) -> Vec<Self> {
         let parts: Vec<&str> = path.split('/').collect();
@@ -1063,6 +1111,32 @@ mod tests {
         assert_eq!(
             verdicts(&evaluation),
             [(Some("motor::tests::works"), Verdict::Passed, 1)]
+        );
+    }
+
+    #[test]
+    fn rust_paths_are_read_within_their_project() {
+        // A workspace member in a directory named `src`: its integration
+        // test tests/integ.rs is the test target integ of package plat.
+        let source = rust_test("#[test]", "works");
+        let xml = suite(&[testcase("plat::integ", "tests::works", "<failure/>")]);
+        let sources = [("src/plat/tests/integ.rs", source.as_str())];
+        let mut packages = Packages::default();
+        packages.add("src/plat", "[package]\nname = \"plat\"\n");
+        // Without the project, the first `src` looks like a crate root.
+        let without = evaluate_with(&sources, &xml, CONFIG, &packages);
+        assert_eq!(
+            verdicts(&without),
+            [(
+                Some("plat::tests::integ::tests::works"),
+                Verdict::NotExecuted,
+                0
+            )]
+        );
+        packages.add_project("src/plat");
+        assert_eq!(
+            verdicts(&evaluate_with(&sources, &xml, CONFIG, &packages)),
+            [(Some("tests::works"), Verdict::Failed, 1)]
         );
     }
 

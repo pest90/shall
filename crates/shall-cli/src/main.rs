@@ -37,8 +37,12 @@ enum Command {
         mode: check::Mode,
         /// Check only the items of this variant from `shall.toml`, with
         /// its test results.
-        #[arg(long)]
+        #[arg(long, conflicts_with = "workspace")]
         variant: Option<String>,
+        /// Check every member of the workspace that the project belongs
+        /// to; the default in the workspace root.
+        #[arg(long)]
+        workspace: bool,
     },
     /// Write the traced project as static files into the output directory.
     ///
@@ -108,10 +112,12 @@ fn run(command: Command) -> anyhow::Result<ExitCode> {
             path,
             mode,
             variant,
+            workspace,
         } => check::run(&check::CheckArgs {
             path,
             mode,
             variant,
+            workspace,
         }),
         Command::Report {
             path,

@@ -634,6 +634,7 @@ impl Parser {
             source: item.source,
             location,
             origin: Origin::Requirement,
+            import: None,
         });
     }
 }

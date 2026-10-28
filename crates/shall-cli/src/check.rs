@@ -17,7 +17,9 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use anyhow::Context;
+use std::rc::Rc;
+
+use anyhow::{Context, bail};
 use clap::ValueEnum;
 use globset::{GlobBuilder, GlobMatcher};
 use shall_core::config::{self, Config};
@@ -42,32 +44,118 @@ pub struct CheckArgs {
     pub path: PathBuf,
     pub mode: Mode,
     pub variant: Option<String>,
+    pub workspace: bool,
 }
 
 /// Exit code when defects fail the check.
 const DEFECTS: u8 = 1;
 
 /// Runs the check, prints the defects to stdout and a summary to stderr.
+/// In a workspace root, or with `--workspace`, checks every member.
 pub fn run(args: &CheckArgs) -> anyhow::Result<ExitCode> {
-    let project = analyze(&args.path, args.variant.as_deref())?;
-    match print(&project) {
+    let root = find_root(&args.path)?;
+    let (diagnostics, summaries) = if args.workspace || is_workspace(&root)? {
+        if args.variant.is_some() {
+            bail!("--variant checks one project, not a workspace");
+        }
+        check_workspace(&root)?
+    } else {
+        let project = Reader::new(place(&root)?)
+            .project(&root)?
+            .trace(args.variant.as_deref())?;
+        let summary = project.summary();
+        (project.diagnostics, vec![summary])
+    };
+    match print(&diagnostics) {
         // The reader went away, e.g. `shall check | head`; stop quietly.
         Err(error) if error.kind() == io::ErrorKind::BrokenPipe => {}
         result => {
             result?;
-            eprintln!("{}", project.summary());
+            for summary in summaries {
+                eprintln!("{summary}");
+            }
         }
     }
-    if args.mode == Mode::Strict && !project.diagnostics.is_empty() {
+    if args.mode == Mode::Strict && !diagnostics.is_empty() {
         Ok(ExitCode::from(DEFECTS))
     } else {
         Ok(ExitCode::SUCCESS)
     }
 }
 
-fn print(project: &Project) -> io::Result<()> {
+/// Checks every member of the workspace at or above `root`: the
+/// diagnostics of all members, each once, sorted by path and line, and a
+/// summary per member plus one for the workspace.
+fn check_workspace(root: &Path) -> anyhow::Result<(Vec<Diagnostic>, Vec<String>)> {
+    let place = if is_workspace(root)? {
+        Place {
+            root: root.to_path_buf(),
+            members: Some(members(root)?),
+        }
+    } else {
+        place(root)?
+    };
+    let Some(members) = place.members.clone() else {
+        bail!(
+            "--workspace: {} is in no workspace within its Git work tree",
+            root.display()
+        );
+    };
+    let workspace_root = place.root.clone();
+    let mut reader = Reader::new(place);
+    let mut per_member: Vec<Vec<Diagnostic>> = Vec::new();
+    let mut summaries = Vec::new();
+    for member in &members {
+        let mut project = reader.project(member)?.trace(None)?;
+        let dir = member
+            .strip_prefix(&workspace_root)
+            .expect("members are inside the workspace")
+            .to_string_lossy()
+            .replace('\\', "/");
+        project.member = Some(dir);
+        summaries.push(project.summary());
+        per_member.push(project.diagnostics);
+    }
+    // Shared projects are traced with every project that imports them;
+    // their defects count once, as often as in the member with most.
+    let mut most: HashMap<String, usize> = HashMap::new();
+    for project_diagnostics in &per_member {
+        let mut count: HashMap<String, usize> = HashMap::new();
+        for diagnostic in project_diagnostics {
+            *count.entry(line(diagnostic)).or_default() += 1;
+        }
+        for (text, count) in count {
+            let entry = most.entry(text).or_default();
+            *entry = (*entry).max(count);
+        }
+    }
+    let mut diagnostics: Vec<Diagnostic> = per_member.into_iter().flatten().collect();
+    diagnostics.sort_by(|a, b| {
+        (a.location.path(), a.location.line()).cmp(&(b.location.path(), b.location.line()))
+    });
+    diagnostics.retain(|diagnostic| {
+        let left = most.get_mut(&line(diagnostic)).expect("counted");
+        let keep = *left > 0;
+        *left = left.saturating_sub(1);
+        keep
+    });
+    let errors = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.severity == Severity::Error)
+        .count();
+    summaries.push(format!(
+        "workspace: {}: {}, {} ({})",
+        if errors > 0 { "not ok" } else { "ok" },
+        plural(errors, "error"),
+        plural(diagnostics.len() - errors, "warning"),
+        plural(members.len(), "project")
+    ));
+    Ok((diagnostics, summaries))
+}
+
+fn print(diagnostics: &[Diagnostic]) -> io::Result<()> {
     let mut out = io::stdout().lock();
-    for diagnostic in &project.diagnostics {
+    for diagnostic in diagnostics {
         writeln!(out, "{}", line(diagnostic))?;
     }
     out.flush()
@@ -89,6 +177,9 @@ pub struct Project {
     pub config: Config,
     /// Name of the traced variant; none when all items are traced.
     pub variant: Option<String>,
+    /// Directory of the project below the workspace root, when a whole
+    /// workspace is checked.
+    pub member: Option<String>,
     /// Items of requirement files and tags, in the order they were read;
     /// only those of the variant, if one is traced.
     pub items: Vec<Item>,
@@ -132,13 +223,18 @@ impl Project {
                 .as_ref()
                 .map(|(results, _)| plural(results.len(), "test result")),
         );
+        let member = self
+            .member
+            .as_ref()
+            .map(|dir| format!("{dir}: "))
+            .unwrap_or_default();
         let variant = self
             .variant
             .as_ref()
             .map(|name| format!("variant {name}: "))
             .unwrap_or_default();
         format!(
-            "{variant}{verdict}: {}, {} ({})",
+            "{member}{variant}{verdict}: {}, {} ({})",
             plural(errors, "error"),
             plural(warnings, "warning"),
             read.join(", ")
@@ -160,30 +256,337 @@ pub fn analyze(start: &Path, variant: Option<&str>) -> anyhow::Result<Project> {
     read_project(start)?.trace(variant)
 }
 
-/// A project read but not traced yet, so that it can be traced once per
-/// variant.
-pub struct ReadProject {
+/// Where the project at `root` lives: the root that paths in diagnostics
+/// are relative to and that imports must stay in, and its workspace.
+struct Place {
+    /// The workspace root if the project is a member of one, otherwise the
+    /// project root.
     root: PathBuf,
+    /// The member directories, if `root` is a workspace root.
+    members: Option<Vec<PathBuf>>,
+}
+
+/// Finds the workspace above the project at `root`, if any: the closest
+/// directory above, up to the top of the Git work tree, whose `shall.toml`
+/// has a `[workspace]`. Such a file that cannot be read or parsed is an
+/// error; other `shall.toml` files above are not read further.
+fn place(root: &Path) -> anyhow::Result<Place> {
+    let standalone = Place {
+        root: root.to_path_buf(),
+        members: None,
+    };
+    // `.git` is a directory, or a file in a submodule or linked work tree.
+    if root.join(".git").exists() {
+        return Ok(standalone);
+    }
+    for dir in root.ancestors().skip(1) {
+        if workspace_of(dir)?.is_some() {
+            let members = members(dir)?;
+            if !members.iter().any(|member| member == root) {
+                bail!(
+                    "{} is not a member of the workspace {}; add it to [workspace] members",
+                    root.display(),
+                    dir.join(config::FILE_NAME).display()
+                );
+            }
+            return Ok(Place {
+                root: dir.to_path_buf(),
+                members: Some(members),
+            });
+        }
+        if dir.join(".git").exists() {
+            break;
+        }
+    }
+    Ok(standalone)
+}
+
+/// The `[workspace]` of the `shall.toml` in `dir`, if it has one. Only a
+/// file with a `workspace` table is parsed as a configuration.
+fn workspace_of(dir: &Path) -> anyhow::Result<Option<config::Workspace>> {
+    let path = dir.join(config::FILE_NAME);
+    if !path.is_file() {
+        return Ok(None);
+    }
+    let text =
+        fs::read_to_string(&path).with_context(|| format!("cannot read {}", path.display()))?;
+    // Parse only what may be a workspace; a false hit costs one parse.
+    if !text.contains("workspace") {
+        return Ok(None);
+    }
+    Ok(Config::parse(&text)
+        .with_context(|| format!("in {}", path.display()))?
+        .workspace)
+}
+
+/// Whether the `shall.toml` in `dir` describes a workspace.
+fn is_workspace(dir: &Path) -> anyhow::Result<bool> {
+    Ok(workspace_of(dir)?.is_some())
+}
+
+fn member_glob(root: &Path, pattern: &str) -> anyhow::Result<GlobMatcher> {
+    glob(pattern.trim_end_matches('/')).with_context(|| {
+        format!(
+            "invalid member pattern '{pattern}' in {}",
+            root.join(config::FILE_NAME).display()
+        )
+    })
+}
+
+/// The member directories of the workspace at `root`, in the order of
+/// `[workspace] members` and sorted within a pattern. A pattern that
+/// matches no directory with a `shall.toml` is an error, and so is a
+/// member that resolves to a directory outside the workspace.
+fn members(root: &Path) -> anyhow::Result<Vec<PathBuf>> {
+    let path = root.join(config::FILE_NAME);
+    let workspace = workspace_of(root)?.expect("the root is a workspace");
+    if workspace.members.is_empty() {
+        bail!("{} lists no [workspace] members", path.display());
+    }
+    let mut ignored = Vec::new();
+    let projects: Vec<String> = project_files(root, &mut ignored)
+        .into_iter()
+        .filter_map(|file| {
+            file.strip_suffix(config::FILE_NAME)
+                .filter(|dir| dir.ends_with('/'))
+                .map(|dir| dir.trim_end_matches('/').to_owned())
+        })
+        .collect();
+    let mut members = Vec::new();
+    for pattern in &workspace.members {
+        let matcher = member_glob(root, pattern)?;
+        let matched: Vec<&String> = projects
+            .iter()
+            .filter(|dir| matcher.is_match(dir.as_str()))
+            .collect();
+        if matched.is_empty() {
+            bail!(
+                "member '{pattern}' of {} matches no directory with a {} \
+                 (directories ignored by .gitignore do not count)",
+                path.display(),
+                config::FILE_NAME
+            );
+        }
+        for dir in matched {
+            let member = dunce::canonicalize(root.join(dir))
+                .with_context(|| format!("cannot resolve {dir}"))?;
+            if !member.starts_with(root) {
+                bail!(
+                    "member {dir} of {} is {}, outside the workspace",
+                    path.display(),
+                    member.display()
+                );
+            }
+            if !members.contains(&member) {
+                members.push(member);
+            }
+        }
+    }
+    Ok(members)
+}
+
+/// A project read, with its own items only: its files, items and the
+/// diagnostics of reading them. Locations are relative to the root of the
+/// [`Place`].
+struct Member {
+    /// Absolute directory of the project.
+    root: PathBuf,
+    /// Directory of the project below the root of its [`Place`], e.g.
+    /// `platform`; empty for that root itself.
+    prefix: String,
     config: Config,
     config_text: String,
-    /// All files of the project, relative to the root and sorted.
+    /// All files of the project, relative to its root and sorted, without
+    /// those of projects nested in it.
     files: Vec<String>,
-    /// The code and test files that were scanned for tags.
+    /// The code and test files that were scanned for tags, relative to
+    /// the project root.
     code_files: BTreeSet<String>,
     items: Vec<Item>,
-    /// Diagnostics of `shall.toml` and of reading the files.
     diagnostics: Vec<Diagnostic>,
 }
 
-/// Reads the configuration, the requirement files and the tags of the
-/// project at or above `start`.
+/// Reads projects once each, also when several projects import them.
+struct Reader {
+    place: Place,
+    read: HashMap<PathBuf, Rc<Member>>,
+}
+
+impl Reader {
+    fn new(place: Place) -> Self {
+        Self {
+            place,
+            read: HashMap::new(),
+        }
+    }
+
+    /// Reads the project at the absolute, canonical `root`, or returns it
+    /// if it was read before.
+    fn member(&mut self, root: &Path) -> anyhow::Result<Rc<Member>> {
+        if let Some(member) = self.read.get(root) {
+            return Ok(Rc::clone(member));
+        }
+        let prefix = root
+            .strip_prefix(&self.place.root)
+            .expect("projects are inside the root of their place")
+            .to_string_lossy()
+            .replace('\\', "/");
+        let member = Rc::new(read_member(root, prefix)?);
+        self.read.insert(root.to_path_buf(), Rc::clone(&member));
+        Ok(member)
+    }
+
+    /// Reads the project at `root` and its imports.
+    fn project(&mut self, root: &Path) -> anyhow::Result<ReadProject> {
+        let member = self.member(root)?;
+        if member.config.workspace.is_some() {
+            bail!(
+                "{} describes a workspace, not a project; run this in a member",
+                root.join(config::FILE_NAME).display()
+            );
+        }
+        let mut imports: Vec<(String, Rc<Member>)> = Vec::new();
+        let mut diagnostics = Vec::new();
+        for import in &member.config.imports {
+            let path = import.path.as_deref().expect("the configuration checks it");
+            let what = format!("import '{}' of {}", import.name, member.root.display());
+            let dir = dunce::canonicalize(member.root.join(path))
+                .with_context(|| format!("{what}: cannot resolve {path}"))?;
+            if !dir.starts_with(&self.place.root) {
+                if self.place.members.is_some() {
+                    bail!(
+                        "{what}: {} is outside the workspace {}; imports from other \
+                         repositories are planned (M8.3)",
+                        dir.display(),
+                        self.place.root.display()
+                    );
+                }
+                bail!(
+                    "{what}: {} is outside the project; import other projects of the \
+                     repository from a [workspace] that lists both",
+                    dir.display()
+                );
+            }
+            if !dir.join(config::FILE_NAME).is_file() {
+                bail!("{what}: {} has no {}", dir.display(), config::FILE_NAME);
+            }
+            if dir == member.root {
+                bail!("{what}: a project cannot import itself");
+            }
+            if let Some((other, _)) = imports.iter().find(|(_, read)| read.root == dir) {
+                bail!("{what}: {} is imported as '{other}' already", dir.display());
+            }
+            if self
+                .place
+                .members
+                .as_ref()
+                .is_some_and(|members| !members.contains(&dir))
+            {
+                bail!(
+                    "{what}: {} is not a member of the workspace {}; add it to \
+                     [workspace] members",
+                    dir.display(),
+                    self.place.root.join(config::FILE_NAME).display()
+                );
+            }
+            let imported = self.member(&dir)?;
+            if imported.config.workspace.is_some() {
+                bail!("{what}: {} describes a workspace", dir.display());
+            }
+            if !imported.config.imports.is_empty() {
+                let line = first_import_line(&imported.config_text).unwrap_or(1);
+                let location = Location::new(Path::new(config::FILE_NAME), line)
+                    .expect("valid location")
+                    .prefixed(&imported.prefix);
+                diagnostics.push(Diagnostic::warning(
+                    location,
+                    format!(
+                        "the imports of '{}' are not followed; transitive imports are \
+                         planned (M8.2)",
+                        import.name
+                    ),
+                ));
+            }
+            imports.push((import.name.clone(), imported));
+        }
+        let config = member
+            .config
+            .with_imports(
+                imports
+                    .iter()
+                    .map(|(name, read)| (name.as_str(), &read.config)),
+            )
+            .with_context(|| format!("in {}", root.join(config::FILE_NAME).display()))?;
+        if !member.config.imports.is_empty() {
+            let mut unknown = unknown_source_keys(&member.config, &config, &member.config_text);
+            relocate(&mut unknown, &member.prefix);
+            diagnostics.extend(unknown);
+        }
+        Ok(ReadProject {
+            member,
+            imports,
+            config,
+            diagnostics,
+        })
+    }
+}
+
+/// Line of the first import in a `shall.toml`: an `[[import]]` table or
+/// an `import = [...]` key.
+fn first_import_line(text: &str) -> Option<u32> {
+    text.lines()
+        .position(|line| {
+            let code = line
+                .split_once('#')
+                .map_or(line, |(code, _)| code)
+                .trim()
+                .replace(' ', "");
+            code == "[[import]]" || code.starts_with("import=")
+        })
+        .map(|index| u32::try_from(index + 1).unwrap_or(u32::MAX))
+}
+
+/// A project read with its imports, ready to be traced, once or once per
+/// variant.
+pub struct ReadProject {
+    member: Rc<Member>,
+    /// Imported projects by import name, in the order of `[[import]]`.
+    imports: Vec<(String, Rc<Member>)>,
+    /// The project's configuration with the levels of its imports.
+    config: Config,
+    /// Diagnostics of resolving the imports.
+    diagnostics: Vec<Diagnostic>,
+}
+
+/// Reads the project at or above `start` and its imports. A project in a
+/// workspace reports paths relative to the workspace root.
 pub fn read_project(start: &Path) -> anyhow::Result<ReadProject> {
     let root = find_root(start)?;
+    let mut reader = Reader::new(place(&root)?);
+    reader.project(&root)
+}
+
+/// Reads the configuration, the requirement files and the tags of the
+/// project at `root`, with locations below `prefix`.
+fn read_member(root: &Path, prefix: String) -> anyhow::Result<Member> {
     let config_path = root.join(config::FILE_NAME);
     let config_text = fs::read_to_string(&config_path)
         .with_context(|| format!("cannot read {}", config_path.display()))?;
-    let config = Config::parse(&config_text)?;
+    let config =
+        Config::parse(&config_text).with_context(|| format!("in {}", config_path.display()))?;
     let mut diagnostics = Vec::new();
+    if config.workspace.is_some() {
+        return Ok(Member {
+            root: root.to_path_buf(),
+            prefix,
+            config,
+            config_text,
+            files: Vec::new(),
+            code_files: BTreeSet::new(),
+            items: Vec::new(),
+            diagnostics,
+        });
+    }
     let sources = Sources::new(&config_text, "sources");
 
     for key in config.sources.invalid_keys() {
@@ -202,26 +605,13 @@ pub fn read_project(start: &Path) -> anyhow::Result<ReadProject> {
         }
     }
     let code = config.sources.code();
-    if !config.levels.is_empty() {
-        let known: HashSet<&str> = config
-            .levels
-            .iter()
-            .flat_map(|level| std::iter::once(&level.typ).chain(&level.needs))
-            .chain(&config.verification.types)
-            .map(|typ| typ.as_str())
-            .collect();
-        for key in code.keys().filter(|key| !known.contains(*key)) {
-            diagnostics.push(Diagnostic::warning(
-                sources.location(key),
-                format!(
-                    "[sources] key '{key}' is not a known type; \
-                     the type of an item comes from its tag"
-                ),
-            ));
-        }
+    // With imports, the types of the imported levels count too; the
+    // project checks its keys once it knows them.
+    if config.imports.is_empty() {
+        diagnostics.extend(unknown_source_keys(&config, &config, &config_text));
     }
 
-    let files = project_files(&root, &mut diagnostics);
+    let files = without_nested_projects(project_files(root, &mut diagnostics));
     let requirement_files = match &config.sources.requirements {
         Some(patterns) => sources.select(&files, "requirements", patterns, &mut diagnostics),
         None => files
@@ -230,31 +620,36 @@ pub fn read_project(start: &Path) -> anyhow::Result<ReadProject> {
             .cloned()
             .collect(),
     };
-    let requirement_files = unique(&root, requirement_files);
+    let requirement_files = unique(root, requirement_files);
     let mut code_files = BTreeSet::new();
     for (key, patterns) in &code {
         code_files.extend(sources.select(&files, key, patterns, &mut diagnostics));
     }
-    let code_files = unique(&root, code_files);
+    let code_files = unique(root, code_files);
 
     let mut items: Vec<Item> = Vec::new();
     for file in &requirement_files {
-        if let Some(text) = read(&root, file, &mut diagnostics)? {
+        if let Some(text) = read(root, file, &mut diagnostics)? {
             let parsed = markdown::parse(Path::new(file), &text)?;
             items.extend(parsed.items);
             diagnostics.extend(parsed.diagnostics);
         }
     }
     for file in &code_files {
-        if let Some(text) = read(&root, file, &mut diagnostics)? {
+        if let Some(text) = read(root, file, &mut diagnostics)? {
             let scanned = tags::scan(Path::new(file), &text)?;
             items.extend(scanned.items);
             diagnostics.extend(scanned.diagnostics);
         }
     }
     diagnostics.extend(variant::check_features(&items, &config));
-    Ok(ReadProject {
-        root,
+    for item in &mut items {
+        item.location = item.location.prefixed(&prefix);
+    }
+    relocate(&mut diagnostics, &prefix);
+    Ok(Member {
+        root: root.to_path_buf(),
+        prefix,
         config,
         config_text,
         files,
@@ -264,62 +659,149 @@ pub fn read_project(start: &Path) -> anyhow::Result<ReadProject> {
     })
 }
 
+/// Warnings for keys of `[sources]` that are no type known to `known`, a
+/// configuration with the levels of the imports.
+fn unknown_source_keys(config: &Config, known: &Config, text: &str) -> Vec<Diagnostic> {
+    if known.levels.is_empty() {
+        return Vec::new();
+    }
+    let types: HashSet<&str> = known
+        .levels
+        .iter()
+        .flat_map(|level| std::iter::once(&level.typ).chain(&level.needs))
+        .chain(&known.verification.types)
+        .map(|typ| typ.as_str())
+        .collect();
+    let sources = Sources::new(text, "sources");
+    config
+        .sources
+        .code()
+        .into_keys()
+        .filter(|key| !types.contains(key))
+        .map(|key| {
+            Diagnostic::warning(
+                sources.location(key),
+                format!(
+                    "[sources] key '{key}' is not a known type; \
+                     the type of an item comes from its tag"
+                ),
+            )
+        })
+        .collect()
+}
+
+/// Drops the files of projects nested in this one: those below a
+/// directory with a `shall.toml` of its own.
+fn without_nested_projects(files: Vec<String>) -> Vec<String> {
+    let nested: Vec<String> = files
+        .iter()
+        .filter_map(|file| file.strip_suffix(config::FILE_NAME))
+        .filter(|dir| dir.ends_with('/'))
+        .map(str::to_owned)
+        .collect();
+    files
+        .into_iter()
+        .filter(|file| !nested.iter().any(|dir| file.starts_with(dir.as_str())))
+        .collect()
+}
+
+/// Moves diagnostics below the directory `prefix`.
+fn relocate(diagnostics: &mut [Diagnostic], prefix: &str) {
+    for diagnostic in diagnostics {
+        diagnostic.location = diagnostic.location.prefixed(prefix);
+    }
+}
+
 impl ReadProject {
-    /// The configuration.
+    /// The configuration, with the levels of the imports.
     pub fn config(&self) -> &Config {
         &self.config
     }
 
-    /// Traces all items, or only those of the named variant, and evaluates
-    /// the test results: those of the variant's `junit` patterns if it has
-    /// any, otherwise those of `[sources]`.
+    /// Traces all items of the project and its imports, or only those of
+    /// the named variant, and evaluates the test results: the project's
+    /// from the variant's `junit` patterns if it has any, otherwise from
+    /// those of `[sources]`, and those of every import from its
+    /// `[sources]`.
     pub fn trace(&self, variant: Option<&str>) -> anyhow::Result<Project> {
         let config = &self.config;
-        let mut diagnostics = self.diagnostics.clone();
+        let own = &self.member;
+        let mut diagnostics = own.diagnostics.clone();
+        let mut all_items = own.items.clone();
+        for (name, import) in &self.imports {
+            diagnostics.extend(import.diagnostics.iter().cloned());
+            all_items.extend(import.items.iter().cloned().map(|mut item| {
+                item.import = Some(name.clone());
+                item
+            }));
+        }
+        diagnostics.extend(self.diagnostics.iter().cloned());
         let selected = variant
             .map(|name| {
-                config
+                own.config
                     .variants
                     .get_key_value(name)
-                    .ok_or_else(|| unknown_variant(name, config))
+                    .ok_or_else(|| unknown_variant(name, &own.config))
             })
             .transpose()?;
         let (items, outside) = match selected {
             Some((_, variant)) => {
-                let selection = variant::select(&self.items, variant);
+                let selection = variant::select(&all_items, variant);
                 (selection.inside, selection.outside)
             }
-            None => (self.items.clone(), Vec::new()),
+            None => (all_items, Vec::new()),
         };
         let trace = trace::trace_variant(&items, &outside, config);
         diagnostics.extend(trace.defects.iter().cloned());
 
-        let (junit, sources) = match selected {
+        let own_junit = match selected {
             Some((name, variant)) if variant.junit.is_some() => (
                 variant.junit.as_deref().unwrap_or_default(),
-                Sources::new(&self.config_text, &format!("variant.{name}")),
+                format!("variant.{name}"),
             ),
-            _ => (
-                config.sources.junit.as_slice(),
-                Sources::new(&self.config_text, "sources"),
-            ),
+            _ => (own.config.sources.junit.as_slice(), "sources".to_owned()),
         };
+        let junit: Vec<(&Member, &[String], String)> =
+            std::iter::once((own.as_ref(), own_junit.0, own_junit.1))
+                .chain(self.imports.iter().map(|(_, import)| {
+                    (
+                        import.as_ref(),
+                        import.config.sources.junit.as_slice(),
+                        "sources".to_owned(),
+                    )
+                }))
+                .filter(|(_, patterns, _)| !patterns.is_empty())
+                .collect();
         let mut tests = None;
         if !junit.is_empty() {
-            let candidates = junit_files(&self.root, junit, &self.files, &mut diagnostics);
-            let junit_files = unique(
-                &self.root,
-                sources.select(&candidates, "junit", junit, &mut diagnostics),
-            );
             let mut test_results = Vec::new();
-            for file in &junit_files {
-                if let Some(text) = read(&self.root, file, &mut diagnostics)? {
-                    let parsed = junit::parse(Path::new(file), &text)?;
-                    test_results.extend(parsed.results);
-                    diagnostics.extend(parsed.diagnostics);
+            let mut packages = Packages::default();
+            for (member, patterns, table) in junit {
+                let mut found = Vec::new();
+                let sources = Sources::new(&member.config_text, &table);
+                let candidates = junit_files(&member.root, patterns, &member.files, &mut found);
+                let junit_files = unique(
+                    &member.root,
+                    sources.select(&candidates, "junit", patterns, &mut found),
+                );
+                for file in &junit_files {
+                    if let Some(text) = read(&member.root, file, &mut found)? {
+                        let parsed = junit::parse(Path::new(file), &text)?;
+                        test_results.extend(parsed.results.into_iter().map(|mut result| {
+                            result.location = result.location.prefixed(&member.prefix);
+                            result.file = result.file.map(|file| in_member(&file, &member.prefix));
+                            result
+                        }));
+                        found.extend(parsed.diagnostics);
+                    }
                 }
+                relocate(&mut found, &member.prefix);
+                diagnostics.extend(found);
             }
-            let packages = packages(&self.root, &self.code_files, &self.files);
+            for member in std::iter::once(own).chain(self.imports.iter().map(|(_, m)| m)) {
+                packages.add_project(member.prefix.clone());
+                add_packages(&mut packages, member);
+            }
             let evaluation =
                 results::evaluate_variant(&items, &outside, &test_results, config, &packages);
             diagnostics.extend(evaluation.defects.iter().cloned());
@@ -340,6 +822,7 @@ impl ReadProject {
         Ok(Project {
             config: config.clone(),
             variant: selected.map(|(name, _)| name.clone()),
+            member: None,
             items,
             trace,
             tests,
@@ -347,6 +830,30 @@ impl ReadProject {
             tags,
         })
     }
+}
+
+/// A `file` attribute of a test result as seen from the root of the
+/// [`Place`]: a relative path is relative to the project, with `.` and
+/// `..` resolved as far as it stays inside the root, and an absolute one
+/// stays.
+fn in_member(file: &str, prefix: &str) -> String {
+    let absolute = file.starts_with('/') || file.starts_with('\\') || file.get(1..2) == Some(":");
+    if absolute || prefix.is_empty() {
+        return file.to_owned();
+    }
+    let mut parts: Vec<&str> = prefix.split('/').collect();
+    for part in file.split(['/', '\\']) {
+        match part {
+            "" | "." => {}
+            ".." if !parts.is_empty() => {
+                parts.pop();
+            }
+            // Above the root: leave the attribute as written.
+            ".." => return file.to_owned(),
+            part => parts.push(part),
+        }
+    }
+    parts.join("/")
 }
 
 /// The error for a variant that `shall.toml` does not define.
@@ -366,29 +873,38 @@ fn unknown_variant(name: &str, config: &Config) -> anyhow::Error {
     }
 }
 
-/// Package names of the crates that contain the Rust files among
-/// `code_files`, from the closest `Cargo.toml` above each file.
-fn packages(root: &Path, code_files: &BTreeSet<String>, files: &[String]) -> Packages {
-    let manifests: HashSet<&str> = files
+/// Adds the package names of the crates that contain the Rust files
+/// among the member's code files, from the closest `Cargo.toml` above each
+/// file, by their directory below the root of the [`Place`].
+fn add_packages(packages: &mut Packages, member: &Member) {
+    let manifests: HashSet<&str> = member
+        .files
         .iter()
         .filter_map(|file| file.strip_suffix("Cargo.toml"))
         .filter(|dir| dir.is_empty() || dir.ends_with('/'))
         .map(|dir| dir.trim_end_matches('/'))
         .collect();
-    let mut packages = Packages::default();
     let mut done = HashSet::new();
-    for file in code_files.iter().filter(|file| file.ends_with(".rs")) {
+    for file in member
+        .code_files
+        .iter()
+        .filter(|file| file.ends_with(".rs"))
+    {
         let Some(dir) = manifest_dir(file, &manifests) else {
             continue;
         };
         if done.insert(dir) {
-            let manifest = root.join(dir).join("Cargo.toml");
+            let manifest = member.root.join(dir).join("Cargo.toml");
             if let Ok(text) = fs::read_to_string(manifest) {
+                let dir = match (member.prefix.as_str(), dir) {
+                    (prefix, "") => prefix.to_owned(),
+                    ("", dir) => dir.to_owned(),
+                    (prefix, dir) => format!("{prefix}/{dir}"),
+                };
                 packages.add(dir, &text);
             }
         }
     }
-    packages
 }
 
 /// The closest directory above `file` with a `Cargo.toml`.
