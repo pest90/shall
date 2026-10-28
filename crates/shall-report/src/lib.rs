@@ -19,6 +19,9 @@
 //!   `✗` not covered, `–` rejected, `?` unknown type; a legend explains
 //!   them. Copies of a duplicate ID are marked.
 //!
+//! The defect list follows: every defect, errors first, with a link to
+//! the requirement whose lines in the same file include it.
+//!
 //! After the tables follow the details of every requirement, anchored at
 //! its ID: its fields, its text rendered from Markdown without raw HTML
 //! and with only `http`, `https`, `mailto` and relative links, its links
@@ -148,6 +151,9 @@ struct Page<'a> {
     generator: String,
     variant: Option<VariantView<'a>>,
     summary: Summary,
+    /// Every defect, errors first, each group in the order of the
+    /// document.
+    defects: Vec<DefectView<'a>>,
     levels: Vec<LevelView<'a>>,
 }
 
@@ -158,6 +164,20 @@ struct Summary {
     tests: Option<Tests>,
     errors: usize,
     warnings: usize,
+}
+
+/// A defect, as `shall check` prints it.
+#[derive(Debug, Serialize)]
+struct DefectView<'a> {
+    /// `missing` for errors, `partial` for warnings, for the CSS class.
+    class: &'static str,
+    sign: &'static str,
+    severity: &'static str,
+    location: String,
+    message: &'a str,
+    /// Fragment of the requirement the defect is in: the one whose lines
+    /// in the same file include the defect's line.
+    anchor: Option<String>,
 }
 
 /// Verdicts of the verification tags.
@@ -447,9 +467,59 @@ impl<'a> Page<'a> {
                 features: variant.features.iter().map(String::as_str).collect(),
             }),
             summary: summary(document),
+            defects: defects(document, &index),
             levels,
         }
     }
+}
+
+fn defects<'a>(document: &'a Document<'_>, index: &Index<'a, '_>) -> Vec<DefectView<'a>> {
+    // Requirements by file, ordered by line, to find the one a defect is
+    // in.
+    let mut by_file: HashMap<&str, Vec<(u32, u32, &String)>> = HashMap::new();
+    for item in &document.items {
+        if let Some(anchor) = index.anchors.get(&(item.location, item.id)) {
+            by_file.entry(item.location.path()).or_default().push((
+                item.location.line(),
+                item.end_line,
+                anchor,
+            ));
+        }
+    }
+    for requirements in by_file.values_mut() {
+        requirements.sort();
+    }
+    let view = |defect: &shall_core::export::DefectEntry<'a>| {
+        let (class, sign, severity) = match defect.severity {
+            Severity::Error => ("missing", "✗", "error"),
+            Severity::Warning => ("partial", "!", "warning"),
+        };
+        let line = defect.location.line();
+        let anchor = by_file
+            .get(defect.location.path())
+            .and_then(|requirements| {
+                let above = requirements.partition_point(|(start, ..)| *start <= line);
+                let (_, end, anchor) = requirements.get(above.checked_sub(1)?)?;
+                (line <= *end).then(|| (*anchor).clone())
+            });
+        DefectView {
+            class,
+            sign,
+            severity,
+            location: defect.location.to_string(),
+            message: defect.message,
+            anchor,
+        }
+    };
+    let errors = document
+        .defects
+        .iter()
+        .filter(|defect| defect.severity == Severity::Error);
+    let warnings = document
+        .defects
+        .iter()
+        .filter(|defect| defect.severity == Severity::Warning);
+    errors.chain(warnings).map(view).collect()
 }
 
 /// Counts of the summary: requirements, tags, test verdicts and defects.
@@ -1045,6 +1115,89 @@ mod tests {
         );
         assert!(
             html.contains("<li><code>[impl~x~0-&gt;dsn~b-k4f2~2]</code> at <code>src&#x2f;a.c:1</code> <span class=\"problem\">✗ revision does not exist yet, current revision 1</span></li>"),
+            "{html}"
+        );
+    }
+
+    #[test]
+    fn lists_errors_before_warnings_with_their_requirement() {
+        let html = html(
+            "[[level]]\ntype = \"dsn\"\nname = \"Design\"\nneeds = [\"impl\"]\n",
+            "# I\n`imp~i-k4f2~1`\n\n# A\n`dsn~a-k4f2~1`\n\nNeeds: imp\n\n# B\n`dsn~b-k4f2~1`\n",
+        );
+        let defects = &html[html.find("<section id=\"defects\">").unwrap()..];
+        let defects = &defects[..defects.find("</section>").unwrap()];
+        let error = defects.find("✗</span> error").unwrap();
+        let warning = defects.find("!</span> warning").unwrap();
+        assert!(error < warning, "{defects}");
+        assert!(
+            defects.contains("<a href=\"#dsn~b-k4f2~1\"><code>reqs&#x2f;a.md:10</code></a>"),
+            "{defects}"
+        );
+        assert!(html.contains("<a href=\"#defects\">"), "{html}");
+        let clean = super::tests::html(
+            "[[level]]\ntype = \"dsn\"\nname = \"Design\"\n",
+            "# A\n`dsn~a-k4f2~1`\n",
+        );
+        assert!(!clean.contains("id=\"defects\""), "{clean}");
+    }
+
+    #[test]
+    fn defects_outside_of_items_link_nowhere() {
+        let config = Config::parse("[[level]]\ntype = \"dsn\"\nname = \"Design\"\n").unwrap();
+        let parsed = markdown::parse(
+            Path::new("reqs/a.md"),
+            "Neds: before\n\n# A\n`dsn~a-k4f2~1`\nNeds: inside\n\n`dsn~bad~x`\nNeds: after\n",
+        )
+        .unwrap();
+        let trace = trace::trace(&parsed.items, &config);
+        let html = render(&Document::new(Input {
+            config: &config,
+            items: &parsed.items,
+            trace: &trace,
+            tests: None,
+            diagnostics: &parsed.diagnostics,
+            variant: None,
+        }))
+        .unwrap();
+        let defects = &html[html.find("<section id=\"defects\">").unwrap()..];
+        assert_eq!(
+            defects.matches("<a href=\"#dsn~a-k4f2~1\">").count(),
+            1,
+            "{defects}"
+        );
+        assert!(
+            defects.contains("<a href=\"#dsn~a-k4f2~1\"><code>reqs&#x2f;a.md:5</code></a>"),
+            "{defects}"
+        );
+        assert!(
+            defects.contains("<td><code>reqs&#x2f;a.md:7</code></td>"),
+            "{defects}"
+        );
+    }
+
+    #[test]
+    fn defects_of_items_outside_the_variant_link_nowhere() {
+        let config = Config::parse("[[level]]\ntype = \"dsn\"\nname = \"Design\"\n").unwrap();
+        let parsed = markdown::parse(
+            Path::new("reqs/a.md"),
+            "# A\n`dsn~a-k4f2~1`\n\n# B\n`dsn~b-k4f2~1`\nFeatures: x\nNeds: inside\n",
+        )
+        .unwrap();
+        let variant = shall_core::config::Variant::new(Vec::new());
+        let selection = shall_core::variant::select(&parsed.items, &variant);
+        let trace = trace::trace_variant(&selection.inside, &selection.outside, &config);
+        let html = render(&Document::new(Input {
+            config: &config,
+            items: &selection.inside,
+            trace: &trace,
+            tests: None,
+            diagnostics: &parsed.diagnostics,
+            variant: Some(("basis", &variant)),
+        }))
+        .unwrap();
+        assert!(
+            html.contains("<td><code>reqs&#x2f;a.md:7</code></td>"),
             "{html}"
         );
     }

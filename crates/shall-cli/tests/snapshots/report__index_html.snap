@@ -118,8 +118,8 @@ table.params { width: auto; margin-top: 0.25rem; }
 <header>
 <h1>Traceability report</h1>
 <p class="verdict bad">✗ not ok:
-4 errors,
-0 warnings</p>
+<a href="#defects">4 errors,
+0 warnings</a></p>
 </header>
 <main>
 <section id="summary">
@@ -292,6 +292,37 @@ table.params { width: auto; margin-top: 0.25rem; }
 </tbody>
 </table>
 </div>
+</section>
+<section id="defects">
+<h2>Defects</h2>
+<div class="scroll">
+<table class="defects">
+<thead><tr><th>Severity</th><th>Location</th><th>Message</th></tr></thead>
+<tbody>
+<tr class="missing">
+<td class="sign"><span aria-hidden="true">✗</span> error</td>
+<td><a href="#dsn~motor.temp-monitor-r5t1~1"><code>reqs&#x2f;design.md:12</code></a></td>
+<td>dsn~motor.temp-monitor-r5t1~1: covers outdated revision swr~motor.overtemp-shutdown-k4f2~1 (current revision: 2)</td>
+</tr>
+<tr class="missing">
+<td class="sign"><span aria-hidden="true">✗</span> error</td>
+<td><a href="#swr~motor.overtemp-warning-p8n5~1"><code>reqs&#x2f;software.md:20</code></a></td>
+<td>swr~motor.overtemp-warning-p8n5~1: not covered by required type &#x27;dsn&#x27;</td>
+</tr>
+<tr class="missing">
+<td class="sign"><span aria-hidden="true">✗</span> error</td>
+<td><code>src&#x2f;fault_log.cpp:3</code></td>
+<td>tag [impl-&gt;dsn~motor.fault-log-z2d8~1]: unknown target dsn~motor.fault-log-z2d8~1</td>
+</tr>
+<tr class="missing">
+<td class="sign"><span aria-hidden="true">✗</span> error</td>
+<td><code>tests&#x2f;shutdown_test.cpp:5</code></td>
+<td>test Shutdown.DisablesPwmOnOvertemp failed</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p class="note">Errors first, then warnings, each in the order of <code>shall check</code>. A location in a requirement file links to the requirement it is in.</p>
 </section>
 <section id="details">
 <h2>Requirements</h2>

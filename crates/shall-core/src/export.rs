@@ -133,6 +133,8 @@ pub struct ItemEntry<'a> {
     pub satisfied_by: &'a [Reference],
     /// Where the item is defined.
     pub location: &'a Location,
+    /// Last line of the item in its file.
+    pub end_line: u32,
     /// Requirement file or tag, with the tag's text and test definition.
     pub origin: &'a Origin,
     /// The `[[import]]` the item comes from; none for the project's own.
@@ -310,6 +312,7 @@ fn entry<'a>(joined: &Joined<'a>, verified: bool) -> ItemEntry<'a> {
         depends: &item.depends,
         satisfied_by: &item.satisfied_by,
         location: &item.location,
+        end_line: item.end_line,
         origin: &item.origin,
         import: item.import.as_deref(),
         needs: &traced.needs,

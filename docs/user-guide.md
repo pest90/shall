@@ -786,8 +786,15 @@ details show:
   results read` without `junit` sources).
 
 Code and test locations are shown as `path:line`; links to the code at
-the reported commit need `--build-info` and are planned (M5.7). The
-tree view, filters, the defect list and the graph view are planned (M5).
+the reported commit need `--build-info` and are planned (M5.7).
+
+A section `Defects` lists every problem of `shall check`, errors first,
+then warnings, each in the order of `shall check`, with sign and
+severity in words; a location in a requirement file links to the
+requirement whose lines include it, from its ID to the next ID or
+heading that ends it, and the error and
+warning counts at the top link to the list. The tree view, filters and
+the graph view are planned (M5).
 
 The output directory is not excluded from the project's files. Add it
 to `.gitignore` (e.g. `/site/`), or make sure no pattern in `[sources]`
@@ -831,7 +838,8 @@ Each item has:
 - `covers`, `depends` and `satisfied_by`: the links as written, each
   with `id` and `line`, also for rejected items, whose links are not in
   `links`;
-- `location`, the line of the ID or tag;
+- `location`, the line of the ID or tag, and `end_line`, the last line
+  of the item in its file (the tag's line for tag items);
 - `import`: the name of the `[[import]]` the item comes from, `null`
   for the project's own items;
 - `origin`: `{"kind": "requirement"}`, or `{"kind": "tag", "text": ...,

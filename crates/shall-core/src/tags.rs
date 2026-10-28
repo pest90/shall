@@ -205,6 +205,7 @@ fn tag_items(
         features: Vec::new(),
         source: None,
         location: location.clone(),
+        end_line: location.line(),
         origin: Origin::Requirement,
         import: None,
     };

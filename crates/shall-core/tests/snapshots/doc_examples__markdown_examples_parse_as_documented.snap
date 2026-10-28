@@ -22,6 +22,7 @@ expression: items
   location:
     path: README.md
     line: 2
+  end_line: 10
   origin:
     kind: requirement
   import: ~
@@ -49,6 +50,7 @@ expression: items
   location:
     path: docs/user-guide.md
     line: 4
+  end_line: 22
   origin:
     kind: requirement
   import: ~
@@ -71,6 +73,7 @@ expression: items
   location:
     path: docs/user-guide.md
     line: 2
+  end_line: 9
   origin:
     kind: requirement
   import: ~
@@ -96,6 +99,7 @@ expression: items
   location:
     path: docs/user-guide.md
     line: 2
+  end_line: 10
   origin:
     kind: requirement
   import: ~
@@ -117,6 +121,7 @@ expression: items
   location:
     path: docs/user-guide.md
     line: 2
+  end_line: 6
   origin:
     kind: requirement
   import: ~

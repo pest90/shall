@@ -87,11 +87,14 @@ pub fn parse(path: &Path, text: &str) -> Result<Parsed, LocationError> {
         heading: None,
         deferred: None,
         fence: None,
+        current: 0,
     };
     let text = text.strip_prefix('\u{feff}').unwrap_or(text);
     for (index, line) in text.lines().enumerate() {
+        parser.current = index + 1;
         parser.line(index + 1, line);
     }
+    parser.current += 1;
     if let Some(fence) = parser.fence {
         parser.error(
             fence.line,
@@ -222,6 +225,8 @@ struct Fence {
 struct Deferred {
     level: usize,
     title: String,
+    /// Line of the heading.
+    line: usize,
     /// The heading line and the blank lines after it.
     lines: Vec<String>,
 }
@@ -234,6 +239,8 @@ struct Parser {
     heading: Option<(usize, String)>,
     deferred: Option<Deferred>,
     fence: Option<Fence>,
+    /// The line being read; one past the last line at the end of the file.
+    current: usize,
 }
 
 impl Parser {
@@ -301,6 +308,7 @@ impl Parser {
                 self.deferred = Some(Deferred {
                     level,
                     title: title.to_owned(),
+                    line: number,
                     lines: vec![line.to_owned()],
                 });
             } else {
@@ -377,7 +385,12 @@ impl Parser {
 
     fn start_item(&mut self, number: usize, id: ItemId) {
         let nested = self.deferred.take();
+        // The heading that titles the new item ends the previous one.
+        if let Some(deferred) = &nested {
+            self.current = deferred.line;
+        }
         self.finish_item();
+        self.current = number;
         let (heading_level, title) = match nested
             .map(|deferred| (deferred.level, deferred.title))
             .or_else(|| self.heading.take())
@@ -633,6 +646,8 @@ impl Parser {
             features: item.features,
             source: item.source,
             location,
+            // The line that ends the item is not part of it.
+            end_line: to_u32(self.current.saturating_sub(1).max(item.line)),
             origin: Origin::Requirement,
             import: None,
         });
@@ -929,6 +944,25 @@ Text outside of items.
         );
         assert_eq!(second.title, "Second");
         assert_eq!(second.description, "");
+        // An item ends before the heading or ID that ends it.
+        assert_eq!((first.location.line(), first.end_line), (2, 8));
+        assert_eq!((second.location.line(), second.end_line), (10, 11));
+        let parsed = parse_str("`req~a~1`\nText.\n`req~b~1`\n\n`req~c~x`\nIgnored.\n");
+        let ends: Vec<u32> = parsed.items.iter().map(|item| item.end_line).collect();
+        assert_eq!(ends, [2, 4]);
+        let parsed = parse_str("`req~a~1`\nText.");
+        assert_eq!(parsed.items[0].end_line, 2);
+        // A deeper heading that titles the next item ends the previous one;
+        // IDs and headings in code blocks do not.
+        let parsed = parse_str(
+            "# A\n`req~a~1`\nText.\n\n## B\n\n`req~b~1`\n```\n`req~c~1`\n# C\n```\nEnd.\n",
+        );
+        let ends: Vec<(u32, u32)> = parsed
+            .items
+            .iter()
+            .map(|item| (item.location.line(), item.end_line))
+            .collect();
+        assert_eq!(ends, [(2, 4), (7, 12)]);
     }
 
     #[test]

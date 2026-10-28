@@ -48,6 +48,9 @@ pub struct Item {
     pub source: Option<String>,
     /// Where the item is defined: the line of its ID.
     pub location: Location,
+    /// Last line of the item in its file, e.g. before the next ID or
+    /// heading; the line of the tag for tag items.
+    pub end_line: u32,
     /// Whether the item comes from a requirement file or a tag in code.
     pub origin: Origin,
     /// Name of the `[[import]]` the item comes from; none for items of the

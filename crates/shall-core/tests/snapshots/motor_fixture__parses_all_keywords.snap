@@ -23,6 +23,7 @@ expression: read_requirements()
   location:
     path: reqs/design.md
     line: 4
+  end_line: 15
   origin:
     kind: requirement
   import: ~
@@ -47,6 +48,7 @@ expression: read_requirements()
   location:
     path: reqs/design.md
     line: 17
+  end_line: 28
   origin:
     kind: requirement
   import: ~
@@ -72,6 +74,7 @@ expression: read_requirements()
   location:
     path: reqs/design.md
     line: 30
+  end_line: 40
   origin:
     kind: requirement
   import: ~
@@ -95,6 +98,7 @@ expression: read_requirements()
   location:
     path: reqs/software.md
     line: 4
+  end_line: 18
   origin:
     kind: requirement
   import: ~
@@ -118,6 +122,7 @@ expression: read_requirements()
   location:
     path: reqs/software.md
     line: 20
+  end_line: 31
   origin:
     kind: requirement
   import: ~
@@ -141,6 +146,7 @@ expression: read_requirements()
   location:
     path: reqs/software.md
     line: 33
+  end_line: 43
   origin:
     kind: requirement
   import: ~
@@ -162,6 +168,7 @@ expression: read_requirements()
   location:
     path: reqs/system.md
     line: 4
+  end_line: 15
   origin:
     kind: requirement
   import: ~
@@ -184,6 +191,7 @@ expression: read_requirements()
   location:
     path: reqs/system.md
     line: 17
+  end_line: 25
   origin:
     kind: requirement
   import: ~
@@ -206,6 +214,7 @@ expression: read_requirements()
   location:
     path: verification/relay-driver-review.md
     line: 4
+  end_line: 12
   origin:
     kind: requirement
   import: ~

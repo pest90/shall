@@ -585,8 +585,9 @@ Der Plan hat zwölf Meilensteine; nach M2 gibt es ein nutzbares MVP (Konsole), n
   - Aufklappbarer Baum Stakeholder → Design → Code/Test mit `<details>`/`<summary>`, ohne JavaScript.
 - [ ] **5.5 Filter und Suche (M)**
   - Wenig Vanilla-JS: Filter nach Status, Typ, Tag; Volltextsuche über Titel und ID.
-- [ ] **5.6 Defektliste (S)**
+- [x] **5.6 Defektliste (S)**
   - Eigener Abschnitt mit allen Defekten, sortiert nach Schwere, jeweils mit Link zur Fundstelle.
+  - Umsetzung (`shall_report`): Abschnitt „Defects“ nach den Ebenen-Tabellen, Fehler vor Warnungen, innerhalb in der Reihenfolge von `shall check` (Datei, Zeile); Schwere als Zeichen und Wort. Die Fundstelle verlinkt auf die Details des Requirements, in dem der Defekt liegt (dieselbe Datei, Zeile zwischen ID und `end_line` des Items, das der Parser jetzt festhält; außerhalb eines Items, etwa bei einer kaputten ID oder einem Item außerhalb der Variante, kein Link); Defekte in Code, Tests, JUnit- und Konfigurationsdateien zeigen `pfad:zeile` – Code-Permalinks kommen mit 5.7. Die Zähler oben verlinken auf die Liste.
 
 #### Green Graph – jede L1-Kette auf einen Blick
 

@@ -17,8 +17,8 @@
 {% endif %}
 <p class="verdict {{ "bad" if summary.errors else "ok" }}">
 {%- if summary.errors %}✗ not ok{% else %}✓ ok{% endif %}:
-{{ summary.errors }} error{{ "" if summary.errors == 1 else "s" }},
-{{ summary.warnings }} warning{{ "" if summary.warnings == 1 else "s" }}</p>
+{% if defects %}<a href="#defects">{% endif %}{{ summary.errors }} error{{ "" if summary.errors == 1 else "s" }},
+{{ summary.warnings }} warning{{ "" if summary.warnings == 1 else "s" }}{% if defects %}</a>{% endif %}</p>
 </header>
 <main>
 <section id="summary">
@@ -100,6 +100,26 @@
 {% endif %}
 </section>
 {% endfor %}
+{% if defects %}
+<section id="defects">
+<h2>Defects</h2>
+<div class="scroll">
+<table class="defects">
+<thead><tr><th>Severity</th><th>Location</th><th>Message</th></tr></thead>
+<tbody>
+{% for defect in defects %}
+<tr class="{{ defect.class }}">
+<td class="sign"><span aria-hidden="true">{{ defect.sign }}</span> {{ defect.severity }}</td>
+<td>{% if defect.anchor %}<a href="#{{ defect.anchor }}"><code>{{ defect.location }}</code></a>{% else %}<code>{{ defect.location }}</code>{% endif %}</td>
+<td>{{ defect.message }}</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+<p class="note">Errors first, then warnings, each in the order of <code>shall check</code>. A location in a requirement file links to the requirement it is in.</p>
+</section>
+{% endif %}
 {% if levels %}
 <section id="details">
 <h2>Requirements</h2>
