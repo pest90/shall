@@ -88,6 +88,30 @@ tr.unknown td.sign { background: var(--bad-bg); }
 .legend .rejected { color: var(--off-fg); }
 .duplicate { font-size: 0.85rem; font-weight: 600; white-space: nowrap; }
 .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.detail { margin: 1rem 0; padding: 0.75rem 1rem; border: 1px solid var(--line); border-left-width: 0.35rem; border-radius: 0.4rem; }
+.detail:target { outline: 2px solid var(--muted); }
+.detail.ok { border-left-color: var(--ok-fg); }
+.detail.partial { border-left-color: var(--warn-fg); }
+.detail.missing, .detail.unknown { border-left-color: var(--bad-fg); }
+.detail.rejected { border-left-color: var(--off-fg); color: var(--off-fg); }
+.detail h3 { margin: 0 0 0.5rem; font-size: 1.05rem; }
+.detail h3 .sign { font-weight: 700; }
+.detail.ok h3 .sign { color: var(--ok-fg); }
+.detail.partial h3 .sign { color: var(--warn-fg); }
+.detail.missing h3 .sign, .detail.unknown h3 .sign { color: var(--bad-fg); }
+.detail h4 { margin: 0.75rem 0 0.25rem; font-size: 0.9rem; }
+.facts { display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem; margin: 0; font-size: 0.85rem; }
+.facts dt { display: inline; color: var(--muted); }
+.facts dt::after { content: ":"; }
+.facts dd { display: inline; margin: 0 0 0 0.25rem; }
+.links { margin: 0; padding-left: 1.25rem; }
+.problem { color: var(--bad-fg); font-weight: 600; }
+.badge { display: inline-block; padding: 0 0.4rem; border-radius: 0.25rem; font-size: 0.85rem; font-weight: 600; white-space: nowrap; }
+.badge.ok { color: var(--ok-fg); background: var(--ok-bg); }
+.badge.partial { color: var(--warn-fg); background: var(--warn-bg); }
+.badge.missing, .badge.unknown { color: var(--bad-fg); background: var(--bad-bg); }
+table.params { width: auto; margin-top: 0.25rem; }
+.variant { margin: 0.25rem 0 0; }
 </style>
 </head>
 <body>
@@ -164,7 +188,7 @@ tr.unknown td.sign { background: var(--bad-bg); }
 <tr class="partial">
 <td class="sign"><span title="covered, gap below" aria-hidden="true">!</span><span class="sr-only">covered, gap below</span></td>
 <td class="verified">no</td>
-<td><code>sys~motor.thermal-protection-q7m2~1</code></td>
+<td><a href="#sys~motor.thermal-protection-q7m2~1"><code>sys~motor.thermal-protection-q7m2~1</code></a></td>
 <td>Thermal protection of the motor</td>
 <td>approved</td>
 <td><code>reqs&#x2f;system.md:4</code></td>
@@ -172,7 +196,7 @@ tr.unknown td.sign { background: var(--bad-bg); }
 <tr class="ok">
 <td class="sign"><span title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span></td>
 <td class="verified">yes</td>
-<td><code>sys~motor.emergency-stop-h3x9~1</code></td>
+<td><a href="#sys~motor.emergency-stop-h3x9~1"><code>sys~motor.emergency-stop-h3x9~1</code></a></td>
 <td>Emergency stop</td>
 <td>approved</td>
 <td><code>reqs&#x2f;system.md:17</code></td>
@@ -191,7 +215,7 @@ tr.unknown td.sign { background: var(--bad-bg); }
 <tr class="ok">
 <td class="sign"><span title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span></td>
 <td class="verified">no</td>
-<td><code>swr~motor.overtemp-shutdown-k4f2~2</code></td>
+<td><a href="#swr~motor.overtemp-shutdown-k4f2~2"><code>swr~motor.overtemp-shutdown-k4f2~2</code></a></td>
 <td>Shut down the motor on overtemperature</td>
 <td>approved</td>
 <td><code>reqs&#x2f;software.md:4</code></td>
@@ -199,7 +223,7 @@ tr.unknown td.sign { background: var(--bad-bg); }
 <tr class="missing">
 <td class="sign"><span title="not covered" aria-hidden="true">✗</span><span class="sr-only">not covered</span> <span class="missing-types">missing: <code>dsn</code></span></td>
 <td class="verified">no</td>
-<td><code>swr~motor.overtemp-warning-p8n5~1</code></td>
+<td><a href="#swr~motor.overtemp-warning-p8n5~1"><code>swr~motor.overtemp-warning-p8n5~1</code></a></td>
 <td>Warn before overtemperature</td>
 <td>proposed</td>
 <td><code>reqs&#x2f;software.md:20</code></td>
@@ -207,7 +231,7 @@ tr.unknown td.sign { background: var(--bad-bg); }
 <tr class="ok">
 <td class="sign"><span title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span></td>
 <td class="verified">yes</td>
-<td><code>swr~motor.estop-relay-c2v6~1</code></td>
+<td><a href="#swr~motor.estop-relay-c2v6~1"><code>swr~motor.estop-relay-c2v6~1</code></a></td>
 <td>Open the motor relay on emergency stop</td>
 <td>approved</td>
 <td><code>reqs&#x2f;software.md:33</code></td>
@@ -226,7 +250,7 @@ tr.unknown td.sign { background: var(--bad-bg); }
 <tr class="ok">
 <td class="sign"><span title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span></td>
 <td class="verified">yes</td>
-<td><code>dsn~motor.temp-monitor-r5t1~1</code></td>
+<td><a href="#dsn~motor.temp-monitor-r5t1~1"><code>dsn~motor.temp-monitor-r5t1~1</code></a></td>
 <td>Temperature monitoring in the 10 ms task</td>
 <td>approved</td>
 <td><code>reqs&#x2f;design.md:4</code></td>
@@ -234,7 +258,7 @@ tr.unknown td.sign { background: var(--bad-bg); }
 <tr class="ok">
 <td class="sign"><span title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span></td>
 <td class="verified">no</td>
-<td><code>dsn~motor.shutdown-signal-w9e4~1</code></td>
+<td><a href="#dsn~motor.shutdown-signal-w9e4~1"><code>dsn~motor.shutdown-signal-w9e4~1</code></a></td>
 <td>Shutdown signal</td>
 <td>approved</td>
 <td><code>reqs&#x2f;design.md:17</code></td>
@@ -242,7 +266,7 @@ tr.unknown td.sign { background: var(--bad-bg); }
 <tr class="ok">
 <td class="sign"><span title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span></td>
 <td class="verified">yes</td>
-<td><code>dsn~motor.relay-driver-b6j3~1</code></td>
+<td><a href="#dsn~motor.relay-driver-b6j3~1"><code>dsn~motor.relay-driver-b6j3~1</code></a></td>
 <td>Relay driver</td>
 <td>approved</td>
 <td><code>reqs&#x2f;design.md:30</code></td>
@@ -260,7 +284,7 @@ tr.unknown td.sign { background: var(--bad-bg); }
 <tr class="ok">
 <td class="sign"><span title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span></td>
 <td class="verified">yes</td>
-<td><code>vrev~motor.relay-driver-review-m3q8~1</code></td>
+<td><a href="#vrev~motor.relay-driver-review-m3q8~1"><code>vrev~motor.relay-driver-review-m3q8~1</code></a></td>
 <td>Review of the relay driver</td>
 <td>approved</td>
 <td><code>verification&#x2f;relay-driver-review.md:4</code></td>
@@ -268,6 +292,210 @@ tr.unknown td.sign { background: var(--bad-bg); }
 </tbody>
 </table>
 </div>
+</section>
+<section id="details">
+<h2>Requirements</h2>
+<article id="sys~motor.thermal-protection-q7m2~1" class="detail partial">
+<h3><span class="sign" title="covered, gap below" aria-hidden="true">!</span><span class="sr-only">covered, gap below</span> <code>sys~motor.thermal-protection-q7m2~1</code> Thermal protection of the motor</h3>
+<dl class="facts">
+<div><dt>Level</dt><dd>L2 – System Requirements</dd></div>
+<div><dt>Status</dt><dd>approved</dd></div>
+<div><dt>Verified</dt><dd>no</dd></div>
+<div><dt>Location</dt><dd><code>reqs&#x2f;system.md:4</code></dd></div>
+<div><dt>Source</dt><dd>Customer specification ch. 4.2</dd></div></dl>
+<div class="text">
+<p>The drive protects the motor winding against overheating.</p>
+</div>
+<h4>Rationale</h4>
+<div class="text">
+<p>Overheating destroys the winding insulation.</p>
+</div>
+<h4>Covered by</h4>
+<ul class="links">
+<li><a href="#swr~motor.overtemp-shutdown-k4f2~2"><code>swr~motor.overtemp-shutdown-k4f2~2</code></a> Shut down the motor on overtemperature</li>
+<li><a href="#swr~motor.overtemp-warning-p8n5~1"><code>swr~motor.overtemp-warning-p8n5~1</code></a> Warn before overtemperature</li>
+</ul>
+</article>
+<article id="sys~motor.emergency-stop-h3x9~1" class="detail ok">
+<h3><span class="sign" title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span> <code>sys~motor.emergency-stop-h3x9~1</code> Emergency stop</h3>
+<dl class="facts">
+<div><dt>Level</dt><dd>L2 – System Requirements</dd></div>
+<div><dt>Status</dt><dd>approved</dd></div>
+<div><dt>Verified</dt><dd>yes</dd></div>
+<div><dt>Location</dt><dd><code>reqs&#x2f;system.md:17</code></dd></div>
+<div><dt>Source</dt><dd>Customer specification ch. 5.1</dd></div><div><dt>Features</dt><dd><code>estop</code></dd></div></dl>
+<div class="text">
+<p>The drive stops the motor when the emergency stop input is active.</p>
+</div>
+<h4>Covered by</h4>
+<ul class="links">
+<li><a href="#swr~motor.estop-relay-c2v6~1"><code>swr~motor.estop-relay-c2v6~1</code></a> Open the motor relay on emergency stop</li>
+</ul>
+</article>
+<article id="swr~motor.overtemp-shutdown-k4f2~2" class="detail ok">
+<h3><span class="sign" title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span> <code>swr~motor.overtemp-shutdown-k4f2~2</code> Shut down the motor on overtemperature</h3>
+<dl class="facts">
+<div><dt>Level</dt><dd>L3 – Software Requirements</dd></div>
+<div><dt>Status</dt><dd>approved</dd></div>
+<div><dt>Verified</dt><dd>no</dd></div>
+<div><dt>Location</dt><dd><code>reqs&#x2f;software.md:4</code></dd></div>
+</dl>
+<div class="text">
+<p>The software shuts down the motor within 100 ms when the winding
+temperature exceeds 85 °C.</p>
+</div>
+<h4>Rationale</h4>
+<div class="text">
+<p>Revision 2 lowered the reaction time from 200 ms to 100 ms.</p>
+</div>
+<h4>Covers</h4>
+<ul class="links">
+<li><a href="#sys~motor.thermal-protection-q7m2~1"><code>sys~motor.thermal-protection-q7m2~1</code></a></li>
+</ul>
+<h4>Covered by</h4>
+<ul class="links">
+<li><a href="#dsn~motor.shutdown-signal-w9e4~1"><code>dsn~motor.shutdown-signal-w9e4~1</code></a> Shutdown signal</li>
+</ul>
+<h4>Invalid links to this item</h4>
+<ul class="links">
+<li><a href="#dsn~motor.temp-monitor-r5t1~1"><code>dsn~motor.temp-monitor-r5t1~1</code></a> at <code>reqs&#x2f;design.md:12</code> <span class="problem">✗ outdated, current revision 2</span></li>
+</ul>
+</article>
+<article id="swr~motor.overtemp-warning-p8n5~1" class="detail missing">
+<h3><span class="sign" title="not covered" aria-hidden="true">✗</span><span class="sr-only">not covered</span> <code>swr~motor.overtemp-warning-p8n5~1</code> Warn before overtemperature</h3>
+<dl class="facts">
+<div><dt>Level</dt><dd>L3 – Software Requirements</dd></div>
+<div><dt>Status</dt><dd>proposed</dd></div>
+<div><dt>Verified</dt><dd>no</dd></div>
+<div><dt>Location</dt><dd><code>reqs&#x2f;software.md:20</code></dd></div>
+</dl>
+<div class="text">
+<p>The software reports a warning when the winding temperature exceeds
+75 °C.</p>
+</div>
+<h4>Covers</h4>
+<ul class="links">
+<li><a href="#sys~motor.thermal-protection-q7m2~1"><code>sys~motor.thermal-protection-q7m2~1</code></a></li>
+</ul>
+<p class="problem">✗ Not covered by <code>dsn</code></p>
+</article>
+<article id="swr~motor.estop-relay-c2v6~1" class="detail ok">
+<h3><span class="sign" title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span> <code>swr~motor.estop-relay-c2v6~1</code> Open the motor relay on emergency stop</h3>
+<dl class="facts">
+<div><dt>Level</dt><dd>L3 – Software Requirements</dd></div>
+<div><dt>Status</dt><dd>approved</dd></div>
+<div><dt>Verified</dt><dd>yes</dd></div>
+<div><dt>Location</dt><dd><code>reqs&#x2f;software.md:33</code></dd></div>
+</dl>
+<div class="text">
+<p>The software opens the motor relay within 10 ms after the emergency
+stop input becomes active.</p>
+</div>
+<h4>Covers</h4>
+<ul class="links">
+<li><a href="#sys~motor.emergency-stop-h3x9~1"><code>sys~motor.emergency-stop-h3x9~1</code></a></li>
+</ul>
+<h4>Covered by</h4>
+<ul class="links">
+<li><a href="#dsn~motor.relay-driver-b6j3~1"><code>dsn~motor.relay-driver-b6j3~1</code></a> Relay driver</li>
+</ul>
+</article>
+<article id="dsn~motor.temp-monitor-r5t1~1" class="detail ok">
+<h3><span class="sign" title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span> <code>dsn~motor.temp-monitor-r5t1~1</code> Temperature monitoring in the 10 ms task</h3>
+<dl class="facts">
+<div><dt>Level</dt><dd>L3D – Design Decisions</dd></div>
+<div><dt>Status</dt><dd>approved</dd></div>
+<div><dt>Verified</dt><dd>yes</dd></div>
+<div><dt>Location</dt><dd><code>reqs&#x2f;design.md:4</code></dd></div>
+</dl>
+<div class="text">
+<p>The task <code>TempMonitor</code> reads the winding sensor every 10 ms and raises
+the overtemperature flag above 85 °C.</p>
+</div>
+<h4>Covers</h4>
+<ul class="links">
+<li><a href="#swr~motor.overtemp-shutdown-k4f2~2"><code>swr~motor.overtemp-shutdown-k4f2~1</code></a> <span class="problem">✗ outdated, current revision 2</span></li>
+</ul>
+<h4>Implementation</h4>
+<ul class="links">
+<li><code>src&#x2f;temp_monitor.cpp:3</code> <code>[impl-&gt;dsn~motor.temp-monitor-r5t1~1]</code></li>
+</ul>
+<h4>Tests</h4>
+<ul class="links">
+<li><span class="badge ok">✓ passed</span> <code>TempMonitor.RaisesFlagAbove85C</code> <code>tests&#x2f;temp_monitor_test.cpp:5</code></li>
+</ul>
+</article>
+<article id="dsn~motor.shutdown-signal-w9e4~1" class="detail ok">
+<h3><span class="sign" title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span> <code>dsn~motor.shutdown-signal-w9e4~1</code> Shutdown signal</h3>
+<dl class="facts">
+<div><dt>Level</dt><dd>L3D – Design Decisions</dd></div>
+<div><dt>Status</dt><dd>approved</dd></div>
+<div><dt>Verified</dt><dd>no</dd></div>
+<div><dt>Location</dt><dd><code>reqs&#x2f;design.md:17</code></dd></div>
+</dl>
+<div class="text">
+<p><code>Shutdown::on_overtemp</code> switches off the PWM output in the same task
+cycle in which the overtemperature flag is raised.</p>
+</div>
+<h4>Covers</h4>
+<ul class="links">
+<li><a href="#swr~motor.overtemp-shutdown-k4f2~2"><code>swr~motor.overtemp-shutdown-k4f2~2</code></a></li>
+</ul>
+<h4>Implementation</h4>
+<ul class="links">
+<li><code>src&#x2f;shutdown.cpp:3</code> <code>[impl-&gt;dsn~motor.shutdown-signal-w9e4~1]</code></li>
+</ul>
+<h4>Tests</h4>
+<ul class="links">
+<li><span class="badge missing">✗ failed</span> <code>Shutdown.DisablesPwmOnOvertemp</code> <code>tests&#x2f;shutdown_test.cpp:5</code></li>
+</ul>
+</article>
+<article id="dsn~motor.relay-driver-b6j3~1" class="detail ok">
+<h3><span class="sign" title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span> <code>dsn~motor.relay-driver-b6j3~1</code> Relay driver</h3>
+<dl class="facts">
+<div><dt>Level</dt><dd>L3D – Design Decisions</dd></div>
+<div><dt>Status</dt><dd>approved</dd></div>
+<div><dt>Verified</dt><dd>yes</dd></div>
+<div><dt>Location</dt><dd><code>reqs&#x2f;design.md:30</code></dd></div>
+</dl>
+<div class="text">
+<p><code>RelayDriver</code> opens the relay directly from the emergency stop
+interrupt.</p>
+</div>
+<h4>Covers</h4>
+<ul class="links">
+<li><a href="#swr~motor.estop-relay-c2v6~1"><code>swr~motor.estop-relay-c2v6~1</code></a></li>
+</ul>
+<h4>Covered by</h4>
+<ul class="links">
+<li><a href="#vrev~motor.relay-driver-review-m3q8~1"><code>vrev~motor.relay-driver-review-m3q8~1</code></a> Review of the relay driver</li>
+</ul>
+<h4>Implementation</h4>
+<ul class="links">
+<li><code>src&#x2f;relay_driver.cpp:3</code> <code>[impl-&gt;dsn~motor.relay-driver-b6j3~1]</code></li>
+</ul>
+<h4>Tests</h4>
+<ul class="links">
+<li><span class="badge ok">✓ passed</span> <code>RelayDriverTest.OpensOnEstop</code> <code>tests&#x2f;relay_driver_test.cpp:10</code></li>
+</ul>
+</article>
+<article id="vrev~motor.relay-driver-review-m3q8~1" class="detail ok">
+<h3><span class="sign" title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span> <code>vrev~motor.relay-driver-review-m3q8~1</code> Review of the relay driver</h3>
+<dl class="facts">
+<div><dt>Level</dt><dd>vrev</dd></div>
+<div><dt>Status</dt><dd>approved</dd></div>
+<div><dt>Verified</dt><dd>yes</dd></div>
+<div><dt>Location</dt><dd><code>verification&#x2f;relay-driver-review.md:4</code></dd></div>
+</dl>
+<div class="text">
+<p>The relay driver was reviewed against the emergency stop timing: the
+relay opens within the interrupt, no task is involved.</p>
+</div>
+<h4>Covers</h4>
+<ul class="links">
+<li><a href="#dsn~motor.relay-driver-b6j3~1"><code>dsn~motor.relay-driver-b6j3~1</code></a></li>
+</ul>
+</article>
 </section>
 </main>
 <footer>

@@ -28,7 +28,7 @@ use serde::Serialize;
 use crate::config::{Config, Variant};
 use crate::diagnostic::{Diagnostic, Severity};
 use crate::id::{ItemId, ItemType};
-use crate::item::{Item, Location, Origin, Param, Status};
+use crate::item::{Item, Location, Origin, Param, Reference, Status};
 use crate::junit::{Outcome, TestResult};
 use crate::results::{Evaluation, Verdict};
 use crate::trace::{ItemRef, Link, Trace};
@@ -124,6 +124,13 @@ pub struct ItemEntry<'a> {
     pub params: &'a [Param],
     /// `Features:`.
     pub features: &'a [String],
+    /// `Covers:` as written, also for rejected items, whose links are not
+    /// traced; see `links` for the status of the others.
+    pub covers: &'a [Reference],
+    /// `Depends:` as written.
+    pub depends: &'a [Reference],
+    /// `Satisfied-by:` as written.
+    pub satisfied_by: &'a [Reference],
     /// Where the item is defined.
     pub location: &'a Location,
     /// Requirement file or tag, with the tag's text and test definition.
@@ -299,6 +306,9 @@ fn entry<'a>(joined: &Joined<'a>, verified: bool) -> ItemEntry<'a> {
         source: item.source.as_deref(),
         params: &item.params,
         features: &item.features,
+        covers: &item.covers,
+        depends: &item.depends,
+        satisfied_by: &item.satisfied_by,
         location: &item.location,
         origin: &item.origin,
         import: item.import.as_deref(),

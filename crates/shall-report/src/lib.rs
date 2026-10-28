@@ -19,6 +19,14 @@
 //!   `✗` not covered, `–` rejected, `?` unknown type; a legend explains
 //!   them. Copies of a duplicate ID are marked.
 //!
+//! After the tables follow the details of every requirement, anchored at
+//! its ID: its fields, its text rendered from Markdown without raw HTML
+//! and with only `http`, `https`, `mailto` and relative links, its links
+//! upwards as written with the reason of each invalid one, and downwards
+//! the requirements, code tags and tests covering it, the tests with their
+//! verdict, the requirements it satisfies or that depend on it, and the
+//! invalid links to it.
+//!
 //! The levels are those of `shall.toml`, in their order there; types of
 //! requirement items without a level follow in alphabetical order, named
 //! by their type. If such a type is unknown, its items are errors (see
@@ -30,16 +38,19 @@
 //! reports of several variants, [`render_overview`] writes a page that
 //! links them, with the verdict and counts of each.
 
-use std::collections::BTreeSet;
+mod markdown;
+
+use std::collections::{BTreeSet, HashMap};
 
 use minijinja::Environment;
 use minijinja::syntax::SyntaxConfig;
 use minijinja::value::{Serde, Value};
 use serde::Serialize;
 use shall_core::export::{Document, ItemEntry};
-use shall_core::item::Origin;
+use shall_core::item::{Origin, Reference};
 use shall_core::results::Verdict;
-use shall_core::{ItemType, Severity, Status};
+use shall_core::trace::{ItemRef, Link, LinkKind, LinkStatus};
+use shall_core::{ItemId, ItemType, Location, Severity, Status};
 
 const INDEX: &str = include_str!("../templates/index.html");
 const OVERVIEW: &str = include_str!("../templates/overview.html");
@@ -181,6 +192,9 @@ struct LevelView<'a> {
 
 #[derive(Debug, Serialize)]
 struct ItemView<'a> {
+    /// Fragment of the item's details, its ID; copies of a duplicate ID
+    /// after the first get `-2`, `-3` and so on.
+    anchor: String,
     id: String,
     title: &'a str,
     status: &'static str,
@@ -196,10 +210,215 @@ struct ItemView<'a> {
     duplicate: bool,
     missing: Vec<&'a str>,
     location: String,
+    detail: DetailView<'a>,
+}
+
+/// What the details of a requirement show besides the table columns.
+#[derive(Debug, Serialize)]
+struct DetailView<'a> {
+    /// The description, rationale and comment rendered as HTML.
+    description: String,
+    rationale: Option<String>,
+    comment: Option<String>,
+    source: Option<&'a str>,
+    tags: &'a [String],
+    features: &'a [String],
+    import: Option<&'a str>,
+    params: Vec<(&'a str, &'a str)>,
+    covers: Vec<LinkView>,
+    satisfied_by: Vec<LinkView>,
+    depends: Vec<LinkView>,
+    /// Requirements covering the item, except those of `satisfied_by`.
+    covered_by: Vec<RefView<'a>>,
+    /// Requirements that this item satisfies, by their valid
+    /// `Satisfied-by:` links.
+    satisfies: Vec<RefView<'a>>,
+    /// Requirements depending on this item with a valid `Depends:`.
+    depended_on_by: Vec<RefView<'a>>,
+    /// Links to this item that are not valid, with the reason.
+    invalid_incoming: Vec<IncomingView>,
+    implementations: Vec<TagView<'a>>,
+    tests: Vec<TestView<'a>>,
+}
+
+/// A link of the item to another one, as written.
+#[derive(Debug, Serialize)]
+struct LinkView {
+    target: String,
+    /// Fragment of the target's details, if it is a requirement in the
+    /// report.
+    anchor: Option<String>,
+    /// Why the link is not valid; none for a valid link and for links of
+    /// rejected items, which are not traced.
+    problem: Option<String>,
+}
+
+/// A requirement covering the item.
+#[derive(Debug, Serialize)]
+struct RefView<'a> {
+    id: String,
+    anchor: String,
+    title: &'a str,
+}
+
+/// An invalid link to the item.
+#[derive(Debug, Serialize)]
+struct IncomingView {
+    /// The ID of the linking requirement, or the tag as written.
+    source: String,
+    /// Fragment of the linking requirement's details.
+    anchor: Option<String>,
+    /// Where the link is written.
+    location: String,
+    problem: String,
+}
+
+/// A code tag implementing the item.
+#[derive(Debug, Serialize)]
+struct TagView<'a> {
+    text: &'a str,
+    location: String,
+}
+
+/// A verification tag of the item and its verdict.
+#[derive(Debug, Serialize)]
+struct TestView<'a> {
+    text: &'a str,
+    location: String,
+    /// The test as runners name it; none without a test definition or
+    /// without `junit` sources.
+    name: Option<&'a str>,
+    /// `ok`, `partial` or `missing`, for the CSS class; `unknown` without
+    /// `junit` sources.
+    class: &'static str,
+    sign: &'static str,
+    verdict: &'static str,
+}
+
+/// Fragments of the requirements' details and the items by location and
+/// ID, to resolve links.
+struct Index<'d, 'a> {
+    anchors: HashMap<(&'d Location, &'d ItemId), String>,
+    /// Requirements with their fragment by location.
+    requirements: HashMap<&'d Location, Vec<(&'d ItemId, String)>>,
+    /// Items by location and ID; several for copies of a duplicate ID at
+    /// one location, e.g. two tags on one line.
+    items: HashMap<(&'d Location, &'d ItemId), Vec<&'d ItemEntry<'a>>>,
+    /// Links by the location they are written at.
+    links: HashMap<&'d Location, Vec<&'d Link>>,
+    /// Links by the location of their target.
+    incoming: HashMap<&'d Location, Vec<&'d Link>>,
+}
+
+impl<'d, 'a> Index<'d, 'a> {
+    fn new(document: &'d Document<'a>) -> Self {
+        let mut anchors = HashMap::new();
+        let mut requirements: HashMap<&Location, Vec<(&ItemId, String)>> = HashMap::new();
+        let mut used: HashMap<String, usize> = HashMap::new();
+        let mut items: HashMap<_, Vec<_>> = HashMap::new();
+        for item in &document.items {
+            items
+                .entry((item.location, item.id))
+                .or_default()
+                .push(item);
+            if !matches!(item.origin, Origin::Requirement) {
+                continue;
+            }
+            let id = item.id.to_string();
+            let count = used.entry(id.clone()).or_default();
+            *count += 1;
+            let anchor = if *count == 1 {
+                id
+            } else {
+                format!("{id}-{count}")
+            };
+            requirements
+                .entry(item.location)
+                .or_default()
+                .push((item.id, anchor.clone()));
+            anchors.insert((item.location, item.id), anchor);
+        }
+        let mut links: HashMap<&Location, Vec<&Link>> = HashMap::new();
+        let mut incoming: HashMap<&Location, Vec<&Link>> = HashMap::new();
+        for link in document.links {
+            links.entry(&link.location).or_default().push(link);
+            if let Some(target) = &link.target_location {
+                incoming.entry(target).or_default().push(link);
+            }
+        }
+        Self {
+            anchors,
+            requirements,
+            items,
+            links,
+            incoming,
+        }
+    }
+
+    /// The fragment of the requirement with the target's type and name at
+    /// `location`.
+    fn anchor_at(&self, location: &Location, target: &ItemId) -> Option<String> {
+        self.requirements
+            .get(location)?
+            .iter()
+            .find(|(id, _)| id.typ() == target.typ() && id.name() == target.name())
+            .map(|(_, anchor)| anchor.clone())
+    }
+
+    /// The item at `source` that covers `target` with a valid link: of
+    /// copies of a duplicate ID at one location, the one whose links name
+    /// the target in its current revision.
+    fn source_of(&self, source: &ItemRef, target: &ItemEntry<'_>) -> Option<&'d ItemEntry<'a>> {
+        self.copy_naming(&source.location, &source.id, |entry| {
+            entry.covers.iter().any(|link| link.id == *target.id)
+        })
+    }
+
+    /// The source of `link`: of copies of a duplicate ID at one location,
+    /// the one whose links of the link's kind name its target as written.
+    fn link_source(&self, link: &Link) -> Option<&'d ItemEntry<'a>> {
+        self.copy_naming(&link.source_location, &link.source, |entry| {
+            let references = match link.kind {
+                LinkKind::Covers => entry.covers,
+                LinkKind::Depends => entry.depends,
+                LinkKind::SatisfiedBy => entry.satisfied_by,
+            };
+            references
+                .iter()
+                .any(|reference| reference.id == link.target)
+        })
+    }
+
+    /// The copy at `location` with `id` that `names` accepts, or else the
+    /// first.
+    fn copy_naming(
+        &self,
+        location: &Location,
+        id: &ItemId,
+        names: impl Fn(&ItemEntry<'_>) -> bool,
+    ) -> Option<&'d ItemEntry<'a>> {
+        let entries = self.items.get(&(location, id))?;
+        entries
+            .iter()
+            .find(|entry| names(entry))
+            .or_else(|| entries.first())
+            .copied()
+    }
+
+    /// The traced link of `item` written as `reference`, if any.
+    fn link(&self, item: &ItemEntry<'_>, kind: LinkKind, reference: &Reference) -> Option<&Link> {
+        let location = item.location.with_line(reference.line);
+        self.links.get(&location)?.iter().copied().find(|link| {
+            link.kind == kind
+                && link.target == reference.id
+                && link.source_location == *item.location
+        })
+    }
 }
 
 impl<'a> Page<'a> {
     fn new(document: &'a Document<'_>) -> Self {
+        let index = Index::new(document);
         // Requirement types without a level, e.g. misspelled ones, get a
         // table of their own after the levels.
         let configured: BTreeSet<&ItemType> =
@@ -214,11 +433,11 @@ impl<'a> Page<'a> {
         let levels = document
             .levels
             .iter()
-            .map(|entry| level(document, entry.typ, entry.name, entry.needs))
+            .map(|entry| level(document, &index, entry.typ, entry.name, entry.needs))
             .chain(
                 others
                     .into_iter()
-                    .map(|typ| level(document, typ, typ.as_str(), &[])),
+                    .map(|typ| level(document, &index, typ, typ.as_str(), &[])),
             )
             .collect();
         Self {
@@ -271,6 +490,7 @@ fn summary(document: &Document<'_>) -> Summary {
 
 fn level<'a>(
     document: &'a Document<'_>,
+    index: &Index<'a, '_>,
     typ: &'a ItemType,
     name: &'a str,
     needs: &'a [ItemType],
@@ -304,7 +524,10 @@ fn level<'a>(
         covered_percent: percent(covered, counted.len()),
         deep_percent: percent(deep_covered, counted.len()),
         verified_percent: percent(verified, counted.len()),
-        items: items.into_iter().map(item_view).collect(),
+        items: items
+            .into_iter()
+            .map(|item| item_view(document, index, item))
+            .collect(),
     }
 }
 
@@ -313,7 +536,11 @@ fn percent(part: usize, total: usize) -> Option<u64> {
     (total > 0).then(|| (part as u64 * 100) / total as u64)
 }
 
-fn item_view<'a>(item: &'a ItemEntry<'_>) -> ItemView<'a> {
+fn item_view<'a>(
+    document: &'a Document<'_>,
+    index: &Index<'a, '_>,
+    item: &'a ItemEntry<'_>,
+) -> ItemView<'a> {
     let (coverage, sign, label) = if item.status == Status::Rejected {
         ("rejected", "–", "rejected")
     } else if item.unknown_type {
@@ -326,6 +553,7 @@ fn item_view<'a>(item: &'a ItemEntry<'_>) -> ItemView<'a> {
         ("missing", "✗", "not covered")
     };
     ItemView {
+        anchor: index.anchors[&(item.location, item.id)].clone(),
         id: item.id.to_string(),
         title: item.title,
         label,
@@ -340,7 +568,162 @@ fn item_view<'a>(item: &'a ItemEntry<'_>) -> ItemView<'a> {
         sign,
         missing: item.missing.iter().map(ItemType::as_str).collect(),
         location: item.location.to_string(),
+        detail: detail(document, index, item),
     }
+}
+
+fn detail<'a>(
+    document: &'a Document<'_>,
+    index: &Index<'a, '_>,
+    item: &'a ItemEntry<'_>,
+) -> DetailView<'a> {
+    let links = |kind: LinkKind, references: &[Reference]| -> Vec<LinkView> {
+        references
+            .iter()
+            .map(|reference| {
+                let link = index.link(item, kind, reference);
+                LinkView {
+                    target: reference.id.to_string(),
+                    anchor: link
+                        .and_then(|link| link.target_location.as_ref())
+                        .and_then(|location| index.anchor_at(location, &reference.id)),
+                    problem: link.and_then(|link| problem(link.status)),
+                }
+            })
+            .collect()
+    };
+    // Targets of valid `Satisfied-by:` links cover the item too; they are
+    // listed there, with the parameters.
+    let satisfied: Vec<&Location> = item
+        .satisfied_by
+        .iter()
+        .filter_map(|reference| index.link(item, LinkKind::SatisfiedBy, reference))
+        .filter(|link| link.status == LinkStatus::Valid)
+        .filter_map(|link| link.target_location.as_ref())
+        .collect();
+    let mut covered_by = Vec::new();
+    let mut implementations = Vec::new();
+    let mut tests = Vec::new();
+    for source in item.covered_by {
+        let Some(entry) = index.source_of(source, item) else {
+            continue;
+        };
+        match entry.origin {
+            Origin::Requirement if !satisfied.contains(&&source.location) => {
+                covered_by.push(RefView {
+                    id: entry.id.to_string(),
+                    anchor: index.anchors[&(entry.location, entry.id)].clone(),
+                    title: entry.title,
+                });
+            }
+            Origin::Requirement => {}
+            Origin::Tag { text, .. } if document.verification_types.contains(entry.typ) => {
+                let (class, sign, verdict) = match entry.test.as_ref().map(|test| test.verdict) {
+                    Some(Verdict::Passed) => ("ok", "✓", "passed"),
+                    Some(Verdict::Failed) => ("missing", "✗", "failed"),
+                    Some(Verdict::Skipped) => ("partial", "!", "skipped"),
+                    Some(Verdict::NotExecuted) => ("partial", "!", "not executed"),
+                    Some(Verdict::NoTest) => ("partial", "!", "no test"),
+                    None => ("unknown", "?", "no results read"),
+                };
+                tests.push(TestView {
+                    text,
+                    location: entry.location.to_string(),
+                    name: entry.test.as_ref().and_then(|test| test.name),
+                    class,
+                    sign,
+                    verdict,
+                });
+            }
+            Origin::Tag { text, .. } => implementations.push(TagView {
+                text,
+                location: entry.location.to_string(),
+            }),
+        }
+    }
+    let mut satisfies = Vec::new();
+    let mut depended_on_by = Vec::new();
+    let mut invalid_incoming = Vec::new();
+    let incoming = index.incoming.get(item.location).into_iter().flatten();
+    for link in
+        incoming.filter(|link| link.target.typ() == item.typ && link.target.name() == item.name)
+    {
+        let source = index.link_source(link);
+        let anchor = index
+            .anchors
+            .get(&(&link.source_location, &link.source))
+            .cloned();
+        match (link.status, link.kind, source, &anchor) {
+            (LinkStatus::Valid, LinkKind::Covers, _, _) => {}
+            (LinkStatus::Valid, kind, Some(source), Some(anchor)) => {
+                let view = RefView {
+                    id: source.id.to_string(),
+                    anchor: anchor.clone(),
+                    title: source.title,
+                };
+                if kind == LinkKind::SatisfiedBy {
+                    satisfies.push(view);
+                } else {
+                    depended_on_by.push(view);
+                }
+            }
+            (LinkStatus::Valid, ..) => {}
+            (status, ..) => invalid_incoming.push(IncomingView {
+                source: match source.map(|source| source.origin) {
+                    Some(Origin::Tag { text, .. }) => text.clone(),
+                    _ => link.source.to_string(),
+                },
+                anchor,
+                location: link.location.to_string(),
+                problem: problem(status).unwrap_or_default(),
+            }),
+        }
+    }
+    let text = |text: &str| {
+        Some(text)
+            .filter(|text| !text.trim().is_empty())
+            .map(markdown::render)
+    };
+    DetailView {
+        description: markdown::render(item.description),
+        rationale: item.rationale.and_then(text),
+        comment: item.comment.and_then(text),
+        source: item.source,
+        tags: item.tags,
+        features: item.features,
+        import: item.import,
+        params: item
+            .params
+            .iter()
+            .map(|param| (param.name.as_str(), param.value.as_str()))
+            .collect(),
+        covers: links(LinkKind::Covers, item.covers),
+        satisfied_by: links(LinkKind::SatisfiedBy, item.satisfied_by),
+        depends: links(LinkKind::Depends, item.depends),
+        covered_by,
+        satisfies,
+        depended_on_by,
+        invalid_incoming,
+        implementations,
+        tests,
+    }
+}
+
+/// Why a link is not valid, in words; none for a valid one.
+fn problem(status: LinkStatus) -> Option<String> {
+    Some(match status {
+        LinkStatus::Valid => return None,
+        LinkStatus::Unknown => "unknown item".to_owned(),
+        LinkStatus::Outdated { current } => format!("outdated, current revision {current}"),
+        LinkStatus::Predated { current } => {
+            format!("revision does not exist yet, current revision {current}")
+        }
+        LinkStatus::Ambiguous => "ID defined more than once".to_owned(),
+        LinkStatus::Rejected => "target rejected".to_owned(),
+        LinkStatus::Unwanted => "the target does not need this type".to_owned(),
+        LinkStatus::Disallowed => "type not allowed by [satisfied_by]".to_owned(),
+        LinkStatus::OutsideVariant => "outside the variant".to_owned(),
+    })
 }
 
 #[cfg(test)]
@@ -487,5 +870,182 @@ mod tests {
         assert_eq!(percent(2, 3), Some(66));
         assert_eq!(percent(199, 200), Some(99));
         assert_eq!(percent(3, 3), Some(100));
+    }
+
+    #[test]
+    fn details_link_up_and_down() {
+        let html = html(
+            "[[level]]\ntype = \"hlr\"\nname = \"Customer\"\nneeds = [\"swr\"]\n\n\
+             [[level]]\ntype = \"cap\"\nname = \"Capabilities\"\n\n\
+             [[level]]\ntype = \"swr\"\nname = \"Software\"\n",
+            "# H\n`hlr~h-k4f2~1`\n\nSatisfied-by:\n- cap~c-k4f2~1\n\nParams:\n- limit_c = 85\n\n\
+             # C\n`cap~c-k4f2~1`\n\n\
+             # S\n`swr~s-k4f2~1`\n\nComment:\n\nCovers:\n- hlr~h-k4f2~1\n- cap~gone-k4f2~1\n\nDepends:\n- cap~c-k4f2~1\n\n\
+             # R\n`swr~r-k4f2~1`\n\nStatus: rejected\n\nCovers:\n- hlr~h-k4f2~1\n",
+        );
+        let detail = |anchor: &str| {
+            let start = html.find(&format!("<article id=\"{anchor}\"")).unwrap();
+            let end = start + html[start..].find("</article>").unwrap();
+            html[start..end].to_owned()
+        };
+        let h = detail("hlr~h-k4f2~1");
+        assert!(
+            h.contains("<h4>Satisfied by</h4>\n<ul class=\"links\">\n<li><a href=\"#cap~c-k4f2~1\"><code>cap~c-k4f2~1</code></a></li>"),
+            "{h}"
+        );
+        assert!(
+            h.contains("<tr><td><code>limit_c</code></td><td><code>85</code></td></tr>"),
+            "{h}"
+        );
+        // The capability is listed under Satisfied by, not again as cover.
+        assert!(!h.contains("<h4>Covered by</h4>"), "{h}");
+        let s = detail("swr~s-k4f2~1");
+        assert!(
+            s.contains("<li><code>cap~gone-k4f2~1</code> <span class=\"problem\">✗ unknown item</span></li>"),
+            "{s}"
+        );
+        assert!(s.contains("<a href=\"#hlr~h-k4f2~1\"><code>hlr~h-k4f2~1</code></a> <span class=\"problem\">✗ the target does not need this type</span>"), "{s}");
+        assert!(!s.contains("<h4>Comment</h4>"), "{s}");
+        let c = detail("cap~c-k4f2~1");
+        assert!(
+            c.contains("<h4>Satisfies</h4>\n<ul class=\"links\">\n<li><a href=\"#hlr~h-k4f2~1\"><code>hlr~h-k4f2~1</code></a> H</li>"),
+            "{c}"
+        );
+        assert!(
+            c.contains("<h4>Depended on by</h4>\n<ul class=\"links\">\n<li><a href=\"#swr~s-k4f2~1\"><code>swr~s-k4f2~1</code></a> S</li>"),
+            "{c}"
+        );
+        assert!(
+            h.contains("<h4>Invalid links to this item</h4>\n<ul class=\"links\">\n<li><a href=\"#swr~s-k4f2~1\"><code>swr~s-k4f2~1</code></a> at <code>reqs&#x2f;a.md:"),
+            "{h}"
+        );
+        // A rejected item keeps its links, which are not traced.
+        let r = detail("swr~r-k4f2~1");
+        assert!(r.contains("<li><code>hlr~h-k4f2~1</code></li>"), "{r}");
+        assert!(
+            html.contains("<a href=\"#swr~s-k4f2~1\"><code>swr~s-k4f2~1</code></a>"),
+            "{html}"
+        );
+    }
+
+    #[test]
+    fn copies_of_a_duplicate_id_get_their_own_anchor() {
+        let html = html(
+            "[[level]]\ntype = \"dsn\"\nname = \"Design\"\n",
+            "# A\n`dsn~a-k4f2~1`\n\n# A again\n`dsn~a-k4f2~1`\n",
+        );
+        assert!(html.contains("<article id=\"dsn~a-k4f2~1\""), "{html}");
+        assert!(html.contains("<article id=\"dsn~a-k4f2~1-2\""), "{html}");
+        assert!(html.contains("<a href=\"#dsn~a-k4f2~1-2\">"), "{html}");
+    }
+
+    #[test]
+    fn texts_are_rendered_without_running_anything() {
+        let html = html(
+            "[[level]]\ntype = \"dsn\"\nname = \"Design\"\n",
+            "# A\n`dsn~a-k4f2~1`\n\nSee **this** <img src=x onerror=alert(1)> [x](javascript:alert(1)).\n\n\
+             Rationale:\n<script>alert(2)</script>\n",
+        );
+        assert!(
+            html.contains("<p>See <strong>this</strong> &lt;img src=x onerror=alert(1)&gt; x.</p>"),
+            "{html}"
+        );
+        assert!(
+            html.contains("&lt;script&gt;alert(2)&lt;/script&gt;"),
+            "{html}"
+        );
+        assert!(!html.contains("<script"), "{html}");
+    }
+
+    #[test]
+    fn tags_and_tests_appear_below_their_targets() {
+        use shall_core::tags;
+
+        let config = Config::parse(
+            "[[level]]\ntype = \"dsn\"\nname = \"Design\"\nneeds = [\"impl\", \"utest\"]\n\n\
+             [verification]\ntypes = [\"utest\"]\n",
+        )
+        .unwrap();
+        let mut items = markdown::parse(
+            Path::new("reqs/a.md"),
+            "# A\n`dsn~a-k4f2~1`\n\n# B\n`dsn~b-k4f2~1`\n",
+        )
+        .unwrap()
+        .items;
+        // Two tags with the same own ID on one line, a duplicate.
+        items.extend(
+            tags::scan(
+                Path::new("src/a.c"),
+                "// [impl~x~0->dsn~a-k4f2~1] [impl~x~0->dsn~b-k4f2~1]\nvoid f();\n",
+            )
+            .unwrap()
+            .items,
+        );
+        items.extend(
+            tags::scan(
+                Path::new("tests/a.cpp"),
+                "// [utest->dsn~a-k4f2~1]\nTEST(S, N) {}\n",
+            )
+            .unwrap()
+            .items,
+        );
+        let trace = trace::trace(&items, &config);
+        let html = render(&Document::new(Input {
+            config: &config,
+            items: &items,
+            trace: &trace,
+            tests: None,
+            diagnostics: &trace.defects,
+            variant: None,
+        }))
+        .unwrap();
+        let b = &html[html.find("<article id=\"dsn~b-k4f2~1\"").unwrap()..];
+        let b = &b[..b.find("</article>").unwrap()];
+        assert!(b.contains("[impl~x~0-&gt;dsn~b-k4f2~1]"), "{b}");
+        assert!(!b.contains("dsn~a-k4f2~1]"), "{b}");
+        // Without junit sources, a test has no verdict.
+        assert!(
+            html.contains("<span class=\"badge unknown\">? no results read</span>"),
+            "{html}"
+        );
+    }
+
+    #[test]
+    fn copies_of_a_tag_id_on_one_line_keep_their_links_apart() {
+        use shall_core::tags;
+
+        let config =
+            Config::parse("[[level]]\ntype = \"dsn\"\nname = \"Design\"\nneeds = [\"impl\"]\n")
+                .unwrap();
+        let mut items = markdown::parse(Path::new("reqs/a.md"), "# B\n`dsn~b-k4f2~1`\n")
+            .unwrap()
+            .items;
+        items.extend(
+            tags::scan(
+                Path::new("src/a.c"),
+                "// [impl~x~0->dsn~b-k4f2~2] [impl~x~0->dsn~b-k4f2~1]\nvoid f();\n",
+            )
+            .unwrap()
+            .items,
+        );
+        let trace = trace::trace(&items, &config);
+        let html = render(&Document::new(Input {
+            config: &config,
+            items: &items,
+            trace: &trace,
+            tests: None,
+            diagnostics: &trace.defects,
+            variant: None,
+        }))
+        .unwrap();
+        // The valid tag implements, the other one is an invalid link.
+        assert!(
+            html.contains("<h4>Implementation</h4>\n<ul class=\"links\">\n<li><code>src&#x2f;a.c:1</code> <code>[impl~x~0-&gt;dsn~b-k4f2~1]</code></li>"),
+            "{html}"
+        );
+        assert!(
+            html.contains("<li><code>[impl~x~0-&gt;dsn~b-k4f2~2]</code> at <code>src&#x2f;a.c:1</code> <span class=\"problem\">✗ revision does not exist yet, current revision 1</span></li>"),
+            "{html}"
+        );
     }
 }

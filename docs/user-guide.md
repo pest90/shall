@@ -435,8 +435,8 @@ fallback = ["swr"]
   `[[level]]` tables, every type is allowed.
 - The item is deep covered and verified when its targets are.
 - `Params:` records the parameter values with which the platform meets
-  the requirement. They are part of `trace.json`; showing them in the
-  report next to the link is planned (M5.3).
+  the requirement. They are part of `trace.json`, and the report shows
+  them in the requirement's details under "Satisfied by".
 
 In a repository with several projects, the platform is a project of
 its own that customer projects import, see
@@ -758,8 +758,36 @@ deep covered, `!` covered but with a gap further down, `✗` not covered
 follow, named by their type, e.g. those of reviews. If such a type is
 unknown, which `shall check` reports as an error, its items get `?`
 (with missing types, if they have `Needs:`) and their level no coverage.
-Requirement details with their links, the defect list, filters and the
-graph view are planned (M5).
+
+The ID in a table links to the requirement's details further down, whose
+anchor is the ID, e.g. `index.html#swr~motor.overtemp-shutdown-k4f2~2`
+(copies of a duplicate ID after the first get `-2`, `-3`, ...). The
+details show:
+
+- coverage, level, status, verified, location, and the import, source,
+  tags and features if there are any;
+- the description, rationale and comment, rendered from Markdown, with
+  headings placed below the requirement's own heading. Raw HTML is shown as
+  text, and links and images keep only addresses without a scheme or
+  with `http`, `https` or `mailto`, so a requirement file cannot run
+  anything in the report; an image from `http` or `https` is loaded
+  when the report is opened;
+- the links upwards as written, `Covers:`, `Satisfied-by:` with the
+  parameters of `Params:`, and `Depends:`, each linked to its target if
+  that is a requirement of the report, and with the reason if it is not
+  valid; those of rejected items are not traced and have no reason;
+- the requirements that the item satisfies or that depend on it, and
+  every invalid link to it with its source and reason, except links to
+  a duplicate ID, which name no single target and show their reason at
+  their source;
+- downwards, the requirements covering the item, the missing types, the
+  implementing code tags and the tests with their verdict (`✓ passed`,
+  `✗ failed`, `! skipped`, `! not executed`, `! no test`, or `? no
+  results read` without `junit` sources).
+
+Code and test locations are shown as `path:line`; links to the code at
+the reported commit need `--build-info` and are planned (M5.7). The
+tree view, filters, the defect list and the graph view are planned (M5).
 
 The output directory is not excluded from the project's files. Add it
 to `.gitignore` (e.g. `/site/`), or make sure no pattern in `[sources]`
@@ -800,6 +828,9 @@ Each item has:
   items have an empty title and description;
 - `params`: the entries of `Params:` with `name`, `value` and `line`,
   `[]` if absent; `features`: those of `Features:`, `[]` if absent;
+- `covers`, `depends` and `satisfied_by`: the links as written, each
+  with `id` and `line`, also for rejected items, whose links are not in
+  `links`;
 - `location`, the line of the ID or tag;
 - `import`: the name of the `[[import]]` the item comes from, `null`
   for the project's own items;

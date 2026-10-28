@@ -88,6 +88,30 @@ tr.unknown td.sign { background: var(--bad-bg); }
 .legend .rejected { color: var(--off-fg); }
 .duplicate { font-size: 0.85rem; font-weight: 600; white-space: nowrap; }
 .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.detail { margin: 1rem 0; padding: 0.75rem 1rem; border: 1px solid var(--line); border-left-width: 0.35rem; border-radius: 0.4rem; }
+.detail:target { outline: 2px solid var(--muted); }
+.detail.ok { border-left-color: var(--ok-fg); }
+.detail.partial { border-left-color: var(--warn-fg); }
+.detail.missing, .detail.unknown { border-left-color: var(--bad-fg); }
+.detail.rejected { border-left-color: var(--off-fg); color: var(--off-fg); }
+.detail h3 { margin: 0 0 0.5rem; font-size: 1.05rem; }
+.detail h3 .sign { font-weight: 700; }
+.detail.ok h3 .sign { color: var(--ok-fg); }
+.detail.partial h3 .sign { color: var(--warn-fg); }
+.detail.missing h3 .sign, .detail.unknown h3 .sign { color: var(--bad-fg); }
+.detail h4 { margin: 0.75rem 0 0.25rem; font-size: 0.9rem; }
+.facts { display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem; margin: 0; font-size: 0.85rem; }
+.facts dt { display: inline; color: var(--muted); }
+.facts dt::after { content: ":"; }
+.facts dd { display: inline; margin: 0 0 0 0.25rem; }
+.links { margin: 0; padding-left: 1.25rem; }
+.problem { color: var(--bad-fg); font-weight: 600; }
+.badge { display: inline-block; padding: 0 0.4rem; border-radius: 0.25rem; font-size: 0.85rem; font-weight: 600; white-space: nowrap; }
+.badge.ok { color: var(--ok-fg); background: var(--ok-bg); }
+.badge.partial { color: var(--warn-fg); background: var(--warn-bg); }
+.badge.missing, .badge.unknown { color: var(--bad-fg); background: var(--bad-bg); }
+table.params { width: auto; margin-top: 0.25rem; }
+.variant { margin: 0.25rem 0 0; }
 </style>
 </head>
 <body>
@@ -140,7 +164,7 @@ tr.unknown td.sign { background: var(--bad-bg); }
 <tr class="ok">
 <td class="sign"><span title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span></td>
 <td class="verified">yes</td>
-<td><code>dsn~a-k4f2~1</code></td>
+<td><a href="#dsn~a-k4f2~1"><code>dsn~a-k4f2~1</code></a></td>
 <td>A</td>
 <td>approved</td>
 <td><code>reqs&#x2f;a.md:7</code></td>
@@ -148,7 +172,7 @@ tr.unknown td.sign { background: var(--bad-bg); }
 <tr class="rejected">
 <td class="sign"><span title="rejected" aria-hidden="true">–</span><span class="sr-only">rejected</span></td>
 <td class="verified">–</td>
-<td><code>dsn~old-k4f2~1</code></td>
+<td><a href="#dsn~old-k4f2~1"><code>dsn~old-k4f2~1</code></a></td>
 <td>Old</td>
 <td>rejected</td>
 <td><code>reqs&#x2f;a.md:11</code></td>
@@ -166,7 +190,7 @@ tr.unknown td.sign { background: var(--bad-bg); }
 <tr class="ok">
 <td class="sign"><span title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span></td>
 <td class="verified">yes</td>
-<td><code>swr~b-k4f2~1</code></td>
+<td><a href="#swr~b-k4f2~1"><code>swr~b-k4f2~1</code></a></td>
 <td>&lt;b&gt;Bold&lt;&#x2f;b&gt; &amp; co</td>
 <td>approved</td>
 <td><code>reqs&#x2f;a.md:3</code></td>
@@ -174,6 +198,36 @@ tr.unknown td.sign { background: var(--bad-bg); }
 </tbody>
 </table>
 </div>
+</section>
+<section id="details">
+<h2>Requirements</h2>
+<article id="dsn~a-k4f2~1" class="detail ok">
+<h3><span class="sign" title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span> <code>dsn~a-k4f2~1</code> A</h3>
+<dl class="facts">
+<div><dt>Level</dt><dd>dsn</dd></div>
+<div><dt>Status</dt><dd>approved</dd></div>
+<div><dt>Verified</dt><dd>yes</dd></div>
+<div><dt>Location</dt><dd><code>reqs&#x2f;a.md:7</code></dd></div>
+</dl>
+</article>
+<article id="dsn~old-k4f2~1" class="detail rejected">
+<h3><span class="sign" title="rejected" aria-hidden="true">–</span><span class="sr-only">rejected</span> <code>dsn~old-k4f2~1</code> Old</h3>
+<dl class="facts">
+<div><dt>Level</dt><dd>dsn</dd></div>
+<div><dt>Status</dt><dd>rejected</dd></div>
+<div><dt>Verified</dt><dd>–</dd></div>
+<div><dt>Location</dt><dd><code>reqs&#x2f;a.md:11</code></dd></div>
+</dl>
+</article>
+<article id="swr~b-k4f2~1" class="detail ok">
+<h3><span class="sign" title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span> <code>swr~b-k4f2~1</code> &lt;b&gt;Bold&lt;&#x2f;b&gt; &amp; co</h3>
+<dl class="facts">
+<div><dt>Level</dt><dd>swr</dd></div>
+<div><dt>Status</dt><dd>approved</dd></div>
+<div><dt>Verified</dt><dd>yes</dd></div>
+<div><dt>Location</dt><dd><code>reqs&#x2f;a.md:3</code></dd></div>
+</dl>
+</article>
 </section>
 </main>
 <footer>

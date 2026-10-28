@@ -52,6 +52,14 @@ expression: normalized(&json)
       "source": null,
       "params": [],
       "features": [],
+      "covers": [
+        {
+          "id": "swr~motor.overtemp-shutdown-k4f2~1",
+          "line": 12
+        }
+      ],
+      "depends": [],
+      "satisfied_by": [],
       "location": {
         "path": "reqs/design.md",
         "line": 4
@@ -102,6 +110,14 @@ expression: normalized(&json)
       "source": null,
       "params": [],
       "features": [],
+      "covers": [
+        {
+          "id": "swr~motor.overtemp-shutdown-k4f2~2",
+          "line": 25
+        }
+      ],
+      "depends": [],
+      "satisfied_by": [],
       "location": {
         "path": "reqs/design.md",
         "line": 17
@@ -152,6 +168,14 @@ expression: normalized(&json)
       "source": null,
       "params": [],
       "features": [],
+      "covers": [
+        {
+          "id": "swr~motor.estop-relay-c2v6~1",
+          "line": 38
+        }
+      ],
+      "depends": [],
+      "satisfied_by": [],
       "location": {
         "path": "reqs/design.md",
         "line": 30
@@ -210,6 +234,14 @@ expression: normalized(&json)
       "source": null,
       "params": [],
       "features": [],
+      "covers": [
+        {
+          "id": "sys~motor.thermal-protection-q7m2~1",
+          "line": 15
+        }
+      ],
+      "depends": [],
+      "satisfied_by": [],
       "location": {
         "path": "reqs/software.md",
         "line": 4
@@ -252,6 +284,14 @@ expression: normalized(&json)
       "source": null,
       "params": [],
       "features": [],
+      "covers": [
+        {
+          "id": "sys~motor.thermal-protection-q7m2~1",
+          "line": 28
+        }
+      ],
+      "depends": [],
+      "satisfied_by": [],
       "location": {
         "path": "reqs/software.md",
         "line": 20
@@ -288,6 +328,14 @@ expression: normalized(&json)
       "source": null,
       "params": [],
       "features": [],
+      "covers": [
+        {
+          "id": "sys~motor.emergency-stop-h3x9~1",
+          "line": 41
+        }
+      ],
+      "depends": [],
+      "satisfied_by": [],
       "location": {
         "path": "reqs/software.md",
         "line": 33
@@ -330,6 +378,9 @@ expression: normalized(&json)
       "source": "Customer specification ch. 4.2",
       "params": [],
       "features": [],
+      "covers": [],
+      "depends": [],
+      "satisfied_by": [],
       "location": {
         "path": "reqs/system.md",
         "line": 4
@@ -381,6 +432,9 @@ expression: normalized(&json)
       "features": [
         "estop"
       ],
+      "covers": [],
+      "depends": [],
+      "satisfied_by": [],
       "location": {
         "path": "reqs/system.md",
         "line": 17
@@ -423,6 +477,14 @@ expression: normalized(&json)
       "source": null,
       "params": [],
       "features": [],
+      "covers": [
+        {
+          "id": "dsn~motor.fault-log-z2d8~1",
+          "line": 3
+        }
+      ],
+      "depends": [],
+      "satisfied_by": [],
       "location": {
         "path": "src/fault_log.cpp",
         "line": 3
@@ -457,6 +519,14 @@ expression: normalized(&json)
       "source": null,
       "params": [],
       "features": [],
+      "covers": [
+        {
+          "id": "dsn~motor.relay-driver-b6j3~1",
+          "line": 3
+        }
+      ],
+      "depends": [],
+      "satisfied_by": [],
       "location": {
         "path": "src/relay_driver.cpp",
         "line": 3
@@ -491,6 +561,14 @@ expression: normalized(&json)
       "source": null,
       "params": [],
       "features": [],
+      "covers": [
+        {
+          "id": "dsn~motor.shutdown-signal-w9e4~1",
+          "line": 3
+        }
+      ],
+      "depends": [],
+      "satisfied_by": [],
       "location": {
         "path": "src/shutdown.cpp",
         "line": 3
@@ -525,6 +603,14 @@ expression: normalized(&json)
       "source": null,
       "params": [],
       "features": [],
+      "covers": [
+        {
+          "id": "dsn~motor.temp-monitor-r5t1~1",
+          "line": 3
+        }
+      ],
+      "depends": [],
+      "satisfied_by": [],
       "location": {
         "path": "src/temp_monitor.cpp",
         "line": 3
@@ -559,6 +645,14 @@ expression: normalized(&json)
       "source": null,
       "params": [],
       "features": [],
+      "covers": [
+        {
+          "id": "dsn~motor.relay-driver-b6j3~1",
+          "line": 10
+        }
+      ],
+      "depends": [],
+      "satisfied_by": [],
       "location": {
         "path": "tests/relay_driver_test.cpp",
         "line": 10
@@ -605,6 +699,14 @@ expression: normalized(&json)
       "source": null,
       "params": [],
       "features": [],
+      "covers": [
+        {
+          "id": "dsn~motor.shutdown-signal-w9e4~1",
+          "line": 5
+        }
+      ],
+      "depends": [],
+      "satisfied_by": [],
       "location": {
         "path": "tests/shutdown_test.cpp",
         "line": 5
@@ -651,6 +753,14 @@ expression: normalized(&json)
       "source": null,
       "params": [],
       "features": [],
+      "covers": [
+        {
+          "id": "dsn~motor.temp-monitor-r5t1~1",
+          "line": 5
+        }
+      ],
+      "depends": [],
+      "satisfied_by": [],
       "location": {
         "path": "tests/temp_monitor_test.cpp",
         "line": 5
@@ -697,6 +807,14 @@ expression: normalized(&json)
       "source": null,
       "params": [],
       "features": [],
+      "covers": [
+        {
+          "id": "dsn~motor.relay-driver-b6j3~1",
+          "line": 12
+        }
+      ],
+      "depends": [],
+      "satisfied_by": [],
       "location": {
         "path": "verification/relay-driver-review.md",
         "line": 4

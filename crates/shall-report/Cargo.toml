@@ -10,6 +10,7 @@ categories.workspace = true
 
 [dependencies]
 minijinja = { version = "3.0.4", features = ["serde"] }
+pulldown-cmark = { version = "0.13.4", default-features = false, features = ["html"] }
 serde = { version = "1.0.229", features = ["derive"] }
 shall-core.workspace = true
 
