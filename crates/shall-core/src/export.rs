@@ -19,7 +19,8 @@
 //! - `levels` and `verification_types`: from `shall.toml`;
 //! - `items`: every item ordered by location, with its fields, its
 //!   coverage from [`trace`](crate::trace), whether it is
-//!   [verified](crate::verify) and, for verification tags, its test and
+//!   [verified](crate::verify), the light of its chain and, for
+//!   verification tags, its test and
 //!   verdict from [`results`](crate::results);
 //! - `links`: every `Covers:`, `Depends:` and `Satisfied-by:` link of
 //!   items that are not rejected, with its status;
@@ -36,7 +37,7 @@ use crate::item::{Item, Location, Origin, Param, Reference, Status};
 use crate::junit::{Outcome, TestResult};
 use crate::results::{Evaluation, Verdict};
 use crate::trace::{ItemRef, Link, Trace};
-use crate::verify::{self, Joined};
+use crate::verify::{self, Joined, Light};
 
 /// Version of the layout of `trace.json`.
 pub const SCHEMA_VERSION: u32 = 1;
@@ -166,6 +167,8 @@ pub struct ItemEntry<'a> {
     /// Whether everything below the item is implemented and successfully
     /// validated, see [`verify`](mod@crate::verify).
     pub verified: bool,
+    /// The light of the item and everything below it, see [`Light`].
+    pub light: Light,
     /// The test of a verification tag; none for other items and without
     /// `junit` sources.
     pub test: Option<TestEntry<'a>>,
@@ -334,10 +337,12 @@ impl<'a> Document<'a> {
     pub fn new(input: Input<'a>) -> Self {
         let joined = verify::join(input.items, input.trace, input.tests.map(|(_, e)| e));
         let verified = verify::verified(&joined, input.config);
+        let lights = verify::lights(&joined, &input.trace.links, input.config);
         let items = joined
             .iter()
             .zip(verified)
-            .map(|(joined, verified)| entry(joined, verified))
+            .zip(lights)
+            .map(|((joined, verified), light)| entry(joined, verified, light))
             .collect();
         Self {
             schema_version: SCHEMA_VERSION,
@@ -396,7 +401,7 @@ impl<'a> Document<'a> {
     }
 }
 
-fn entry<'a>(joined: &Joined<'a>, verified: bool) -> ItemEntry<'a> {
+fn entry<'a>(joined: &Joined<'a>, verified: bool, light: Light) -> ItemEntry<'a> {
     let Joined { item, traced, run } = *joined;
     ItemEntry {
         id: &item.id,
@@ -427,6 +432,7 @@ fn entry<'a>(joined: &Joined<'a>, verified: bool) -> ItemEntry<'a> {
         duplicate: traced.duplicate,
         unknown_type: traced.unknown_type,
         verified,
+        light,
         test: run.map(|run| TestEntry {
             name: run.test.as_deref(),
             verdict: run.verdict,

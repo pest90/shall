@@ -167,6 +167,7 @@
 <div><dt>Level</dt><dd>{{ level.name }}</dd></div>
 <div><dt>Status</dt><dd>{{ item.status }}</dd></div>
 <div><dt>Verified</dt><dd>{{ item.verified }}</dd></div>
+<div><dt>Chain</dt><dd class="light {{ item.light }}"><span aria-hidden="true">{{ item.light_sign }}</span> {{ item.light }}</dd></div>
 <div><dt>Location</dt><dd>{{ loc(item.location, item.location_url) }}</dd></div>
 {% if detail.import %}<div><dt>Import</dt><dd><code>{{ detail.import }}</code></dd></div>{% endif %}
 {% if detail.source %}<div><dt>Source</dt><dd>{{ detail.source }}</dd></div>{% endif %}

@@ -390,6 +390,27 @@ needs a test is verified. The status of other items does not matter: a
 requirement in draft can be verified. `shall report` shows which items
 are verified; `shall check` reports only defects.
 
+### Light of a chain
+
+For the Green Graph, every item also gets a light that sums up the item
+and everything below it, the worst of its own and those of the items
+covering it:
+
+| Light | Sign | Own light of an item |
+| --- | --- | --- |
+| red | ✗ | a missing type, an invalid link of its own (e.g. an outdated revision), a failed test, a test not executed if `[verification] not-executed` is `error`, a copy of a duplicate ID, an unknown type, or part of or above a coverage cycle |
+| yellow | ! | missing evidence: a test skipped, not executed (by default), without a test definition or without `junit` results; a review that is not approved; an item in `draft` or `proposed` |
+| green | ✓ | none of these |
+| grey | – | rejected; not counted |
+
+So a requirement is green only when its whole chain is complete,
+tested, reviewed and approved, and the light tells a gap or defect
+(red) from missing evidence (yellow). A green item is always
+[verified](#verified); a verified item is red if one of its own links
+is invalid, and yellow if it is in draft. A `Covers:` link to an item
+outside the traced variant does not make an item red; showing items
+that are provided but not requested in grey is planned (M8.6).
+
 ## Reused items
 
 A platform shared by several projects describes what it can do as
@@ -786,7 +807,8 @@ anchor is the ID, e.g. `index.html#swr~motor.overtemp-shutdown-k4f2~2`
 (copies of a duplicate ID after the first get `-2`, `-3`, ...). The
 details show:
 
-- coverage, level, status, verified, location, and the import, source,
+- coverage, level, status, verified, the light of its chain and
+  location, and the import, source,
   tags and features if there are any;
 - the description, rationale and comment, rendered from Markdown, with
   headings placed below the requirement's own heading. Raw HTML is shown as
@@ -910,6 +932,9 @@ Each item has:
   needed by a level, no verification type and not needed by any item;
   always `false` for rejected items;
 - `verified`: whether the item is [verified](#verified);
+- `light`: the light of the item and everything below it,
+  see [Light of a chain](#light-of-a-chain): `green`, `yellow`, `red` or
+  `grey`;
 - `test`, for verification tags with `junit` sources: `name` as runners
   report it (`null` without a test definition), `verdict` (`passed`,
   `failed`, `skipped`, `not_executed`, `no_test`) and `results`, the

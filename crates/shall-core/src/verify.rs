@@ -20,14 +20,23 @@
 //! is up to the check modes. A review that is not approved is no defect,
 //! like a requirement in draft; it only keeps the items above it from
 //! being verified.
+//!
+//! The [`Light`] of an item sums up its whole chain for the Green Graph:
+//! the worst light of the item itself and of everything covering it, so
+//! that a requirement is green only when the chain below it is. It tells
+//! an open gap or defect (red) from missing evidence (yellow); a green
+//! item is verified, but a verified item with an invalid link of its own
+//! is red, and one in draft yellow.
 
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 
-use crate::config::Config;
+use serde::Serialize;
+
+use crate::config::{Config, NotExecuted};
 use crate::id::ItemId;
 use crate::item::{Item, Location, Origin, Status};
 use crate::results::{Evaluation, TestRun, Verdict};
-use crate::trace::{Trace, TracedItem};
+use crate::trace::{Link, LinkKind, LinkStatus, Trace, TracedItem};
 
 /// Computes for every item of `trace.items`, in that order, whether it is
 /// verified.
@@ -47,6 +56,196 @@ pub fn verify(
     evaluation: Option<&Evaluation>,
 ) -> Vec<bool> {
     verified(&join(items, trace, evaluation), config)
+}
+
+/// The status of an item and everything below it, as a traffic light.
+///
+/// The light of an item by itself is
+///
+/// - grey for a rejected item, which needs nothing;
+/// - red for a copy of a duplicate ID, an item of an unknown type, a
+///   missing type, an invalid link of the item itself (such as an outdated
+///   revision; a `Covers:` link out of the traced variant is fine), a
+///   failed test, and a test that was not executed if `[verification]
+///   not-executed` makes that an error;
+/// - yellow for missing evidence: a test that was skipped or, by default,
+///   not executed, a verification tag without a test definition or
+///   without test results (no `junit` sources), a review that is not
+///   approved, and an item in `draft` or `proposed`;
+/// - green otherwise.
+///
+/// The light of the chain is the worst of the item's own and those of the
+/// items covering it with a valid link, red before yellow before green;
+/// an item in a coverage cycle, and every item above one, is red. The
+/// order of the variants is that ranking, with grey below green, so that
+/// the worst of several lights is their maximum and a rejected item never
+/// hides another one's light. Build data (M9) will add yellow and red for
+/// code that is not known to be built.
+///
+/// A green item is verified. A verified item need not be green: an
+/// invalid link of its own makes it red, and an item in draft makes it
+/// yellow, while "verified" looks only at what is below the item and at
+/// tests and reviews.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Light {
+    /// Rejected; not counted.
+    Grey,
+    /// Complete: covered all the way down, every test passed, every review
+    /// approved, nothing in draft.
+    Green,
+    /// Complete, but evidence is missing.
+    Yellow,
+    /// A gap or a defect.
+    Red,
+}
+
+impl Light {
+    /// Sign of the light, as in the report: `✓`, `!`, `✗` or `–`.
+    pub fn sign(self) -> &'static str {
+        match self {
+            Light::Green => "✓",
+            Light::Yellow => "!",
+            Light::Red => "✗",
+            Light::Grey => "–",
+        }
+    }
+
+    /// The light in words.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Light::Green => "green",
+            Light::Yellow => "yellow",
+            Light::Red => "red",
+            Light::Grey => "grey",
+        }
+    }
+}
+
+/// The light of the item by itself, without the items covering it and
+/// without cycles, which [`lights`] adds; `broken` tells whether one of
+/// its own links is a defect.
+fn own_light(entry: &Joined<'_>, broken: bool, config: &Config) -> Light {
+    let traced = entry.traced;
+    if traced.rejected {
+        return Light::Grey;
+    }
+    if traced.duplicate || traced.unknown_type || !traced.missing.is_empty() || broken {
+        return Light::Red;
+    }
+    if config.verification.types.contains(entry.item.id.typ()) {
+        return match entry.item.origin {
+            Origin::Tag { .. } => match entry.run.map(|run| run.verdict) {
+                Some(Verdict::Passed) => Light::Green,
+                Some(Verdict::Failed) => Light::Red,
+                Some(Verdict::NotExecuted)
+                    if config.verification.not_executed == NotExecuted::Error =>
+                {
+                    Light::Red
+                }
+                _ => Light::Yellow,
+            },
+            Origin::Requirement if entry.item.status == Status::Approved => Light::Green,
+            Origin::Requirement => Light::Yellow,
+        };
+    }
+    match entry.item.status {
+        Status::Draft | Status::Proposed => Light::Yellow,
+        Status::Approved | Status::Rejected => Light::Green,
+    }
+}
+
+/// The light of every joined item's chain, in their order; `links` are
+/// those of the trace.
+pub(crate) fn lights(joined: &[Joined<'_>], links: &[Link], config: &Config) -> Vec<Light> {
+    let broken: HashSet<(&Location, &ItemId)> = links
+        .iter()
+        .filter(|link| {
+            !matches!(
+                (link.kind, link.status),
+                (_, LinkStatus::Valid) | (LinkKind::Covers, LinkStatus::OutsideVariant)
+            )
+        })
+        .map(|link| (&link.source_location, &link.source))
+        .collect();
+    let own = |index: usize| {
+        let entry = &joined[index];
+        let broken = broken.contains(&(&entry.item.location, &entry.item.id));
+        own_light(entry, broken, config)
+    };
+    #[derive(Clone, Copy, PartialEq)]
+    enum State {
+        Unvisited,
+        Visiting,
+        Done(Light),
+    }
+    let sources = sources(joined);
+    let mut state = vec![State::Unvisited; joined.len()];
+    // Depth first without recursion; an item met again while it is being
+    // visited closes a coverage cycle, which is red.
+    for root in 0..joined.len() {
+        if state[root] != State::Unvisited {
+            continue;
+        }
+        let mut stack = vec![(root, 0)];
+        state[root] = State::Visiting;
+        let mut worst = vec![(root, own(root))];
+        while let Some(&mut (node, ref mut next)) = stack.last_mut() {
+            if let Some(&source) = sources[node].get(*next) {
+                *next += 1;
+                match state[source] {
+                    State::Unvisited => {
+                        state[source] = State::Visiting;
+                        stack.push((source, 0));
+                        worst.push((source, own(source)));
+                    }
+                    State::Visiting => {
+                        let top = worst.last_mut().expect("a light per visit");
+                        top.1 = top.1.max(Light::Red);
+                    }
+                    State::Done(light) => {
+                        let top = worst.last_mut().expect("a light per visit");
+                        top.1 = top.1.max(light);
+                    }
+                }
+                continue;
+            }
+            stack.pop();
+            let (_, light) = worst.pop().expect("a light per visit");
+            state[node] = State::Done(light);
+            if let Some(parent) = worst.last_mut() {
+                parent.1 = parent.1.max(light);
+            }
+        }
+    }
+    state
+        .into_iter()
+        .map(|state| match state {
+            State::Done(light) => light,
+            _ => unreachable!("every item is visited"),
+        })
+        .collect()
+}
+
+/// For every joined item, the positions of the items covering it.
+fn sources(joined: &[Joined<'_>]) -> Vec<Vec<usize>> {
+    let mut position: HashMap<(&Location, &ItemId), usize> = HashMap::new();
+    for (index, entry) in joined.iter().enumerate() {
+        position
+            .entry((&entry.item.location, &entry.item.id))
+            .or_insert(index);
+    }
+    joined
+        .iter()
+        .map(|entry| {
+            entry
+                .traced
+                .covered_by
+                .iter()
+                .map(|source| position[&(&source.location, &source.id)])
+                .collect()
+        })
+        .collect()
 }
 
 /// An item with its coverage and the run of its test.
@@ -110,23 +309,7 @@ fn runs_by_item(evaluation: &Evaluation) -> HashMap<(&Location, &ItemId), VecDeq
 
 /// The verified status of joined items, in their order.
 pub(crate) fn verified(joined: &[Joined<'_>], config: &Config) -> Vec<bool> {
-    let mut position: HashMap<(&Location, &ItemId), usize> = HashMap::new();
-    for (index, entry) in joined.iter().enumerate() {
-        position
-            .entry((&entry.item.location, &entry.item.id))
-            .or_insert(index);
-    }
-    let sources: Vec<Vec<usize>> = joined
-        .iter()
-        .map(|entry| {
-            entry
-                .traced
-                .covered_by
-                .iter()
-                .map(|source| position[&(&source.location, &source.id)])
-                .collect()
-        })
-        .collect();
+    let sources = sources(joined);
 
     // Depth first without recursion, so that long chains cannot overflow
     // the stack. Only deep covered items are descended into, and the
@@ -564,6 +747,116 @@ Satisfied-by:
                 "dsn~b-k4f2~1 false",
                 "dsn~c-k4f2~1 true",
             ]
+        );
+    }
+
+    /// The lights of the requirements plus the tags above, as `ID light`
+    /// lines in the order of the trace.
+    fn lights_of(requirements: &str, with_junit: bool) -> Vec<String> {
+        let config = Config::parse(CONFIG).unwrap();
+        let mut items = markdown::parse(Path::new("reqs/a.md"), requirements)
+            .unwrap()
+            .items;
+        items.extend(tags::scan(Path::new("src/a.c"), CODE).unwrap().items);
+        items.extend(tags::scan(Path::new("tests/a.cpp"), TESTS).unwrap().items);
+        let trace = trace::trace(&items, &config);
+        let results = junit::parse(Path::new("results.xml"), JUNIT)
+            .unwrap()
+            .results;
+        let evaluation = results::evaluate(&items, &results, &config, &Packages::default());
+        let joined = join(&items, &trace, with_junit.then_some(&evaluation));
+        joined
+            .iter()
+            .zip(lights(&joined, &trace.links, &config))
+            .filter(|(entry, _)| entry.item.location.path() == "reqs/a.md")
+            .map(|(entry, light)| format!("{} {}", entry.item.id, light.as_str()))
+            .collect()
+    }
+
+    #[test]
+    fn lights_show_the_worst_of_the_chain() {
+        assert_eq!(
+            lights_of(&design("approved", ""), true),
+            [
+                // In draft: complete, but not mature.
+                "dsn~a-k4f2~1 yellow",
+                // Its test failed.
+                "dsn~b-k4f2~1 red",
+                "dsn~c-k4f2~1 green",
+                "swr~s-k4f2~1 green",
+                "vrev~r-k4f2~1 green",
+            ]
+        );
+        // Without results, every test is missing evidence; a review that is
+        // not approved too.
+        assert_eq!(
+            lights_of(&design("proposed", ""), false),
+            [
+                "dsn~a-k4f2~1 yellow",
+                "dsn~b-k4f2~1 yellow",
+                "dsn~c-k4f2~1 yellow",
+                "swr~s-k4f2~1 yellow",
+                "vrev~r-k4f2~1 yellow",
+            ]
+        );
+    }
+
+    #[test]
+    fn gaps_cycles_and_rejected_items_have_their_own_lights() {
+        let lines = lights_of(
+            "\
+`swr~gap-k4f2~1`
+
+`swr~top-k4f2~1`
+
+`dsn~below-k4f2~1`
+Needs: dsn
+Covers:
+- swr~top-k4f2~1
+
+`dsn~x-k4f2~1`
+Needs: dsn
+Covers:
+- dsn~y-k4f2~1
+
+`dsn~y-k4f2~1`
+Needs: dsn
+Covers:
+- dsn~x-k4f2~1
+
+`swr~old-k4f2~1`
+Status: rejected
+
+`vrev~stale-k4f2~1`
+Covers:
+- swr~top-k4f2~0
+",
+            true,
+        );
+        assert_eq!(
+            lines,
+            [
+                // Not covered by dsn.
+                "swr~gap-k4f2~1 red",
+                // The item below has a gap.
+                "swr~top-k4f2~1 red",
+                "dsn~below-k4f2~1 red",
+                "dsn~x-k4f2~1 red",
+                "dsn~y-k4f2~1 red",
+                "swr~old-k4f2~1 grey",
+                // Its link names a revision that does not exist.
+                "vrev~stale-k4f2~1 red",
+            ]
+        );
+    }
+
+    #[test]
+    fn grey_is_below_every_other_light() {
+        let lights = [Light::Grey, Light::Green, Light::Yellow, Light::Red];
+        assert_eq!(lights.iter().max(), Some(&Light::Red));
+        assert_eq!(
+            [Light::Grey, Light::Green].iter().max(),
+            Some(&Light::Green)
         );
     }
 }

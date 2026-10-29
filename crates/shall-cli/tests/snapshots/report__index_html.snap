@@ -128,6 +128,10 @@ table.params { width: auto; margin-top: 0.25rem; }
 [hidden] { display: none !important; }
 @media print { .filter { display: none !important; } }
 .build { margin: 0.25rem 0 0; color: var(--muted); }
+.light.green { color: var(--ok-fg); }
+.light.yellow { color: var(--warn-fg); }
+.light.red { color: var(--bad-fg); }
+.light.grey { color: var(--off-fg); }
 </style>
 </head>
 <body>
@@ -402,6 +406,7 @@ table.params { width: auto; margin-top: 0.25rem; }
 <div><dt>Level</dt><dd>L2 – System Requirements</dd></div>
 <div><dt>Status</dt><dd>approved</dd></div>
 <div><dt>Verified</dt><dd>no</dd></div>
+<div><dt>Chain</dt><dd class="light red"><span aria-hidden="true">✗</span> red</dd></div>
 <div><dt>Location</dt><dd><code>reqs&#x2f;system.md:4</code></dd></div>
 <div><dt>Source</dt><dd>Customer specification ch. 4.2</dd></div></dl>
 <div class="text">
@@ -423,6 +428,7 @@ table.params { width: auto; margin-top: 0.25rem; }
 <div><dt>Level</dt><dd>L2 – System Requirements</dd></div>
 <div><dt>Status</dt><dd>approved</dd></div>
 <div><dt>Verified</dt><dd>yes</dd></div>
+<div><dt>Chain</dt><dd class="light green"><span aria-hidden="true">✓</span> green</dd></div>
 <div><dt>Location</dt><dd><code>reqs&#x2f;system.md:17</code></dd></div>
 <div><dt>Source</dt><dd>Customer specification ch. 5.1</dd></div><div><dt>Features</dt><dd><code>estop</code></dd></div></dl>
 <div class="text">
@@ -439,6 +445,7 @@ table.params { width: auto; margin-top: 0.25rem; }
 <div><dt>Level</dt><dd>L3 – Software Requirements</dd></div>
 <div><dt>Status</dt><dd>approved</dd></div>
 <div><dt>Verified</dt><dd>no</dd></div>
+<div><dt>Chain</dt><dd class="light red"><span aria-hidden="true">✗</span> red</dd></div>
 <div><dt>Location</dt><dd><code>reqs&#x2f;software.md:4</code></dd></div>
 </dl>
 <div class="text">
@@ -468,6 +475,7 @@ temperature exceeds 85 °C.</p>
 <div><dt>Level</dt><dd>L3 – Software Requirements</dd></div>
 <div><dt>Status</dt><dd>proposed</dd></div>
 <div><dt>Verified</dt><dd>no</dd></div>
+<div><dt>Chain</dt><dd class="light red"><span aria-hidden="true">✗</span> red</dd></div>
 <div><dt>Location</dt><dd><code>reqs&#x2f;software.md:20</code></dd></div>
 </dl>
 <div class="text">
@@ -486,6 +494,7 @@ temperature exceeds 85 °C.</p>
 <div><dt>Level</dt><dd>L3 – Software Requirements</dd></div>
 <div><dt>Status</dt><dd>approved</dd></div>
 <div><dt>Verified</dt><dd>yes</dd></div>
+<div><dt>Chain</dt><dd class="light green"><span aria-hidden="true">✓</span> green</dd></div>
 <div><dt>Location</dt><dd><code>reqs&#x2f;software.md:33</code></dd></div>
 </dl>
 <div class="text">
@@ -507,6 +516,7 @@ stop input becomes active.</p>
 <div><dt>Level</dt><dd>L3D – Design Decisions</dd></div>
 <div><dt>Status</dt><dd>approved</dd></div>
 <div><dt>Verified</dt><dd>yes</dd></div>
+<div><dt>Chain</dt><dd class="light red"><span aria-hidden="true">✗</span> red</dd></div>
 <div><dt>Location</dt><dd><code>reqs&#x2f;design.md:4</code></dd></div>
 </dl>
 <div class="text">
@@ -532,6 +542,7 @@ the overtemperature flag above 85 °C.</p>
 <div><dt>Level</dt><dd>L3D – Design Decisions</dd></div>
 <div><dt>Status</dt><dd>approved</dd></div>
 <div><dt>Verified</dt><dd>no</dd></div>
+<div><dt>Chain</dt><dd class="light red"><span aria-hidden="true">✗</span> red</dd></div>
 <div><dt>Location</dt><dd><code>reqs&#x2f;design.md:17</code></dd></div>
 </dl>
 <div class="text">
@@ -557,6 +568,7 @@ cycle in which the overtemperature flag is raised.</p>
 <div><dt>Level</dt><dd>L3D – Design Decisions</dd></div>
 <div><dt>Status</dt><dd>approved</dd></div>
 <div><dt>Verified</dt><dd>yes</dd></div>
+<div><dt>Chain</dt><dd class="light green"><span aria-hidden="true">✓</span> green</dd></div>
 <div><dt>Location</dt><dd><code>reqs&#x2f;design.md:30</code></dd></div>
 </dl>
 <div class="text">
@@ -586,6 +598,7 @@ interrupt.</p>
 <div><dt>Level</dt><dd>vrev</dd></div>
 <div><dt>Status</dt><dd>approved</dd></div>
 <div><dt>Verified</dt><dd>yes</dd></div>
+<div><dt>Chain</dt><dd class="light green"><span aria-hidden="true">✓</span> green</dd></div>
 <div><dt>Location</dt><dd><code>verification&#x2f;relay-driver-review.md:4</code></dd></div>
 </dl>
 <div class="text">

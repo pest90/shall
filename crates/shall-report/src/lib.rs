@@ -276,6 +276,10 @@ struct ItemView<'a> {
     label: &'static str,
     /// `yes`, `no`, or `–` for rejected items.
     verified: &'static str,
+    /// The light of the item's chain: its sign and its word, which is also
+    /// the CSS class.
+    light_sign: &'static str,
+    light: &'static str,
     duplicate: bool,
     missing: Vec<&'a str>,
     location: String,
@@ -709,6 +713,8 @@ fn item_view<'a>(
             (_, true) => "yes",
             (_, false) => "no",
         },
+        light_sign: item.light.sign(),
+        light: item.light.as_str(),
         duplicate: item.duplicate,
         status: item.status.as_str(),
         coverage,

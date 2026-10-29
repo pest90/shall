@@ -116,3 +116,7 @@ table.params { width: auto; margin-top: 0.25rem; }
 [hidden] { display: none !important; }
 @media print { .filter { display: none !important; } }
 .build { margin: 0.25rem 0 0; color: var(--muted); }
+.light.green { color: var(--ok-fg); }
+.light.yellow { color: var(--warn-fg); }
+.light.red { color: var(--bad-fg); }
+.light.grey { color: var(--off-fg); }
