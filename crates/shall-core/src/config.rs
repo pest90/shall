@@ -244,7 +244,9 @@ impl Config {
     /// Parses the contents of `shall.toml`.
     ///
     /// Two `[[level]]` tables with the same type are an error, since an
-    /// item's level would be ambiguous, and so is a type that is both a
+    /// item's level would be ambiguous, and so are levels whose `needs`
+    /// form a cycle, a level needing itself included, since every item
+    /// would need covering without end, and so is a type that is both a
     /// target and a fallback of `[satisfied_by]`. Variant names must start
     /// with a letter or digit, followed by letters, digits, `_` or `-`, and
     /// differ in more than case, since reports use them as directory names
@@ -259,6 +261,12 @@ impl Config {
                     level.typ
                 )));
             }
+        }
+        if let Some(cycle) = level_cycle(&config.levels) {
+            return Err(ConfigError(format!(
+                "the needs of [[level]] form a cycle: {}",
+                cycle.join(" -> ")
+            )));
         }
         let satisfied_by = &config.satisfied_by;
         if let Some(typ) = satisfied_by
@@ -408,6 +416,12 @@ impl Config {
                 }
             }
         }
+        if let Some(cycle) = level_cycle(&config.levels) {
+            return Err(ConfigError(format!(
+                "the needs of [[level]] and those of the imports form a cycle: {}",
+                cycle.join(" -> ")
+            )));
+        }
         Ok(config)
     }
 
@@ -421,6 +435,52 @@ impl Config {
     pub fn has_parents(&self, typ: &ItemType) -> bool {
         self.levels.iter().any(|level| level.needs.contains(typ))
     }
+}
+
+/// A cycle of levels that need each other, such as `swr -> dsn -> swr`,
+/// first by the order of the levels; none if the needs form no cycle.
+/// Every item of such a level would need a covering item of the next one
+/// without end.
+fn level_cycle(levels: &[Level]) -> Option<Vec<String>> {
+    let position = |typ: &ItemType| levels.iter().position(|level| &level.typ == typ);
+    // 0 unvisited, 1 on the path, 2 done; depth first without recursion.
+    let mut state = vec![0u8; levels.len()];
+    for root in 0..levels.len() {
+        if state[root] != 0 {
+            continue;
+        }
+        let mut path = vec![(root, 0usize)];
+        state[root] = 1;
+        while let Some(&mut (node, ref mut next)) = path.last_mut() {
+            let needs: Vec<usize> = levels[node].needs.iter().filter_map(position).collect();
+            if let Some(&child) = needs.get(*next) {
+                *next += 1;
+                match state[child] {
+                    0 => {
+                        state[child] = 1;
+                        path.push((child, 0));
+                    }
+                    1 => {
+                        let start = path
+                            .iter()
+                            .position(|&(on_path, _)| on_path == child)
+                            .expect("the child is on the path");
+                        let mut cycle: Vec<String> = path[start..]
+                            .iter()
+                            .map(|&(level, _)| levels[level].typ.to_string())
+                            .collect();
+                        cycle.push(levels[child].typ.to_string());
+                        return Some(cycle);
+                    }
+                    _ => {}
+                }
+            } else {
+                state[node] = 2;
+                path.pop();
+            }
+        }
+    }
+    None
 }
 
 /// A `code_url` must be an `http` or `https` address whose placeholders
@@ -651,6 +711,16 @@ junit = ["build/*.xml"]
 
         let other =
             Config::parse("[[level]]\ntype = \"swr\"\nname = \"S\"\nneeds = [\"impl\"]\n").unwrap();
+        let back = Config::parse("[[level]]\ntype = \"swr\"\nname = \"S\"\nneeds = [\"dsn\"]\n\n[[level]]\ntype = \"dsn\"\nname = \"D\"\nneeds = [\"hlr\"]\n").unwrap();
+        let hlr =
+            Config::parse("[[level]]\ntype = \"hlr\"\nname = \"H\"\nneeds = [\"swr\"]\n").unwrap();
+        let error = hlr.with_imports([("plat", &back)]).unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .ends_with("form a cycle: hlr -> swr -> dsn -> hlr"),
+            "{error}"
+        );
         let error = project.with_imports([("plat", &other)]).unwrap_err();
         assert_eq!(
             error.to_string(),
@@ -697,6 +767,30 @@ junit = ["build/*.xml"]
             error.to_string(),
             "invalid shall.toml: more than one [[level]] has type 'dsn'"
         );
+    }
+
+    #[test]
+    fn rejects_cycles_of_levels() {
+        let error = Config::parse(
+            "[[level]]\ntype = \"sys\"\nname = \"S\"\nneeds = [\"swr\"]\n\n\
+             [[level]]\ntype = \"swr\"\nname = \"W\"\nneeds = [\"dsn\"]\n\n\
+             [[level]]\ntype = \"dsn\"\nname = \"D\"\nneeds = [\"impl\", \"swr\"]\n",
+        )
+        .unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "invalid shall.toml: the needs of [[level]] form a cycle: swr -> dsn -> swr"
+        );
+        let error = Config::parse("[[level]]\ntype = \"req\"\nname = \"R\"\nneeds = [\"req\"]\n")
+            .unwrap_err();
+        assert!(error.to_string().ends_with("cycle: req -> req"), "{error}");
+        // A diamond is no cycle.
+        Config::parse(
+            "[[level]]\ntype = \"a\"\nname = \"A\"\nneeds = [\"b\", \"c\"]\n\n\
+             [[level]]\ntype = \"b\"\nname = \"B\"\nneeds = [\"c\"]\n\n\
+             [[level]]\ntype = \"c\"\nname = \"C\"\n",
+        )
+        .unwrap();
     }
 
     #[test]

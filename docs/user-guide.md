@@ -163,6 +163,14 @@ junit = ["build/test-results/**/*.xml"]
 | `name` | required; readable name |
 | `needs` | optional; types that must cover items of this level, unless an item has its own `Needs:` or a `Satisfied-by:` of an allowed type |
 
+The `needs` of the levels must not form a cycle, e.g. `swr` needing
+`dsn` and `dsn` needing `swr`, or a level needing its own type: every
+item would then need a covering item without end. `shall.toml` with
+such levels is an error, and so is an import whose levels close such a
+cycle. For requirements of one type that refine each other, give the
+level the needs of the leaves, e.g. `needs = ["dsn"]`, and write
+`Needs: req` on the items that are refined by others.
+
 ### `[verification]`
 
 | Key | Meaning |

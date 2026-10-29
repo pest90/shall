@@ -678,16 +678,18 @@ Neben HTML erzeugt `shall report --format pdf` (oder `--format html,pdf`) densel
 
 ### M6 – Konfigurierbare Ebenen
 
-- [ ] **6.1 Ebenen aus `shall.toml` (M)**
+- [x] **6.1 Ebenen aus `shall.toml` (M)**
   - `[[level]]`-Einträge einlesen und prüfen: eindeutige Typen, `needs` verweist nur auf bekannte Typen, keine Zyklen.
   - Default-`Needs` pro Ebene, damit nicht jedes Item `Needs:` wiederholen muss.
   - Kann vor 2.4 gezogen werden, die Policy baut darauf auf.
+  - Umsetzung (`config::Config::parse`, M2 und 6.1): Ebenen werden eingelesen, doppelte Typen und – neu – Zyklen in den `needs` sind Konfigurationsfehler (auch eine Ebene, die sich selbst braucht, und ein Kreis, den erst die Ebenen eines Imports schließen; die Meldung nennt den Kreis, z. B. `swr -> dsn -> swr`). Für Anforderungen eines Typs, die einander verfeinern, bekommt die Ebene die Needs der Blätter und die verfeinerten Items `Needs: req`. Default-Needs je Ebene gibt es seit M2. „Nur bekannte Typen“ wird nicht statisch geprüft: Die Typen von Code und Tests stehen in den Tags, nicht in `shall.toml` – die Schlüssel von `[sources]` gruppieren nur Muster –, also wäre jeder Tag-Typ „unbekannt“. Stattdessen meldet der Tracer Items unbekannter Typen und warnt bei Typen, die nur aus `Needs:` bekannt sind.
 - [ ] **6.2 Weiterleitung (S)**
   - Syntax `sys --> swr : hlr~x~1` parsen; im Tracer zählt das Item als von sys abgedeckt, sobald swr es abdeckt.
 - [ ] **6.3 Projektvorlagen (S)**
   - `shall init --template automotive` (L1/L2/L3/L3D), `--template platform` (Fähigkeiten/L3/L3D), `--template project` (Kunden-L1 mit Plattform-Import) bzw. `--template simple` (req/dsn) legt Ordner, Beispiel-Items und `shall.toml` an.
-- [ ] **6.4 Ebenen-Namen im Report (S)**
+- [x] **6.4 Ebenen-Namen im Report (S)**
   - Überschriften, Spalten und Filter im HTML nutzen die Namen aus der Konfiguration.
+  - Umsetzung (`shall_report`): Zusammenfassung, Tabellen, Details und der Typ-Filter nennen die Ebenen mit `name` aus `shall.toml` (Zusammenfassung und Überschriften mit dem Typ daneben), in ihrer Reihenfolge dort; Typen ohne Ebene folgen unter ihrem Typ.
 
 ### M7 – CI und Alltag
 
