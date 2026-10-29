@@ -113,8 +113,9 @@ shall check
 `shall check` exits with 0 by default, so it can report from the start;
 `--mode strict` makes it fail on every defect, e.g. in a release job.
 `shall report --out site` writes the report `site/index.html`, a single
-file that opens without a server, and the whole traced project as
-`site/trace.json`.
+file that opens without a server, the whole traced project as
+`site/trace.json`, and the defects as `site/defects.txt` and, for CI
+test reports, `site/junit.xml`.
 
 The [user guide](docs/user-guide.md) describes the requirement syntax, the
 configuration and the commands.

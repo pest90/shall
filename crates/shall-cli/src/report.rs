@@ -1,7 +1,9 @@
 //! `shall report`: write the traced project as static files.
 //!
-//! These are `index.html`, the HTML report (see [`shall_report`]), and
-//! `trace.json`, the graph it is made from (see [`shall_core::export`]).
+//! These are `index.html`, the HTML report (see [`shall_report`]),
+//! `trace.json`, the graph it is made from (see [`shall_core::export`]),
+//! and the defects as `defects.txt` and `junit.xml` for CI (see
+//! [`shall_report::defects`]).
 //! With `--all-variants`, every variant gets them in a directory of its
 //! own, and `index.html` above links them.
 
@@ -29,6 +31,12 @@ const TRACE_JSON: &str = "trace.json";
 
 /// File name of the HTML report in the output directory.
 const INDEX_HTML: &str = "index.html";
+
+/// File name of the defects as text in the output directory.
+const DEFECTS_TXT: &str = "defects.txt";
+
+/// File name of the defects as JUnit XML in the output directory.
+const JUNIT_XML: &str = "junit.xml";
 
 /// Traces the project, writes the files into the output directory and
 /// prints what it wrote and the summary of `shall check` to stderr.
@@ -85,11 +93,20 @@ fn document<'a>(project: &'a Project, build: Option<&'a BuildInfo>) -> Document<
     })
 }
 
-/// Writes the report and `trace.json` of a document into `dir`.
+/// Writes the report, `trace.json`, `defects.txt` and `junit.xml` of a
+/// document into `dir`.
 fn write(dir: &Path, document: &Document) -> anyhow::Result<()> {
     let html = shall_report::render(document).context("cannot render the report")?;
     write_file(&dir.join(INDEX_HTML), &html)?;
-    write_file(&dir.join(TRACE_JSON), &document.to_json())
+    write_file(&dir.join(TRACE_JSON), &document.to_json())?;
+    write_file(
+        &dir.join(DEFECTS_TXT),
+        &shall_report::defects::text(document),
+    )?;
+    write_file(
+        &dir.join(JUNIT_XML),
+        &shall_report::defects::junit(document),
+    )
 }
 
 /// Writes a file, creating its directory if missing, and says so on

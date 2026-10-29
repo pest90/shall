@@ -742,16 +742,23 @@ the directory is created if missing:
   and a small script for the filter
   that opens from disk without a server;
 - `trace.json`, the whole traced project as JSON, from which the report
-  is made (see below).
+  is made (see below);
+- `defects.txt`, the defects as `shall check` prints them, one line
+  `path:line: message` each, warnings as `path:line: warning: message`;
+- `junit.xml`, the defects as JUnit XML for the test reports of CI
+  systems: an error is a failed test case, a warning a skipped one,
+  named by the whole line and with `file` and `line`; without defects
+  there is one passed case `no defects`.
 
-With `--variant`, both contain only the items of the variant (see
+With `--variant`, all files contain only the items of the variant (see
 [Variants](#variants)), and the report names the variant and its
-features at the top. With `--all-variants`, every variant gets both
+features at the top. With `--all-variants`, every variant gets all
 files in `<DIR>/<variant>/`, and `<DIR>/index.html` is an overview that
 links them, with the verdict and the numbers of errors, warnings,
 requirements and tags of each; stderr ends with one summary per
-variant. Files of earlier runs in `<DIR>`, such as a `trace.json` of
-all items, are left as they are.
+variant. Files of earlier runs in `<DIR>`, such as a `trace.json` or
+`junit.xml` of all items, are left as they are; in CI, collect
+`<DIR>/<variant>/junit.xml`, or clear `<DIR>` first.
 
 stderr shows the written files and the summary of `shall check`;
 defects do not change the exit code, `shall check` decides that.

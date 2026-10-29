@@ -37,14 +37,22 @@ fn writes_the_report_of_the_fixture() {
     assert!(output.stdout.is_empty());
     let index_html = target.join("index.html");
     let trace_json = target.join("trace.json");
+    let mut wrote = String::new();
+    for file in ["index.html", "trace.json", "defects.txt", "junit.xml"] {
+        wrote.push_str(&format!("wrote {}\n", target.join(file).display()));
+    }
     assert_eq!(
         stderr(&output),
-        format!(
-            "wrote {}\nwrote {}\n\
-             not ok: 4 errors, 0 warnings (9 requirements, 7 tags, 3 test results)\n",
-            index_html.display(),
-            trace_json.display()
-        )
+        format!("{wrote}not ok: 4 errors, 0 warnings (9 requirements, 7 tags, 3 test results)\n")
+    );
+    // defects.txt is what `shall check` prints.
+    assert_eq!(
+        fs::read_to_string(target.join("defects.txt")).unwrap(),
+        fs::read_to_string(fixture().join("expected-defects.txt")).unwrap()
+    );
+    insta::assert_snapshot!(
+        "junit_xml",
+        fs::read_to_string(target.join("junit.xml")).unwrap()
     );
     let json = fs::read_to_string(&trace_json).unwrap();
     insta::assert_snapshot!("trace_json", normalized(&json));
@@ -125,7 +133,7 @@ fn writes_a_report_per_variant_and_an_overview() {
     assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
     let mut expected = String::new();
     for variant in ["basis", "safety"] {
-        for file in ["index.html", "trace.json"] {
+        for file in ["index.html", "trace.json", "defects.txt", "junit.xml"] {
             expected.push_str(&format!(
                 "wrote {}\n",
                 site.join(variant).join(file).display()

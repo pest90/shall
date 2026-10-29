@@ -46,6 +46,7 @@
 //! reports of several variants, [`render_overview`] writes a page that
 //! links them, with the verdict and counts of each.
 
+pub mod defects;
 mod markdown;
 
 use std::collections::{BTreeSet, HashMap, HashSet};
