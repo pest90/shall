@@ -864,7 +864,21 @@ ID and title contain all the words typed, ignoring case; a counter
 says how many are shown, and a level without any shown row is hidden.
 A link to a requirement that the filter hides clears the filter. It
 needs JavaScript, which the report embeds like its CSS; without
-JavaScript the filter is not shown and the report shows everything. The graph view is planned (M5).
+JavaScript the filter is not shown and the report shows everything.
+
+A section `Green Graph` has, for every requirement at the top of a
+chain (the same roots as the tree), a collapsible drawing of its chain
+from left to right: the requirements below it, each once even if
+several paths lead there, and code and tests bundled per item and type
+into one node such as `impl ×2` or `utest 2/3` (passed of all), with a
+dashed red node for every missing type. A requirement drawn with its
+chain in an earlier graph appears once more only as one node marked
+`↗ shown above`, so that the report grows with the number of items.
+Every node shows the
+[light of its chain](#light-of-a-chain) as sign, word in its tooltip
+and colour, and links to the requirement's details. The drawing is SVG
+inside `index.html`, laid out by `shall`, so it needs no JavaScript.
+Tiles of all roots, zoom and a graph export are planned (M5.11–M5.13).
 
 The output directory is not excluded from the project's files. Add it
 to `.gitignore` (e.g. `/site/`), or make sure no pattern in `[sources]`

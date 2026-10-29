@@ -132,6 +132,25 @@ table.params { width: auto; margin-top: 0.25rem; }
 .light.yellow { color: var(--warn-fg); }
 .light.red { color: var(--bad-fg); }
 .light.grey { color: var(--off-fg); }
+.graph { margin: 0.25rem 0; }
+.graph summary { cursor: pointer; }
+.green-graph { display: block; font-size: 12px; }
+.green-graph .edge { fill: none; stroke: var(--muted); stroke-width: 1.2; }
+.green-graph .edge.dashed { stroke: var(--bad-fg); stroke-dasharray: 4 3; }
+.green-graph .node rect { stroke-width: 1.5; fill: var(--bg); stroke: var(--line); }
+.green-graph .node text { fill: var(--fg); }
+.green-graph .node .second { fill: var(--muted); }
+.green-graph .node .sign { font-weight: 700; }
+.green-graph .green rect { fill: var(--ok-bg); stroke: var(--ok-fg); }
+.green-graph .green .sign { fill: var(--ok-fg); }
+.green-graph .yellow rect { fill: var(--warn-bg); stroke: var(--warn-fg); }
+.green-graph .yellow .sign { fill: var(--warn-fg); }
+.green-graph .red rect, .green-graph .missing rect { fill: var(--bad-bg); stroke: var(--bad-fg); }
+.green-graph .red .sign, .green-graph .missing .sign { fill: var(--bad-fg); }
+.green-graph .missing rect { stroke-dasharray: 4 3; }
+.green-graph .grey rect { fill: var(--off-bg); stroke: var(--off-fg); }
+.green-graph a:focus rect, .green-graph a:hover rect { stroke-width: 3; }
+.green-graph .grey .sign { fill: var(--off-fg); }
 </style>
 </head>
 <body>

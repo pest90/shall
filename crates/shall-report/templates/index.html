@@ -135,6 +135,27 @@
 <p class="note">From every requirement that covers no other item validly, what covers it: requirements, missing types, code and tests. A node that appears again shows what covers it only where it appears first; requirements no root reaches, such as those of a coverage cycle, follow as roots of their own.</p>
 </section>
 {% endif %}
+{% if graphs %}
+<section id="graph">
+<h2>Green Graph</h2>
+{% for graph in graphs %}
+<details class="graph">
+<summary><span class="light {{ graph.light }}"><span aria-hidden="true">{{ graph.sign }}</span> {{ graph.light }}</span> {% if graph.anchor %}<a href="#{{ graph.anchor }}"><code>{{ graph.id }}</code></a>{% else %}<code>{{ graph.id }}</code>{% endif %}{% if graph.title %} {{ graph.title }}{% endif %}</summary>
+<div class="scroll">
+<svg class="green-graph" xmlns="http://www.w3.org/2000/svg" width="{{ graph.width }}" height="{{ graph.height }}" viewBox="0 0 {{ graph.width }} {{ graph.height }}" role="group" aria-label="Chain of {{ graph.id }}, {{ graph.light }}, with {{ graph.nodes|length }} node{{ "" if graph.nodes|length == 1 else "s" }}">
+{% for edge in graph.edges %}
+<path class="edge{% if edge.dashed %} dashed{% endif %}" d="{{ edge.path }}"/>
+{% endfor %}
+{% for node in graph.nodes %}
+{% if node.anchor %}<a href="#{{ node.anchor }}" aria-label="{{ node.tooltip }}">{% endif %}<g class="node {{ node.class }}"><title>{{ node.tooltip }}</title><rect x="{{ node.x }}" y="{{ node.y }}" width="{{ node.width }}" height="{{ node.height }}" rx="6"/><text x="{{ node.x + 8 }}" y="{{ node.y + 18 }}"><tspan class="sign">{{ node.sign }}</tspan> {{ node.first }}</text>{% if node.second %}<text class="second" x="{{ node.x + 8 }}" y="{{ node.y + 35 }}">{{ node.second }}</text>{% endif %}</g>{% if node.anchor %}</a>{% endif %}
+{% endfor %}
+</svg>
+</div>
+</details>
+{% endfor %}
+<p class="note">One graph per requirement at the top of a chain, from left to right down to code and tests; code and tests are counted per type, a dashed node is a missing type, and a node marked ↗ shown above is drawn with its chain in an earlier graph, named in its tooltip. Every node shows the light of its chain: ✓ green, ! yellow, ✗ red, – grey (see the user guide).</p>
+</section>
+{% endif %}
 {% if defects %}
 <section id="defects">
 <h2>Defects</h2>

@@ -132,6 +132,25 @@ table.params { width: auto; margin-top: 0.25rem; }
 .light.yellow { color: var(--warn-fg); }
 .light.red { color: var(--bad-fg); }
 .light.grey { color: var(--off-fg); }
+.graph { margin: 0.25rem 0; }
+.graph summary { cursor: pointer; }
+.green-graph { display: block; font-size: 12px; }
+.green-graph .edge { fill: none; stroke: var(--muted); stroke-width: 1.2; }
+.green-graph .edge.dashed { stroke: var(--bad-fg); stroke-dasharray: 4 3; }
+.green-graph .node rect { stroke-width: 1.5; fill: var(--bg); stroke: var(--line); }
+.green-graph .node text { fill: var(--fg); }
+.green-graph .node .second { fill: var(--muted); }
+.green-graph .node .sign { font-weight: 700; }
+.green-graph .green rect { fill: var(--ok-bg); stroke: var(--ok-fg); }
+.green-graph .green .sign { fill: var(--ok-fg); }
+.green-graph .yellow rect { fill: var(--warn-bg); stroke: var(--warn-fg); }
+.green-graph .yellow .sign { fill: var(--warn-fg); }
+.green-graph .red rect, .green-graph .missing rect { fill: var(--bad-bg); stroke: var(--bad-fg); }
+.green-graph .red .sign, .green-graph .missing .sign { fill: var(--bad-fg); }
+.green-graph .missing rect { stroke-dasharray: 4 3; }
+.green-graph .grey rect { fill: var(--off-bg); stroke: var(--off-fg); }
+.green-graph a:focus rect, .green-graph a:hover rect { stroke-width: 3; }
+.green-graph .grey .sign { fill: var(--off-fg); }
 </style>
 </head>
 <body>
@@ -235,6 +254,31 @@ table.params { width: auto; margin-top: 0.25rem; }
 <li><span class="sign rejected" title="rejected" aria-hidden="true">–</span><span class="sr-only">rejected</span> <a href="#dsn~old-k4f2~1"><code>dsn~old-k4f2~1</code></a> Old</li>
 </ul>
 <p class="note">From every requirement that covers no other item validly, what covers it: requirements, missing types, code and tests. A node that appears again shows what covers it only where it appears first; requirements no root reaches, such as those of a coverage cycle, follow as roots of their own.</p>
+</section>
+<section id="graph">
+<h2>Green Graph</h2>
+<details class="graph">
+<summary><span class="light green"><span aria-hidden="true">✓</span> green</span> <a href="#swr~b-k4f2~1"><code>swr~b-k4f2~1</code></a> &lt;b&gt;Bold&lt;&#x2f;b&gt; &amp; co</summary>
+<div class="scroll">
+<svg class="green-graph" xmlns="http://www.w3.org/2000/svg" width="228" height="52" viewBox="0 0 228 52" role="group" aria-label="Chain of swr~b-k4f2~1, green, with 1 node">
+<a href="#swr~b-k4f2~1" aria-label="swr~b-k4f2~1 &lt;b&gt;Bold&lt;&#x2f;b&gt; &amp; co: green"><g class="node green"><title>swr~b-k4f2~1 &lt;b&gt;Bold&lt;&#x2f;b&gt; &amp; co: green</title><rect x="4" y="4" width="220" height="44" rx="6"/><text x="12" y="22"><tspan class="sign">✓</tspan> swr~b-k4f2~1</text><text class="second" x="12" y="39">&lt;b&gt;Bold&lt;&#x2f;b&gt; &amp; co</text></g></a></svg>
+</div>
+</details>
+<details class="graph">
+<summary><span class="light green"><span aria-hidden="true">✓</span> green</span> <a href="#dsn~a-k4f2~1"><code>dsn~a-k4f2~1</code></a> A</summary>
+<div class="scroll">
+<svg class="green-graph" xmlns="http://www.w3.org/2000/svg" width="228" height="52" viewBox="0 0 228 52" role="group" aria-label="Chain of dsn~a-k4f2~1, green, with 1 node">
+<a href="#dsn~a-k4f2~1" aria-label="dsn~a-k4f2~1 A: green"><g class="node green"><title>dsn~a-k4f2~1 A: green</title><rect x="4" y="4" width="220" height="44" rx="6"/><text x="12" y="22"><tspan class="sign">✓</tspan> dsn~a-k4f2~1</text><text class="second" x="12" y="39">A</text></g></a></svg>
+</div>
+</details>
+<details class="graph">
+<summary><span class="light grey"><span aria-hidden="true">–</span> grey</span> <a href="#dsn~old-k4f2~1"><code>dsn~old-k4f2~1</code></a> Old</summary>
+<div class="scroll">
+<svg class="green-graph" xmlns="http://www.w3.org/2000/svg" width="228" height="52" viewBox="0 0 228 52" role="group" aria-label="Chain of dsn~old-k4f2~1, grey, with 1 node">
+<a href="#dsn~old-k4f2~1" aria-label="dsn~old-k4f2~1 Old: grey"><g class="node grey"><title>dsn~old-k4f2~1 Old: grey</title><rect x="4" y="4" width="220" height="44" rx="6"/><text x="12" y="22"><tspan class="sign">–</tspan> dsn~old-k4f2~1</text><text class="second" x="12" y="39">Old</text></g></a></svg>
+</div>
+</details>
+<p class="note">One graph per requirement at the top of a chain, from left to right down to code and tests; code and tests are counted per type, a dashed node is a missing type, and a node marked ↗ shown above is drawn with its chain in an earlier graph, named in its tooltip. Every node shows the light of its chain: ✓ green, ! yellow, ✗ red, – grey (see the user guide).</p>
 </section>
 <section id="details">
 <h2>Requirements</h2>

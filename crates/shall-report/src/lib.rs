@@ -30,6 +30,10 @@
 //! verdict, the requirements it satisfies or that depend on it, and the
 //! invalid links to it.
 //!
+//! The Green Graph draws the chain of every root as SVG, laid out in
+//! columns by the longest path from the root, with code and tests
+//! bundled into count nodes and missing types as dashed placeholders.
+//!
 //! A filter above the level tables narrows them and the details by
 //! coverage, status, type and tag, with a search over ID and title. Its
 //! script is embedded like the CSS; without JavaScript, the filter stays
@@ -47,6 +51,7 @@
 //! links them, with the verdict and counts of each.
 
 pub mod defects;
+mod graph;
 mod markdown;
 
 use std::collections::{BTreeSet, HashMap, HashSet};
@@ -167,6 +172,8 @@ struct Page<'a> {
     /// The tree of requirements from the top down, as a flat list of
     /// entries that open and close nodes.
     tree: Vec<TreeEntry<'a>>,
+    /// The Green Graph of every root.
+    graphs: Vec<graph::GraphView>,
     /// The types of the tables with their names, for the filter.
     filter_types: Vec<(&'a str, &'a str)>,
     /// Every tag of a requirement, sorted, for the filter.
@@ -545,6 +552,7 @@ impl<'a> Page<'a> {
             summary: summary(document),
             defects: defects(document, &index),
             tree: tree(document, &index),
+            graphs: graph::graphs(document, &index),
             filter_types,
             filter_tags: document
                 .items
@@ -1659,5 +1667,135 @@ mod tests {
             html.contains("<form id=\"filter\" class=\"filter\" role=\"search\" hidden>"),
             "{html}"
         );
+    }
+
+    /// The graphs as lines `column: sign text` per node, sorted by column
+    /// and row, and the number of edges.
+    fn graph_lines(config: &str, requirements: &str, code: &str) -> Vec<(Vec<String>, usize)> {
+        let config = Config::parse(config).unwrap();
+        let mut items = markdown::parse(Path::new("reqs/a.md"), requirements)
+            .unwrap()
+            .items;
+        items.extend(
+            shall_core::tags::scan(Path::new("src/a.c"), code)
+                .unwrap()
+                .items,
+        );
+        let trace = trace::trace(&items, &config);
+        let document = Document::new(Input {
+            config: &config,
+            items: &items,
+            trace: &trace,
+            tests: None,
+            diagnostics: &trace.defects,
+            variant: None,
+            build: None,
+        });
+        let index = Index::new(&document);
+        graph::graphs(&document, &index)
+            .iter()
+            .map(|graph| {
+                let json = serde_json::to_value(graph).unwrap();
+                let mut nodes: Vec<(u64, u64, String)> = json["nodes"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|node| {
+                        (
+                            node["x"].as_u64().unwrap(),
+                            node["y"].as_u64().unwrap(),
+                            format!(
+                                "{}: {} {}",
+                                node["x"].as_u64().unwrap() / 268,
+                                node["sign"].as_str().unwrap(),
+                                node["first"].as_str().unwrap()
+                            ),
+                        )
+                    })
+                    .collect();
+                nodes.sort();
+                (
+                    nodes.into_iter().map(|(_, _, line)| line).collect(),
+                    json["edges"].as_array().unwrap().len(),
+                )
+            })
+            .collect()
+    }
+
+    #[test]
+    fn the_graph_puts_nodes_in_columns_and_bundles_tags() {
+        let graphs = graph_lines(
+            "[[level]]\ntype = \"sys\"\nname = \"S\"\nneeds = [\"swr\", \"dsn\"]\n\n\
+             [[level]]\ntype = \"swr\"\nname = \"W\"\nneeds = [\"dsn\"]\n\n\
+             [[level]]\ntype = \"dsn\"\nname = \"D\"\nneeds = [\"impl\", \"utest\"]\n\n\
+             [verification]\ntypes = [\"utest\"]\n",
+            "# A\n`sys~a-k4f2~1`\n\n\
+             # S\n`swr~s-k4f2~1`\nCovers:\n- sys~a-k4f2~1\n\n\
+             # D\n`dsn~d-k4f2~1`\nCovers:\n- swr~s-k4f2~1\n- sys~a-k4f2~1\nNeeds: impl, utest, sys\n",
+            "// [impl->dsn~d-k4f2~1]\nvoid f();\n// [impl->dsn~d-k4f2~1]\nvoid g();\n",
+        );
+        assert_eq!(graphs.len(), 1, "{graphs:?}");
+        let (nodes, edges) = &graphs[0];
+        assert_eq!(
+            nodes,
+            &[
+                "0: ✗ sys~a-k4f2~1",
+                "1: ✗ swr~s-k4f2~1",
+                // Below swr~s and, directly, below sys~a: the longest path
+                // decides the column.
+                "2: ✗ dsn~d-k4f2~1",
+                "3: ✓ impl ×2",
+                "3: ✗ missing: utest",
+                "3: ✗ missing: sys",
+            ]
+        );
+        // sys~a→swr~s, sys~a→dsn~d, swr~s→dsn~d, dsn~d→impl, two missing.
+        assert_eq!(*edges, 6);
+    }
+
+    #[test]
+    fn the_graph_cuts_cycles() {
+        let graphs = graph_lines(
+            "",
+            "# R\n`req~r-k4f2~1`\nNeeds: req\n\n\
+             # A\n`req~a-k4f2~1`\nNeeds: req\nCovers:\n- req~r-k4f2~1\n- req~b-k4f2~1\n\n\
+             # B\n`req~b-k4f2~1`\nNeeds: req\nCovers:\n- req~a-k4f2~1\n",
+            "",
+        );
+        let (nodes, edges) = &graphs[0];
+        assert_eq!(
+            nodes,
+            &[
+                "0: ✗ req~r-k4f2~1",
+                "1: ✗ req~a-k4f2~1",
+                "2: ✗ req~b-k4f2~1"
+            ]
+        );
+        // r→a, a→b; the edge b→a closes the cycle and is left out.
+        assert_eq!(*edges, 2);
+    }
+
+    #[test]
+    fn the_graph_draws_shared_parts_once() {
+        let graphs = graph_lines(
+            "[[level]]\ntype = \"sys\"\nname = \"S\"\nneeds = [\"swr\"]\n\n\
+             [[level]]\ntype = \"swr\"\nname = \"W\"\nneeds = [\"dsn\"]\n\n\
+             [[level]]\ntype = \"dsn\"\nname = \"D\"\n",
+            "# A\n`sys~a-k4f2~1`\n\n# B\n`sys~b-k4f2~1`\n\n\
+             # S\n`swr~s-k4f2~1`\nCovers:\n- sys~a-k4f2~1\n- sys~b-k4f2~1\n\n\
+             # D\n`dsn~d-k4f2~1`\nCovers:\n- swr~s-k4f2~1\n",
+            "",
+        );
+        assert_eq!(graphs.len(), 2);
+        assert_eq!(
+            graphs[0].0,
+            [
+                "0: ✓ sys~a-k4f2~1",
+                "1: ✓ swr~s-k4f2~1",
+                "2: ✓ dsn~d-k4f2~1"
+            ]
+        );
+        // Drawn in full above: one node, without dsn~d.
+        assert_eq!(graphs[1].0, ["0: ✓ sys~b-k4f2~1", "1: ✓ swr~s-k4f2~1"]);
     }
 }

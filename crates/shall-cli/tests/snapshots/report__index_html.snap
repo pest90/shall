@@ -132,6 +132,25 @@ table.params { width: auto; margin-top: 0.25rem; }
 .light.yellow { color: var(--warn-fg); }
 .light.red { color: var(--bad-fg); }
 .light.grey { color: var(--off-fg); }
+.graph { margin: 0.25rem 0; }
+.graph summary { cursor: pointer; }
+.green-graph { display: block; font-size: 12px; }
+.green-graph .edge { fill: none; stroke: var(--muted); stroke-width: 1.2; }
+.green-graph .edge.dashed { stroke: var(--bad-fg); stroke-dasharray: 4 3; }
+.green-graph .node rect { stroke-width: 1.5; fill: var(--bg); stroke: var(--line); }
+.green-graph .node text { fill: var(--fg); }
+.green-graph .node .second { fill: var(--muted); }
+.green-graph .node .sign { font-weight: 700; }
+.green-graph .green rect { fill: var(--ok-bg); stroke: var(--ok-fg); }
+.green-graph .green .sign { fill: var(--ok-fg); }
+.green-graph .yellow rect { fill: var(--warn-bg); stroke: var(--warn-fg); }
+.green-graph .yellow .sign { fill: var(--warn-fg); }
+.green-graph .red rect, .green-graph .missing rect { fill: var(--bad-bg); stroke: var(--bad-fg); }
+.green-graph .red .sign, .green-graph .missing .sign { fill: var(--bad-fg); }
+.green-graph .missing rect { stroke-dasharray: 4 3; }
+.green-graph .grey rect { fill: var(--off-bg); stroke: var(--off-fg); }
+.green-graph a:focus rect, .green-graph a:hover rect { stroke-width: 3; }
+.green-graph .grey .sign { fill: var(--off-fg); }
 </style>
 </head>
 <body>
@@ -366,6 +385,44 @@ table.params { width: auto; margin-top: 0.25rem; }
 </details></li>
 </ul>
 <p class="note">From every requirement that covers no other item validly, what covers it: requirements, missing types, code and tests. A node that appears again shows what covers it only where it appears first; requirements no root reaches, such as those of a coverage cycle, follow as roots of their own.</p>
+</section>
+<section id="graph">
+<h2>Green Graph</h2>
+<details class="graph">
+<summary><span class="light red"><span aria-hidden="true">✗</span> red</span> <a href="#dsn~motor.temp-monitor-r5t1~1"><code>dsn~motor.temp-monitor-r5t1~1</code></a> Temperature monitoring in the 10 ms task</summary>
+<div class="scroll">
+<svg class="green-graph" xmlns="http://www.w3.org/2000/svg" width="496" height="108" viewBox="0 0 496 108" role="group" aria-label="Chain of dsn~motor.temp-monitor-r5t1~1, red, with 3 nodes">
+<path class="edge" d="M224,26 C248,26 248,26 272,26"/>
+<path class="edge" d="M224,26 C248,26 248,82 272,82"/>
+<a href="#dsn~motor.temp-monitor-r5t1~1" aria-label="dsn~motor.temp-monitor-r5t1~1 Temperature monitoring in the 10 ms task: red"><g class="node red"><title>dsn~motor.temp-monitor-r5t1~1 Temperature monitoring in the 10 ms task: red</title><rect x="4" y="4" width="220" height="44" rx="6"/><text x="12" y="22"><tspan class="sign">✗</tspan> dsn~motor.temp-monitor-r5t1…</text><text class="second" x="12" y="39">Temperature monitoring in t…</text></g></a><g class="node green"><title>impl ×1: green</title><rect x="272" y="4" width="220" height="44" rx="6"/><text x="280" y="22"><tspan class="sign">✓</tspan> impl ×1</text></g><g class="node green"><title>utest 1&#x2f;1: green</title><rect x="272" y="60" width="220" height="44" rx="6"/><text x="280" y="78"><tspan class="sign">✓</tspan> utest 1&#x2f;1</text></g></svg>
+</div>
+</details>
+<details class="graph">
+<summary><span class="light red"><span aria-hidden="true">✗</span> red</span> <a href="#sys~motor.thermal-protection-q7m2~1"><code>sys~motor.thermal-protection-q7m2~1</code></a> Thermal protection of the motor</summary>
+<div class="scroll">
+<svg class="green-graph" xmlns="http://www.w3.org/2000/svg" width="1032" height="108" viewBox="0 0 1032 108" role="group" aria-label="Chain of sys~motor.thermal-protection-q7m2~1, red, with 7 nodes">
+<path class="edge" d="M224,26 C248,26 248,26 272,26"/>
+<path class="edge" d="M492,26 C516,26 516,26 540,26"/>
+<path class="edge" d="M760,26 C784,26 784,26 808,26"/>
+<path class="edge" d="M760,26 C784,26 784,82 808,82"/>
+<path class="edge" d="M224,26 C248,26 248,82 272,82"/>
+<path class="edge dashed" d="M492,82 C516,82 516,82 540,82"/>
+<a href="#sys~motor.thermal-protection-q7m2~1" aria-label="sys~motor.thermal-protection-q7m2~1 Thermal protection of the motor: red"><g class="node red"><title>sys~motor.thermal-protection-q7m2~1 Thermal protection of the motor: red</title><rect x="4" y="4" width="220" height="44" rx="6"/><text x="12" y="22"><tspan class="sign">✗</tspan> sys~motor.thermal-protectio…</text><text class="second" x="12" y="39">Thermal protection of the m…</text></g></a><a href="#swr~motor.overtemp-shutdown-k4f2~2" aria-label="swr~motor.overtemp-shutdown-k4f2~2 Shut down the motor on overtemperature: red"><g class="node red"><title>swr~motor.overtemp-shutdown-k4f2~2 Shut down the motor on overtemperature: red</title><rect x="272" y="4" width="220" height="44" rx="6"/><text x="280" y="22"><tspan class="sign">✗</tspan> swr~motor.overtemp-shutdown…</text><text class="second" x="280" y="39">Shut down the motor on over…</text></g></a><a href="#dsn~motor.shutdown-signal-w9e4~1" aria-label="dsn~motor.shutdown-signal-w9e4~1 Shutdown signal: red"><g class="node red"><title>dsn~motor.shutdown-signal-w9e4~1 Shutdown signal: red</title><rect x="540" y="4" width="220" height="44" rx="6"/><text x="548" y="22"><tspan class="sign">✗</tspan> dsn~motor.shutdown-signal-w…</text><text class="second" x="548" y="39">Shutdown signal</text></g></a><g class="node green"><title>impl ×1: green</title><rect x="808" y="4" width="220" height="44" rx="6"/><text x="816" y="22"><tspan class="sign">✓</tspan> impl ×1</text></g><g class="node red"><title>utest 0&#x2f;1: red</title><rect x="808" y="60" width="220" height="44" rx="6"/><text x="816" y="78"><tspan class="sign">✗</tspan> utest 0&#x2f;1</text></g><a href="#swr~motor.overtemp-warning-p8n5~1" aria-label="swr~motor.overtemp-warning-p8n5~1 Warn before overtemperature: red"><g class="node red"><title>swr~motor.overtemp-warning-p8n5~1 Warn before overtemperature: red</title><rect x="272" y="60" width="220" height="44" rx="6"/><text x="280" y="78"><tspan class="sign">✗</tspan> swr~motor.overtemp-warning-…</text><text class="second" x="280" y="95">Warn before overtemperature</text></g></a><g class="node missing"><title>missing: dsn</title><rect x="540" y="60" width="220" height="44" rx="6"/><text x="548" y="78"><tspan class="sign">✗</tspan> missing: dsn</text></g></svg>
+</div>
+</details>
+<details class="graph">
+<summary><span class="light green"><span aria-hidden="true">✓</span> green</span> <a href="#sys~motor.emergency-stop-h3x9~1"><code>sys~motor.emergency-stop-h3x9~1</code></a> Emergency stop</summary>
+<div class="scroll">
+<svg class="green-graph" xmlns="http://www.w3.org/2000/svg" width="1032" height="164" viewBox="0 0 1032 164" role="group" aria-label="Chain of sys~motor.emergency-stop-h3x9~1, green, with 6 nodes">
+<path class="edge" d="M224,26 C248,26 248,26 272,26"/>
+<path class="edge" d="M492,26 C516,26 516,26 540,26"/>
+<path class="edge" d="M760,26 C784,26 784,26 808,26"/>
+<path class="edge" d="M760,26 C784,26 784,82 808,82"/>
+<path class="edge" d="M760,26 C784,26 784,138 808,138"/>
+<a href="#sys~motor.emergency-stop-h3x9~1" aria-label="sys~motor.emergency-stop-h3x9~1 Emergency stop: green"><g class="node green"><title>sys~motor.emergency-stop-h3x9~1 Emergency stop: green</title><rect x="4" y="4" width="220" height="44" rx="6"/><text x="12" y="22"><tspan class="sign">✓</tspan> sys~motor.emergency-stop-h3…</text><text class="second" x="12" y="39">Emergency stop</text></g></a><a href="#swr~motor.estop-relay-c2v6~1" aria-label="swr~motor.estop-relay-c2v6~1 Open the motor relay on emergency stop: green"><g class="node green"><title>swr~motor.estop-relay-c2v6~1 Open the motor relay on emergency stop: green</title><rect x="272" y="4" width="220" height="44" rx="6"/><text x="280" y="22"><tspan class="sign">✓</tspan> swr~motor.estop-relay-c2v6~1</text><text class="second" x="280" y="39">Open the motor relay on eme…</text></g></a><a href="#dsn~motor.relay-driver-b6j3~1" aria-label="dsn~motor.relay-driver-b6j3~1 Relay driver: green"><g class="node green"><title>dsn~motor.relay-driver-b6j3~1 Relay driver: green</title><rect x="540" y="4" width="220" height="44" rx="6"/><text x="548" y="22"><tspan class="sign">✓</tspan> dsn~motor.relay-driver-b6j3…</text><text class="second" x="548" y="39">Relay driver</text></g></a><g class="node green"><title>impl ×1: green</title><rect x="808" y="4" width="220" height="44" rx="6"/><text x="816" y="22"><tspan class="sign">✓</tspan> impl ×1</text></g><g class="node green"><title>utest 1&#x2f;1: green</title><rect x="808" y="60" width="220" height="44" rx="6"/><text x="816" y="78"><tspan class="sign">✓</tspan> utest 1&#x2f;1</text></g><a href="#vrev~motor.relay-driver-review-m3q8~1" aria-label="vrev~motor.relay-driver-review-m3q8~1 Review of the relay driver: green"><g class="node green"><title>vrev~motor.relay-driver-review-m3q8~1 Review of the relay driver: green</title><rect x="808" y="116" width="220" height="44" rx="6"/><text x="816" y="134"><tspan class="sign">✓</tspan> vrev~motor.relay-driver-rev…</text><text class="second" x="816" y="151">Review of the relay driver</text></g></a></svg>
+</div>
+</details>
+<p class="note">One graph per requirement at the top of a chain, from left to right down to code and tests; code and tests are counted per type, a dashed node is a missing type, and a node marked ↗ shown above is drawn with its chain in an earlier graph, named in its tooltip. Every node shows the light of its chain: ✓ green, ! yellow, ✗ red, – grey (see the user guide).</p>
 </section>
 <section id="defects">
 <h2>Defects</h2>

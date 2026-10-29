@@ -571,6 +571,7 @@ dependencies = [
  "minijinja",
  "pulldown-cmark",
  "serde",
+ "serde_json",
  "shall-core",
 ]
 
