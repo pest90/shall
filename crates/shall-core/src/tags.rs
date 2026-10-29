@@ -369,6 +369,12 @@ struct Lexed {
     code: Vec<String>,
     starts_in_comment: Vec<bool>,
     modules: Vec<Vec<String>>,
+    /// For each line, the first line at or after it with code, or the
+    /// number of lines; lets the search for a test skip comments and blank
+    /// lines, so that a file of many tags is not scanned quadratically.
+    next_code: Vec<usize>,
+    /// For each line, the last line before it with code.
+    previous_code: Vec<Option<usize>>,
 }
 
 fn lex(lines: &[&str]) -> Lexed {
@@ -379,6 +385,8 @@ fn lex(lines: &[&str]) -> Lexed {
         code: Vec::with_capacity(lines.len()),
         starts_in_comment: Vec::with_capacity(lines.len()),
         modules: Vec::with_capacity(lines.len()),
+        next_code: Vec::new(),
+        previous_code: Vec::with_capacity(lines.len()),
     };
     for line in lines {
         lexed.starts_in_comment.push(state.block_comment);
@@ -402,6 +410,26 @@ fn lex(lines: &[&str]) -> Lexed {
             stack.pop();
         }
         lexed.code.push(code);
+    }
+    let has_code: Vec<bool> = lexed
+        .code
+        .iter()
+        .map(|code| !code.trim().is_empty())
+        .collect();
+    let mut previous = None;
+    for (index, &code) in has_code.iter().enumerate() {
+        lexed.previous_code.push(previous);
+        if code {
+            previous = Some(index);
+        }
+    }
+    let mut next = lines.len();
+    lexed.next_code = vec![next; lines.len()];
+    for index in (0..lines.len()).rev() {
+        if has_code[index] {
+            next = index;
+        }
+        lexed.next_code[index] = next;
     }
     lexed
 }
@@ -430,10 +458,21 @@ fn test_after(
     if let Some(found) = search.code(index, &after) {
         return found;
     }
-    for next in index + 1..lines.len() {
+    // Lines without code cannot end the search; skip them.
+    let mut next = lexed
+        .next_code
+        .get(index + 1)
+        .copied()
+        .unwrap_or(lines.len());
+    while next < lines.len() {
         if let Some(found) = search.code(next, &lexed.code[next]) {
             return found;
         }
+        next = lexed
+            .next_code
+            .get(next + 1)
+            .copied()
+            .unwrap_or(lines.len());
     }
     None
 }
@@ -442,14 +481,13 @@ fn test_after(
 /// mark a Rust test, as with a tag between `#[test]` and `fn`.
 fn rust_attribute_above(lexed: &Lexed, index: usize) -> bool {
     let mut rust_test = false;
-    for code in lexed.code[..index].iter().rev() {
-        let code = code.trim();
-        if code.is_empty() {
-            continue;
-        }
+    let mut above = lexed.previous_code[index];
+    while let Some(line) = above {
+        let code = lexed.code[line].trim();
         if !code.starts_with("#[") || !strip_attributes(code, &mut rust_test).trim().is_empty() {
             break;
         }
+        above = lexed.previous_code[line];
     }
     rust_test
 }
@@ -1007,6 +1045,29 @@ fn top() {}
                 Some("S.N".to_owned()),
                 Some("S.N".to_owned())
             ]
+        );
+    }
+
+    #[test]
+    fn many_tags_in_comments_scan_in_linear_time() {
+        // Every tag searches the code after it for its test; comment lines
+        // are skipped at once, so this takes seconds in a debug build
+        // instead of minutes.
+        let mut text = String::new();
+        for n in 0..10_000 {
+            text.push_str(&format!("// [utest->dsn~d{n}~1]\n"));
+        }
+        text.push_str("TEST(Suite, Last) {}\n");
+        let start = std::time::Instant::now();
+        let scanned = scan_str(&text);
+        assert!(start.elapsed() < std::time::Duration::from_secs(20));
+        assert_eq!(scanned.items.len(), 10_000);
+        // All tags belong to the test after them.
+        assert!(
+            scanned
+                .items
+                .iter()
+                .all(|item| test(item).is_some_and(|test| test.name == "Last"))
         );
     }
 }
