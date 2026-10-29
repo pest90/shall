@@ -862,7 +862,7 @@ mature_status = ["approved"]      # ab diesem Status zählt ein Item in "mature"
 mode = "mature"
 ```
 
-- Die Reife kommt aus dem bekannten `Status:`-Feld (`draft` → `proposed` → `approved`). Items im Status `draft` erzeugen in `mature` höchstens Warnungen.
+- Die Reife kommt aus dem bekannten `Status:`-Feld (`draft` → `proposed` → `approved`). Defekte von Items im Status `draft` werden in `mature` gemeldet, lassen die Prüfung aber nicht scheitern.
 - `shall check --mode strict` überschreibt die Konfiguration, z. B. für einen Release-Job.
 
 **GitHub Action (läuft so auch in Forgejo Actions):**
@@ -889,9 +889,10 @@ jobs:
 
 Blockierend wird das erst, wenn der Job `trace` in der Branch-Schutzregel als erforderlicher Check eingetragen ist. Der Wechsel in eine strengere Phase ist dann eine geänderte Zeile `mode:`.
 
-- [ ] **7.5 Prüfmodi (M)**
+- [x] **7.5 Prüfmodi (M)**
   - `report`, `new`, `mature`, `strict` aus Konfiguration und `--mode`; Verschärfung pro Ebene.
   - `new` vergleicht mit der `trace.json` des Ziel-Branches: entweder als Datei übergeben (`--compare-to`) oder per `git worktree` am Merge-Base selbst berechnet.
+  - Umsetzung (`shall_core::gate`, `[check]`): Modus aus `[check] mode`, je Ebene aus `[check.level.<typ>] mode`, `--mode` ersetzt alles. Ein Defekt gehört zum Item, in dessen Zeilen er liegt (ID bis `end_line`), oder zum Tag seiner Zeile. `strict` scheitert an jedem Fehler und jeder Warnung, `mature` an Fehlern reifer Items (`mature_status`, Standard `approved`) und an Fehlern ohne Item (z. B. unlesbare Datei, kaputtes JUnit) – Fehler von Entwürfen werden weiter als Fehler gemeldet, lassen `mature` aber nicht scheitern; Warnungen lassen `mature` und `new` nicht scheitern. Ein Tag ist reif, wenn ein abgedecktes Item reif ist oder es keins gibt; liegen mehrere Items auf der Zeile eines Defekts (mehrere Tags), entscheiden die, die die Meldung nennt. Items außerhalb der Variante behalten ihre Defekte. Unbekannte Schlüssel in `[check]` und `[check.level.<typ>]` ohne bekannten Typ sind Warnungen. `new` vergleicht mit den Defekten der `trace.json` aus `--compare-to` (gleiche Variante und `schema_version`, sonst Fehler) nach Schwere, Datei und Meldung, als Multimenge, ohne Zeile und mit ersetzten Zeilennummern in der Meldung (`x.md:6`, `line 6`), weil sich Zeilen verschieben; ohne `--compare-to` ist `new` ein Bedienfehler. Nach den Zusammenfassungen sagt eine Zeile, ob die Prüfung scheitert. Im Workspace gilt der Modus jedes Mitglieds, ein Defekt eines gemeinsam genutzten Projekts zählt einmal; `--compare-to` gibt es dort noch nicht, ein Mitglied im Modus `new` braucht dort `--mode`. Offen: den Vergleichsstand selbst per `git worktree` am Merge-Base berechnen.
 - [ ] **7.6 CI-gerechte Ausgabe (S)**
   - GitHub-/Forgejo-Annotationen (`::warning file=…,line=…::`), damit Defekte direkt im Diff des Pull Requests erscheinen.
   - Kurze Markdown-Zusammenfassung nach `$GITHUB_STEP_SUMMARY`; optional SARIF-Ausgabe für Code-Scanning-Ansichten.

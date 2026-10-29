@@ -178,6 +178,34 @@ level the needs of the leaves, e.g. `needs = ["dsn"]`, and write
 | `types` | types that verify, e.g. `utest` or `vrev`; their tags are matched with test results, their items in requirement files are reviews or analyses (see [Reviews and analyses](#reviews-and-analyses)) |
 | `not-executed` | `error` (default) or `warning`: severity of a test without a result |
 
+### `[check]`
+
+| Key | Meaning |
+| --- | --- |
+| `mode` | when `shall check` fails: `report` (default), `new`, `mature` or `strict`, see [`shall check`](#shall-check) |
+| `mature_status` | the statuses from which an item counts in mode `mature`; default `["approved"]` |
+| `level.<type>.mode` | the mode for the defects of the items of one type, as table `[check.level.<type>]` |
+
+```toml
+[[level]]
+type  = "hlr"
+name  = "Customer Requirements"
+needs = ["impl"]
+
+[check]
+mode          = "mature"
+mature_status = ["approved"]
+
+[check.level.hlr]       # the defects of hlr items, earlier strict
+mode = "strict"
+```
+
+A `[check.level.<type>]` table sets the mode for the defects of the
+items of one type; `--mode` replaces all of them. Other keys of
+`[check]`, and a type that is no level, no type needed by a level and
+no verification type, get a warning, since they would leave defects
+unchecked.
+
 ### `[report]`
 
 | Key | Meaning |
@@ -693,7 +721,8 @@ requirements file.
 ### `shall check`
 
 ```text
-shall check [PATH] [--mode <report|strict>] [--variant <NAME> | --workspace]
+shall check [PATH] [--mode <report|new|mature|strict>] [--compare-to <TRACE_JSON>]
+            [--variant <NAME> | --workspace]
 ```
 
 Reads the project, traces it and prints one line per problem, sorted by
@@ -747,14 +776,33 @@ Only root causes are reported: an item that is covered, but whose
 coverage has a gap further down, is not deep covered, which is no
 defect of its own. Items with `Status: rejected` need no coverage.
 
-| `--mode` | Exit code |
-| --- | --- |
-| `report` (default) | 0, whatever the defects |
-| `strict` | 1 if there is any error or warning, otherwise 0 |
+The mode decides the exit code; `shall` never blocks by itself, and
+whether a failing check blocks a merge is up to the branch protection
+of the Git server:
 
-The modes `new` (fail only on new defects) and `mature` (fail on
-defects of mature items), and setting the mode in `shall.toml`, are
-planned (M7.5).
+| Mode | Exit code 1 on |
+| --- | --- |
+| `report` (default) | nothing; the defects are only reported |
+| `new` | errors that the run given with `--compare-to` does not have |
+| `mature` | errors at mature items, and errors at no item, such as an unreadable file; an item is mature if its status is in `[check] mature_status`, a code or test tag if an item it covers is or it covers no existing one |
+| `strict` | every error and warning |
+
+The mode comes from `[check]` in `shall.toml` (see
+[Configuration](#check)), and `--mode` replaces it, e.g.
+`--mode strict` in a release job. A defect belongs to the item whose
+lines include it, from its ID to its last line, or to the tag on its
+line; if the line holds several tags, those the message names decide.
+Items outside a traced variant keep their defects. For mode `new`,
+`--compare-to` names the `trace.json` of the run to compare with, e.g.
+written by `shall report` on the target branch, of the same variant;
+defects are compared by severity, file and message, not by line and
+ignoring line numbers in the message, since lines move with every edit.
+Unless every mode is `report`, a last line says whether the check
+failed, e.g. `check failed: 3 defects fail mode mature`; in a workspace
+a defect of a shared project counts once. A workspace check cannot
+compare yet, so a member in mode `new` needs `--mode` there or a check
+of its own. Computing the run to compare with from the merge base by
+itself is planned (M7.5).
 
 ### `shall report`
 

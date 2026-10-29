@@ -20,9 +20,10 @@ use std::process::ExitCode;
 use std::rc::Rc;
 
 use anyhow::{Context, bail};
-use clap::ValueEnum;
 use globset::{GlobBuilder, GlobMatcher};
+use shall_core::config::Mode;
 use shall_core::config::{self, Config};
+use shall_core::gate::{self, Baseline};
 use shall_core::junit::{self, TestResult};
 use shall_core::results::{self, Evaluation, Packages};
 use shall_core::trace::{self, Trace};
@@ -30,19 +31,13 @@ use shall_core::{Diagnostic, Item, Location, Origin, Severity, markdown, tags, v
 
 use crate::project::{find_root, is_markdown};
 
-/// When `shall check` fails.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
-pub enum Mode {
-    /// Never fail because of defects, only report them.
-    Report,
-    /// Fail on every defect, errors and warnings.
-    Strict,
-}
-
 /// Arguments of `shall check`.
 pub struct CheckArgs {
     pub path: PathBuf,
-    pub mode: Mode,
+    /// Replaces the modes of `shall.toml`.
+    pub mode: Option<Mode>,
+    /// The `trace.json` of an earlier run, for mode `new`.
+    pub compare_to: Option<PathBuf>,
     pub variant: Option<String>,
     pub workspace: bool,
 }
@@ -54,18 +49,36 @@ const DEFECTS: u8 = 1;
 /// In a workspace root, or with `--workspace`, checks every member.
 pub fn run(args: &CheckArgs) -> anyhow::Result<ExitCode> {
     let root = find_root(&args.path)?;
-    let (diagnostics, summaries) = if args.workspace || is_workspace(&root)? {
+    let baseline = match &args.compare_to {
+        Some(path) => {
+            let json = fs::read_to_string(path)
+                .with_context(|| format!("cannot read {}", path.display()))?;
+            let baseline = Baseline::from_trace_json(&json, args.variant.as_deref())
+                .map_err(|error| anyhow::anyhow!("invalid {}: {error}", path.display()))?;
+            Some(baseline)
+        }
+        None => None,
+    };
+    let (diagnostics, mut summaries, gate) = if args.workspace || is_workspace(&root)? {
         if args.variant.is_some() {
             bail!("--variant checks one project, not a workspace");
         }
-        check_workspace(&root)?
+        if baseline.is_some() {
+            bail!("--compare-to checks one project, not a workspace");
+        }
+        check_workspace(&root, args.mode)?
     } else {
         let project = Reader::new(place(&root)?)
             .project(&root)?
             .trace(args.variant.as_deref())?;
         let summary = project.summary();
-        (project.diagnostics, vec![summary])
+        let gate = project.gate(args.mode, baseline.as_ref())?;
+        (project.diagnostics, vec![summary], gate)
     };
+    summaries.extend(gate.verdict());
+    if baseline.is_some() && !gate.modes.contains("new") {
+        summaries.push("warning: --compare-to is used only in mode new".to_owned());
+    }
     match print(&diagnostics) {
         // The reader went away, e.g. `shall check | head`; stop quietly.
         Err(error) if error.kind() == io::ErrorKind::BrokenPipe => {}
@@ -76,7 +89,7 @@ pub fn run(args: &CheckArgs) -> anyhow::Result<ExitCode> {
             }
         }
     }
-    if args.mode == Mode::Strict && !diagnostics.is_empty() {
+    if gate.failing() > 0 {
         Ok(ExitCode::from(DEFECTS))
     } else {
         Ok(ExitCode::SUCCESS)
@@ -86,7 +99,10 @@ pub fn run(args: &CheckArgs) -> anyhow::Result<ExitCode> {
 /// Checks every member of the workspace at or above `root`: the
 /// diagnostics of all members, each once, sorted by path and line, and a
 /// summary per member plus one for the workspace.
-fn check_workspace(root: &Path) -> anyhow::Result<(Vec<Diagnostic>, Vec<String>)> {
+fn check_workspace(
+    root: &Path,
+    mode: Option<Mode>,
+) -> anyhow::Result<(Vec<Diagnostic>, Vec<String>, Gate)> {
     let place = if is_workspace(root)? {
         Place {
             root: root.to_path_buf(),
@@ -105,6 +121,7 @@ fn check_workspace(root: &Path) -> anyhow::Result<(Vec<Diagnostic>, Vec<String>)
     let mut reader = Reader::new(place);
     let mut per_member: Vec<Vec<Diagnostic>> = Vec::new();
     let mut summaries = Vec::new();
+    let mut gate = Gate::default();
     for member in &members {
         let mut project = reader.project(member)?.trace(None)?;
         let dir = member
@@ -114,6 +131,9 @@ fn check_workspace(root: &Path) -> anyhow::Result<(Vec<Diagnostic>, Vec<String>)
             .replace('\\', "/");
         project.member = Some(dir);
         summaries.push(project.summary());
+        // Defects of a shared project fail the check of every project
+        // that imports it; count them once per project.
+        gate.add(project.gate(mode, None)?);
         per_member.push(project.diagnostics);
     }
     // Shared projects are traced with every project that imports them;
@@ -150,7 +170,57 @@ fn check_workspace(root: &Path) -> anyhow::Result<(Vec<Diagnostic>, Vec<String>)
         plural(diagnostics.len() - errors, "warning"),
         plural(members.len(), "project")
     ));
-    Ok((diagnostics, summaries))
+    Ok((diagnostics, summaries, gate))
+}
+
+/// Which defects fail the check, and in which modes.
+#[derive(Debug, Default)]
+pub struct Gate {
+    /// The defects that fail the check, as printed, with how often each
+    /// is printed.
+    failing: HashMap<String, usize>,
+    /// The modes other than `report` that applied, sorted; none means the
+    /// check cannot fail.
+    modes: BTreeSet<&'static str>,
+}
+
+impl Gate {
+    /// The number of defects that fail the check.
+    pub fn failing(&self) -> usize {
+        self.failing.values().sum()
+    }
+
+    /// The line after the summaries: whether the check failed, unless it
+    /// only reports.
+    fn verdict(&self) -> Option<String> {
+        if self.modes.is_empty() {
+            return None;
+        }
+        let failing = self.failing();
+        let modes: Vec<&str> = self.modes.iter().copied().collect();
+        let modes = format!(
+            "mode{} {}",
+            if modes.len() == 1 { "" } else { "s" },
+            modes.join(", ")
+        );
+        Some(if failing == 1 {
+            format!("check failed: 1 defect fails {modes}")
+        } else if failing > 1 {
+            format!("check failed: {failing} defects fail {modes}")
+        } else {
+            format!("check passed: no defect fails {modes}")
+        })
+    }
+
+    /// Adds the gate of another project of a workspace; a defect of a
+    /// shared project counts once, as it is printed once.
+    fn add(&mut self, other: Gate) {
+        for (text, count) in other.failing {
+            let entry = self.failing.entry(text).or_default();
+            *entry = (*entry).max(count);
+        }
+        self.modes.extend(other.modes);
+    }
 }
 
 fn print(diagnostics: &[Diagnostic]) -> io::Result<()> {
@@ -183,6 +253,8 @@ pub struct Project {
     /// Items of requirement files and tags, in the order they were read;
     /// only those of the variant, if one is traced.
     pub items: Vec<Item>,
+    /// Items outside the traced variant; none without a variant.
+    outside: Vec<Item>,
     /// Coverage and links of `items`.
     pub trace: Trace,
     /// The test results and their evaluation; none without `junit`
@@ -195,6 +267,44 @@ pub struct Project {
 }
 
 impl Project {
+    /// Which defects fail the check: in `mode`, or else in the modes of
+    /// `shall.toml`; `baseline` holds the defects of the earlier run that
+    /// mode `new` needs.
+    pub fn gate(&self, mode: Option<Mode>, baseline: Option<&Baseline>) -> anyhow::Result<Gate> {
+        let modes: BTreeSet<Mode> = match mode {
+            Some(mode) => [mode].into(),
+            None => std::iter::once(self.config.check.mode)
+                .chain(self.config.check.levels.values().map(|level| level.mode))
+                .collect(),
+        };
+        if modes.contains(&Mode::New) && baseline.is_none() {
+            let which = self
+                .member
+                .as_ref()
+                .map(|member| format!(" of {member}"))
+                .unwrap_or_default();
+            bail!(
+                "mode new{which} needs --compare-to with the trace.json of the run to compare \
+                 with, e.g. on the target branch; a workspace check cannot compare yet, so \
+                 check that project alone or pass --mode"
+            );
+        }
+        let mut all = self.items.clone();
+        all.extend(self.outside.iter().cloned());
+        let mut failing: HashMap<String, usize> = HashMap::new();
+        for diagnostic in gate::failing(&self.diagnostics, &all, &self.config, mode, baseline) {
+            *failing.entry(line(diagnostic)).or_default() += 1;
+        }
+        Ok(Gate {
+            failing,
+            modes: modes
+                .into_iter()
+                .filter(|mode| *mode != Mode::Report)
+                .map(Mode::as_str)
+                .collect(),
+        })
+    }
+
     fn count(&self, severity: Severity) -> usize {
         self.diagnostics
             .iter()
@@ -522,6 +632,9 @@ impl Reader {
             relocate(&mut unknown, &member.prefix);
             diagnostics.extend(unknown);
         }
+        let mut unknown = unknown_check_settings(&member.config, &config, &member.config_text);
+        relocate(&mut unknown, &member.prefix);
+        diagnostics.extend(unknown);
         Ok(ReadProject {
             member,
             imports,
@@ -657,6 +770,51 @@ fn read_member(root: &Path, prefix: String) -> anyhow::Result<Member> {
         items,
         diagnostics,
     })
+}
+
+/// Warnings for keys of `[check]` that mean nothing, and for
+/// `[check.level.<type>]` tables whose type `known`, a configuration with
+/// the levels of the imports, does not know as a level, a type needed by
+/// a level or a verification type: both are often typos, which would
+/// leave defects in mode `report`.
+fn unknown_check_settings(config: &Config, known: &Config, text: &str) -> Vec<Diagnostic> {
+    let check = Sources::new(text, "check");
+    let mut diagnostics: Vec<Diagnostic> = config
+        .check
+        .unknown_keys()
+        .into_iter()
+        .map(|key| {
+            Diagnostic::warning(
+                check.location(key),
+                format!("[check] key '{key}' is unknown and is ignored"),
+            )
+        })
+        .collect();
+    let types: HashSet<&str> = known
+        .levels
+        .iter()
+        .flat_map(|level| std::iter::once(&level.typ).chain(&level.needs))
+        .chain(&known.verification.types)
+        .map(|typ| typ.as_str())
+        .collect();
+    let levels = Sources::new(text, "check.level");
+    for typ in config.check.levels.keys() {
+        if !types.contains(typ.as_str()) {
+            // `[check.level.x]`, or `level.x.mode = …` in `[check]`.
+            let mut location = levels.location(typ.as_str());
+            if location.line() == 1 {
+                location = check.location("level");
+            }
+            diagnostics.push(Diagnostic::warning(
+                location,
+                format!(
+                    "[check.level.{typ}] names no level, type needed by a level or \
+                     verification type"
+                ),
+            ));
+        }
+    }
+    diagnostics
 }
 
 /// Warnings for keys of `[sources]` that are no type known to `known`, a
@@ -824,6 +982,7 @@ impl ReadProject {
             variant: selected.map(|(name, _)| name.clone()),
             member: None,
             items,
+            outside,
             trace,
             tests,
             diagnostics,
@@ -1013,13 +1172,16 @@ impl<'a> Sources<'a> {
     }
 }
 
-/// Whether a TOML line assigns `key`, also as a quoted key.
+/// Whether a TOML line assigns `key`, also as a quoted key or as the
+/// start of a dotted key such as `key.mode = …`.
 fn is_key(line: &str, key: &str) -> bool {
     [key.to_owned(), format!("\"{key}\""), format!("'{key}'")]
         .iter()
         .any(|name| {
-            line.strip_prefix(name.as_str())
-                .is_some_and(|rest| rest.trim_start().starts_with('='))
+            line.strip_prefix(name.as_str()).is_some_and(|rest| {
+                let rest = rest.trim_start();
+                rest.starts_with('=') || rest.starts_with('.')
+            })
         })
 }
 

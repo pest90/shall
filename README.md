@@ -111,7 +111,8 @@ shall check
 ```
 
 `shall check` exits with 0 by default, so it can report from the start;
-`--mode strict` makes it fail on every defect, e.g. in a release job.
+`[check] mode` makes it fail on new defects, on defects of mature items,
+or, like `--mode strict` in a release job, on every defect.
 `shall report --out site` writes the report `site/index.html`, a single
 file that opens without a server, the whole traced project as
 `site/trace.json`, the defects as `site/defects.txt` and, for CI test

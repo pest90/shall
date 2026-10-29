@@ -141,7 +141,8 @@ shall.toml:13: warning: [sources] key 'exclude' is not a list of patterns and is
     );
     assert_eq!(
         stderr(&output),
-        "ok: 0 errors, 3 warnings (1 requirement, 4 tags)\n"
+        "ok: 0 errors, 3 warnings (1 requirement, 4 tags)\n\
+         check failed: 3 defects fail mode strict\n"
     );
 }
 
@@ -928,5 +929,191 @@ fn the_search_for_a_workspace_stops_at_the_work_tree() {
         stderr(&output).contains("is not a member of the workspace"),
         "{}",
         stderr(&output)
+    );
+}
+
+#[test]
+fn modes_decide_the_exit_code() {
+    let summary = "not ok: 4 errors, 0 warnings (9 requirements, 7 tags, 3 test results)\n";
+    for (args, code, verdict) in [
+        (&["check"][..], 0, ""),
+        (
+            &["check", "--mode", "strict"],
+            1,
+            "check failed: 4 defects fail mode strict\n",
+        ),
+        // reqs/software.md:20 is proposed, the other three count.
+        (
+            &["check", "--mode", "mature"],
+            1,
+            "check failed: 3 defects fail mode mature\n",
+        ),
+    ] {
+        let output = shall(&fixture(), args);
+        assert_eq!(
+            output.status.code(),
+            Some(code),
+            "{args:?}: {}",
+            stderr(&output)
+        );
+        assert_eq!(stderr(&output), format!("{summary}{verdict}"), "{args:?}");
+    }
+
+    // Mode new against the report of the same files: nothing is new.
+    let out = tempfile::tempdir().unwrap();
+    let site = out.path().join("site");
+    let output = shall(&fixture(), &["report", "--out", site.to_str().unwrap()]);
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    let trace_json = site.join("trace.json");
+    let output = shall(
+        &fixture(),
+        &[
+            "check",
+            "--mode",
+            "new",
+            "--compare-to",
+            trace_json.to_str().unwrap(),
+        ],
+    );
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    assert_eq!(
+        stderr(&output),
+        format!("{summary}check passed: no defect fails mode new\n")
+    );
+    // Without the earlier run, mode new cannot decide.
+    let output = shall(&fixture(), &["check", "--mode", "new"]);
+    assert_eq!(output.status.code(), Some(2));
+    assert!(
+        stderr(&output).contains("mode new needs --compare-to"),
+        "{}",
+        stderr(&output)
+    );
+}
+
+#[test]
+fn modes_come_from_shall_toml_per_level() {
+    let config = format!(
+        "{LEVELS}
+[[level]]
+type  = \"hlr\"
+name  = \"H\"
+needs = [\"dsn\"]
+
+[sources]
+requirements = [\"reqs/*.md\"]
+
+[check]
+mode = \"mature\"
+
+[check.level.hlr]
+mode = \"strict\"
+"
+    );
+    let dir = project(
+        &config,
+        &[(
+            "reqs/a.md",
+            b"# A\n`dsn~a~1`\nStatus: draft\n\n# H\n`hlr~h~1`\nStatus: draft\n",
+        )],
+    );
+    let output = shall(dir.path(), &["check"]);
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    // The draft dsn does not count in mode mature, the hlr level is strict.
+    assert!(
+        stderr(&output).ends_with("check failed: 1 defect fails modes mature, strict\n"),
+        "{}",
+        stderr(&output)
+    );
+    let output = shall(dir.path(), &["check", "--mode", "report"]);
+    assert_eq!(output.status.code(), Some(0));
+}
+
+#[test]
+fn defects_outside_the_variant_keep_their_item() {
+    let config = format!(
+        "{LEVELS}
+[sources]
+requirements = [\"reqs/*.md\"]
+
+[check]
+mode = \"mature\"
+
+[variant.base]
+features = []
+
+[variant.full]
+features = [\"b\"]
+"
+    );
+    // A draft item outside the variant with a defect of its own.
+    let dir = project(
+        &config,
+        &[(
+            "reqs/a.md",
+            b"# B\n`dsn~b~1`\nStatus: draft\nFeatures: b\nStatus: draft\n",
+        )],
+    );
+    for args in [&["check"][..], &["check", "--variant", "base"]] {
+        let output = shall(dir.path(), args);
+        assert_eq!(
+            output.status.code(),
+            Some(0),
+            "{args:?}: {}",
+            stderr(&output)
+        );
+    }
+}
+
+#[test]
+fn workspaces_count_shared_defects_once_and_name_mode_new() {
+    let dir = workspace();
+    let output = shall(dir.path(), &["check", "--mode", "strict"]);
+    assert_eq!(output.status.code(), Some(1));
+    // The two platform errors are printed once and fail once.
+    assert!(
+        stderr(&output).ends_with("check failed: 2 defects fail mode strict\n"),
+        "{}",
+        stderr(&output)
+    );
+    let a = dir.path().join("projects/a/shall.toml");
+    let mut config = fs::read_to_string(&a).unwrap();
+    config.push_str("\n[check]\nmode = \"new\"\n");
+    fs::write(&a, config).unwrap();
+    let output = shall(dir.path(), &["check"]);
+    assert_eq!(output.status.code(), Some(2));
+    assert!(
+        stderr(&output).contains("mode new of projects/a needs --compare-to"),
+        "{}",
+        stderr(&output)
+    );
+}
+
+#[test]
+fn warns_about_unknown_check_settings() {
+    let config = format!(
+        "{LEVELS}
+[sources]
+requirements = [\"reqs/*.md\"]
+
+[check]
+mod = \"strict\"
+
+[check.level.dns]
+mode = \"strict\"
+"
+    );
+    let dir = project(&config, &[("reqs/a.md", DESIGN)]);
+    let output = shall(dir.path(), &["check"]);
+    let out = stdout(&output);
+    assert!(
+        out.contains("shall.toml:14: warning: [check] key 'mod' is unknown and is ignored"),
+        "{out}"
+    );
+    assert!(
+        out.contains(
+            "shall.toml:16: warning: [check.level.dns] names no level, type needed by a level \
+             or verification type"
+        ),
+        "{out}"
     );
 }

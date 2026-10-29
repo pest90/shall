@@ -5,11 +5,12 @@
 
 use std::collections::BTreeMap;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::diagnostic::Severity;
 use crate::id::ItemType;
+use crate::item::Status;
 use crate::markdown::is_feature;
 
 /// File name of the project configuration.
@@ -44,6 +45,101 @@ pub struct Config {
     /// Settings of the report, from the `[report]` table.
     #[serde(default)]
     pub report: Report,
+    /// When `shall check` fails, from the `[check]` table.
+    #[serde(default)]
+    pub check: Check,
+}
+
+/// The `[check]` table: when `shall check` fails, see [`crate::gate`].
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct Check {
+    /// The mode; `report` when not given.
+    #[serde(default)]
+    pub mode: Mode,
+    /// Statuses from which an item counts in mode `mature`; `["approved"]`
+    /// when not given.
+    #[serde(default = "default_mature_status")]
+    pub mature_status: Vec<Status>,
+    /// Modes for the defects of single levels, from `[check.level.<type>]`.
+    #[serde(default, rename = "level")]
+    pub levels: BTreeMap<ItemType, LevelCheck>,
+    /// All other keys, see [`Check::unknown_keys`].
+    #[serde(flatten)]
+    other: BTreeMap<String, toml::Value>,
+}
+
+impl Default for Check {
+    fn default() -> Self {
+        Self {
+            mode: Mode::default(),
+            mature_status: default_mature_status(),
+            levels: BTreeMap::new(),
+            other: BTreeMap::new(),
+        }
+    }
+}
+
+impl Check {
+    /// Keys of `[check]` other than `mode`, `mature_status` and `level`;
+    /// often typos, which would leave the check in mode `report`.
+    pub fn unknown_keys(&self) -> Vec<&str> {
+        self.other.keys().map(String::as_str).collect()
+    }
+}
+
+fn default_mature_status() -> Vec<Status> {
+    vec![Status::Approved]
+}
+
+/// A `[check.level.<type>]` table.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct LevelCheck {
+    /// The mode for the defects of the level's items.
+    pub mode: Mode,
+}
+
+/// When `shall check` fails because of defects.
+#[derive(
+    Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize,
+)]
+#[serde(rename_all = "lowercase")]
+pub enum Mode {
+    /// Never; the defects are only reported.
+    #[default]
+    Report,
+    /// On errors that are new compared with an earlier run, e.g. on the
+    /// target branch.
+    New,
+    /// On errors at items whose status is mature.
+    Mature,
+    /// On every error and warning.
+    Strict,
+}
+
+impl Mode {
+    /// All modes.
+    pub const ALL: [Mode; 4] = [Mode::Report, Mode::New, Mode::Mature, Mode::Strict];
+
+    /// The name of the mode, as in `shall.toml`.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Mode::Report => "report",
+            Mode::New => "new",
+            Mode::Mature => "mature",
+            Mode::Strict => "strict",
+        }
+    }
+}
+
+impl std::str::FromStr for Mode {
+    type Err = String;
+
+    fn from_str(text: &str) -> Result<Self, Self::Err> {
+        Mode::ALL
+            .into_iter()
+            .find(|mode| mode.as_str() == text)
+            .ok_or_else(|| format!("unknown mode '{text}': expected report, new, mature or strict"))
+    }
 }
 
 /// The `[report]` table.
@@ -308,11 +404,12 @@ impl Config {
                 || config.sources != Sources::default()
                 || config.verification != Verification::default()
                 || config.satisfied_by != SatisfiedBy::default()
-                || config.report != Report::default())
+                || config.report != Report::default()
+                || config.check != Check::default())
         {
             return Err(ConfigError(
                 "a [workspace] is no project: move [[level]], [[import]], [variant.*], \
-                 [sources], [verification], [satisfied_by] and [report] into a member"
+                 [sources], [verification], [satisfied_by], [report] and [check] into a member"
                     .to_owned(),
             ));
         }
@@ -767,6 +864,29 @@ junit = ["build/*.xml"]
             error.to_string(),
             "invalid shall.toml: more than one [[level]] has type 'dsn'"
         );
+    }
+
+    #[test]
+    fn reads_check_modes() {
+        let config = Config::parse(
+            "[check]\nmode = \"new\"\nmature_status = [\"proposed\", \"approved\"]\n\n\
+             [check.level.hlr]\nmode = \"mature\"\n",
+        )
+        .unwrap();
+        assert_eq!(config.check.mode, Mode::New);
+        assert_eq!(
+            config.check.mature_status,
+            [Status::Proposed, Status::Approved]
+        );
+        assert_eq!(config.check.levels[&typ("hlr")].mode, Mode::Mature);
+        assert_eq!(Config::default().check.mature_status, [Status::Approved]);
+        let error = Config::parse("[check]\nmode = \"loose\"\n").unwrap_err();
+        assert!(
+            error.to_string().contains("unknown variant `loose`"),
+            "{error}"
+        );
+        assert_eq!("strict".parse::<Mode>(), Ok(Mode::Strict));
+        assert!("x".parse::<Mode>().is_err());
     }
 
     #[test]

@@ -9,6 +9,7 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
+use shall_core::config::Mode;
 use shall_core::export::BuildInfo;
 
 /// Specifications Hooked to Actual Lines of Logic: requirements-as-code
@@ -25,17 +26,23 @@ enum Command {
     /// Trace all requirements, code and tests and report the defects.
     ///
     /// Prints one line `path:line: message` per defect, paths relative to
-    /// the project root, and a summary on stderr. Exit code 0 unless
-    /// `--mode strict` finds defects (1); 2 if the check cannot run.
+    /// the project root, and a summary on stderr. Exit code 1 if a defect
+    /// fails the mode, 0 otherwise; 2 if the check cannot run.
     Check {
         /// A directory in the project; the project root is the closest
         /// directory at or above it with a `shall.toml`.
         #[arg(default_value = ".")]
         path: PathBuf,
-        /// `report` never fails because of defects, `strict` fails on
-        /// every error or warning.
-        #[arg(long, value_enum, default_value_t = check::Mode::Report)]
-        mode: check::Mode,
+        /// When the check fails, replacing `[check]` of `shall.toml`:
+        /// `report` never, `new` on errors that the `--compare-to` run
+        /// does not have, `mature` on errors at items with a mature
+        /// status, `strict` on every error or warning.
+        #[arg(long, value_parser = parse_mode, value_name = "report|new|mature|strict")]
+        mode: Option<Mode>,
+        /// The `trace.json` of the run to compare with in mode `new`, e.g.
+        /// written by `shall report` on the target branch.
+        #[arg(long, value_name = "TRACE_JSON")]
+        compare_to: Option<PathBuf>,
         /// Check only the items of this variant from `shall.toml`, with
         /// its test results.
         #[arg(long, conflicts_with = "workspace")]
@@ -100,6 +107,10 @@ enum Command {
     },
 }
 
+fn parse_mode(text: &str) -> Result<Mode, String> {
+    text.parse()
+}
+
 fn parse_build_info(text: &str) -> Result<BuildInfo, String> {
     BuildInfo::parse(text)
 }
@@ -122,11 +133,13 @@ fn run(command: Command) -> anyhow::Result<ExitCode> {
         Command::Check {
             path,
             mode,
+            compare_to,
             variant,
             workspace,
         } => check::run(&check::CheckArgs {
             path,
             mode,
+            compare_to,
             variant,
             workspace,
         }),
