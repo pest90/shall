@@ -151,6 +151,21 @@ table.params { width: auto; margin-top: 0.25rem; }
 .green-graph .grey rect { fill: var(--off-bg); stroke: var(--off-fg); }
 .green-graph a:focus rect, .green-graph a:hover rect { stroke-width: 3; }
 .green-graph .grey .sign { fill: var(--off-fg); }
+.tiles { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0; padding: 0; list-style: none; }
+.tile { display: flex; flex-direction: column; gap: 0.15rem; width: 13rem; padding: 0.4rem 0.55rem; border: 1px solid var(--line); border-left-width: 0.35rem; border-radius: 0.4rem; color: var(--fg); text-decoration: none; font-size: 0.85rem; }
+.tile code { overflow-wrap: anywhere; }
+.tile .tile-title { color: var(--muted); }
+.tile .sign { font-weight: 700; }
+.tile.green { background: var(--ok-bg); border-left-color: var(--ok-fg); }
+.tile.green .sign { color: var(--ok-fg); }
+.tile.yellow { background: var(--warn-bg); border-left-color: var(--warn-fg); }
+.tile.yellow .sign { color: var(--warn-fg); }
+.tile.red { background: var(--bad-bg); border-left-color: var(--bad-fg); }
+.tile.red .sign { color: var(--bad-fg); }
+.tile.grey { background: var(--off-bg); border-left-color: var(--off-fg); }
+.tile:hover, .tile:focus { outline: 2px solid var(--muted); }
+#overview h3 .note { font-weight: 400; }
+.tile.grey .sign { color: var(--off-fg); }
 </style>
 </head>
 <body>

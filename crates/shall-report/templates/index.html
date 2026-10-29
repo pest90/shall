@@ -72,6 +72,20 @@
 <p>No requirements.</p>
 {% endif %}
 </section>
+{% if tiles %}
+<section id="overview">
+<h2>Overview</h2>
+{% for group in tiles %}
+<h3>{% if group.component %}<code>{{ group.component }}</code>{% else %}Without component{% endif %} <span class="note">{{ group.green }} green, {{ group.yellow }} yellow, {{ group.red }} red{% if group.grey %}, {{ group.grey }} grey{% endif %}</span></h3>
+<ul class="tiles">
+{% for tile in group.tiles %}
+<li><a class="tile {{ tile.light }}" href="#graph-{{ tile.anchor }}" title="{{ tile.id }}{% if tile.title %} {{ tile.title }}{% endif %}: {{ tile.light }}"><span class="sign" aria-hidden="true">{{ tile.sign }}</span><span class="sr-only">{{ tile.light }}</span> <code>{{ tile.id }}</code>{% if tile.title %}<span class="tile-title">{{ tile.title }}</span>{% endif %}</a></li>
+{% endfor %}
+</ul>
+{% endfor %}
+<p class="note">Every root of a Green Graph, grouped by its component, the part of its name before the first dot; a tile opens the requirement's Green Graph.</p>
+</section>
+{% endif %}
 {% if levels %}
 <form id="filter" class="filter" role="search" hidden>
 <label>Search <input type="search" name="search" placeholder="ID or title"></label>
@@ -139,7 +153,7 @@
 <section id="graph">
 <h2>Green Graph</h2>
 {% for graph in graphs %}
-<details class="graph">
+<details class="graph" id="graph-{{ graph.anchor }}">
 <summary><span class="light {{ graph.light }}"><span aria-hidden="true">{{ graph.sign }}</span> {{ graph.light }}</span> {% if graph.anchor %}<a href="#{{ graph.anchor }}"><code>{{ graph.id }}</code></a>{% else %}<code>{{ graph.id }}</code>{% endif %}{% if graph.title %} {{ graph.title }}{% endif %}</summary>
 <div class="scroll">
 <svg class="green-graph" xmlns="http://www.w3.org/2000/svg" width="{{ graph.width }}" height="{{ graph.height }}" viewBox="0 0 {{ graph.width }} {{ graph.height }}" role="group" aria-label="Chain of {{ graph.id }}, {{ graph.light }}, with {{ graph.nodes|length }} node{{ "" if graph.nodes|length == 1 else "s" }}">

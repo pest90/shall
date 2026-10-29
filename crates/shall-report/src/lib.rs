@@ -30,6 +30,9 @@
 //! verdict, the requirements it satisfies or that depend on it, and the
 //! invalid links to it.
 //!
+//! An overview shows the roots as tiles in the colour of their light,
+//! grouped by component, each linking to its graph.
+//!
 //! The Green Graph draws the chain of every root as SVG, laid out in
 //! columns by the longest path from the root, with code and tests
 //! bundled into count nodes and missing types as dashed placeholders.
@@ -54,7 +57,7 @@ pub mod defects;
 mod graph;
 mod markdown;
 
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use minijinja::Environment;
 use minijinja::syntax::SyntaxConfig;
@@ -174,6 +177,8 @@ struct Page<'a> {
     tree: Vec<TreeEntry<'a>>,
     /// The Green Graph of every root.
     graphs: Vec<graph::GraphView>,
+    /// The roots as tiles, grouped by component.
+    tiles: Vec<TileGroup>,
     /// The types of the tables with their names, for the filter.
     filter_types: Vec<(&'a str, &'a str)>,
     /// Every tag of a requirement, sorted, for the filter.
@@ -204,6 +209,67 @@ struct DefectView<'a> {
     /// Fragment of the requirement the defect is in: the one whose lines
     /// in the same file include the defect's line.
     anchor: Option<String>,
+}
+
+/// The tiles of the roots of one component, the part of their names
+/// before the first `.`.
+#[derive(Debug, Serialize)]
+struct TileGroup {
+    /// The component; empty for names without one.
+    component: String,
+    /// How many tiles are green, yellow, red and grey.
+    green: usize,
+    yellow: usize,
+    red: usize,
+    grey: usize,
+    tiles: Vec<Tile>,
+}
+
+/// A root as a tile, linking to its graph.
+#[derive(Debug, Serialize)]
+struct Tile {
+    anchor: String,
+    id: String,
+    title: String,
+    light: &'static str,
+    sign: &'static str,
+}
+
+/// Groups the roots of the graphs by component, groups sorted by name,
+/// tiles in the order of the graphs.
+fn tiles(graphs: &[graph::GraphView]) -> Vec<TileGroup> {
+    let mut groups: BTreeMap<String, TileGroup> = BTreeMap::new();
+    for graph in graphs {
+        let Some(anchor) = &graph.anchor else {
+            continue;
+        };
+        let name = graph.id.split('~').nth(1).unwrap_or_default();
+        let component = name.split_once('.').map_or("", |(component, _)| component);
+        let group = groups
+            .entry(component.to_owned())
+            .or_insert_with(|| TileGroup {
+                component: component.to_owned(),
+                green: 0,
+                yellow: 0,
+                red: 0,
+                grey: 0,
+                tiles: Vec::new(),
+            });
+        match graph.light {
+            "green" => group.green += 1,
+            "yellow" => group.yellow += 1,
+            "red" => group.red += 1,
+            _ => group.grey += 1,
+        }
+        group.tiles.push(Tile {
+            anchor: anchor.clone(),
+            id: graph.id.clone(),
+            title: graph.title.clone(),
+            light: graph.light,
+            sign: graph.sign,
+        });
+    }
+    groups.into_values().collect()
 }
 
 /// One entry of the tree: a node with children opens and later closes,
@@ -541,6 +607,7 @@ impl<'a> Page<'a> {
                     .map(|typ| level(document, &index, typ, typ.as_str(), &[])),
             )
             .collect();
+        let graphs = graph::graphs(document, &index);
         let filter_types = levels.iter().map(|level| (level.typ, level.name)).collect();
         Self {
             generator: generator(document),
@@ -552,7 +619,8 @@ impl<'a> Page<'a> {
             summary: summary(document),
             defects: defects(document, &index),
             tree: tree(document, &index),
-            graphs: graph::graphs(document, &index),
+            tiles: tiles(&graphs),
+            graphs,
             filter_types,
             filter_tags: document
                 .items
@@ -1797,5 +1865,37 @@ mod tests {
         );
         // Drawn in full above: one node, without dsn~d.
         assert_eq!(graphs[1].0, ["0: ✓ sys~b-k4f2~1", "1: ✓ swr~s-k4f2~1"]);
+    }
+
+    #[test]
+    fn tiles_group_the_roots_by_component() {
+        let html = html(
+            "[[level]]\ntype = \"sys\"\nname = \"S\"\n",
+            "# A\n`sys~motor.a-k4f2~1`\n\n# B\n`sys~can.b-k4f2~1`\nStatus: draft\n\n\
+             # C\n`sys~plain-k4f2~1`\n\n# D\n`sys~motor.d-k4f2~1`\nStatus: rejected\n",
+        );
+        let overview = &html[html.find("<section id=\"overview\">").unwrap()..];
+        let overview = &overview[..overview.find("</section>").unwrap()];
+        // Without a component first, then by name.
+        let headings: Vec<&str> = overview
+            .lines()
+            .filter(|line| line.starts_with("<h3>"))
+            .collect();
+        assert_eq!(
+            headings,
+            [
+                "<h3>Without component <span class=\"note\">1 green, 0 yellow, 0 red</span></h3>",
+                "<h3><code>can</code> <span class=\"note\">0 green, 1 yellow, 0 red</span></h3>",
+                "<h3><code>motor</code> <span class=\"note\">1 green, 0 yellow, 0 red, 1 grey</span></h3>",
+            ]
+        );
+        assert!(
+            overview.contains("<a class=\"tile yellow\" href=\"#graph-sys~can.b-k4f2~1\""),
+            "{overview}"
+        );
+        assert!(
+            html.contains("<details class=\"graph\" id=\"graph-sys~can.b-k4f2~1\">"),
+            "{html}"
+        );
     }
 }

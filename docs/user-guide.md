@@ -878,7 +878,13 @@ Every node shows the
 [light of its chain](#light-of-a-chain) as sign, word in its tooltip
 and colour, and links to the requirement's details. The drawing is SVG
 inside `index.html`, laid out by `shall`, so it needs no JavaScript.
-Tiles of all roots, zoom and a graph export are planned (M5.11–M5.13).
+Above the filter, a section `Overview` shows these roots as tiles in
+the colour and with the sign of their light, grouped by component, the
+part of their names before the first `.` (e.g. `motor` for
+`sys~motor.estop-h3x9~1`), with the number of green, yellow, red and
+grey tiles per group; a tile jumps to the root's graph, which the
+embedded script opens (without JavaScript, click it open). Grouping by
+tags, zoom and a graph export are planned (M5.12, M5.13).
 
 The output directory is not excluded from the project's files. Add it
 to `.gitignore` (e.g. `/site/`), or make sure no pattern in `[sources]`

@@ -151,6 +151,21 @@ table.params { width: auto; margin-top: 0.25rem; }
 .green-graph .grey rect { fill: var(--off-bg); stroke: var(--off-fg); }
 .green-graph a:focus rect, .green-graph a:hover rect { stroke-width: 3; }
 .green-graph .grey .sign { fill: var(--off-fg); }
+.tiles { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0; padding: 0; list-style: none; }
+.tile { display: flex; flex-direction: column; gap: 0.15rem; width: 13rem; padding: 0.4rem 0.55rem; border: 1px solid var(--line); border-left-width: 0.35rem; border-radius: 0.4rem; color: var(--fg); text-decoration: none; font-size: 0.85rem; }
+.tile code { overflow-wrap: anywhere; }
+.tile .tile-title { color: var(--muted); }
+.tile .sign { font-weight: 700; }
+.tile.green { background: var(--ok-bg); border-left-color: var(--ok-fg); }
+.tile.green .sign { color: var(--ok-fg); }
+.tile.yellow { background: var(--warn-bg); border-left-color: var(--warn-fg); }
+.tile.yellow .sign { color: var(--warn-fg); }
+.tile.red { background: var(--bad-bg); border-left-color: var(--bad-fg); }
+.tile.red .sign { color: var(--bad-fg); }
+.tile.grey { background: var(--off-bg); border-left-color: var(--off-fg); }
+.tile:hover, .tile:focus { outline: 2px solid var(--muted); }
+#overview h3 .note { font-weight: 400; }
+.tile.grey .sign { color: var(--off-fg); }
 </style>
 </head>
 <body>
@@ -216,6 +231,16 @@ table.params { width: auto; margin-top: 0.25rem; }
 </div>
 <p class="note">Covered: every needed type covers the item with a valid link. Deep covered: covered, and so is everything below. Verified: deep covered, every test below passed and every review or analysis below is approved. Rejected items are not counted; test results do not count as coverage.</p>
 <p class="note legend">Signs: <span class="ok">✓ deep covered</span>, <span class="partial">! covered, gap below</span>, <span class="missing">✗ not covered</span>, <span class="rejected">– rejected</span>, <span class="unknown">? unknown type (an error)</span>.</p>
+</section>
+<section id="overview">
+<h2>Overview</h2>
+<h3><code>motor</code> <span class="note">1 green, 0 yellow, 2 red</span></h3>
+<ul class="tiles">
+<li><a class="tile red" href="#graph-dsn~motor.temp-monitor-r5t1~1" title="dsn~motor.temp-monitor-r5t1~1 Temperature monitoring in the 10 ms task: red"><span class="sign" aria-hidden="true">✗</span><span class="sr-only">red</span> <code>dsn~motor.temp-monitor-r5t1~1</code><span class="tile-title">Temperature monitoring in the 10 ms task</span></a></li>
+<li><a class="tile red" href="#graph-sys~motor.thermal-protection-q7m2~1" title="sys~motor.thermal-protection-q7m2~1 Thermal protection of the motor: red"><span class="sign" aria-hidden="true">✗</span><span class="sr-only">red</span> <code>sys~motor.thermal-protection-q7m2~1</code><span class="tile-title">Thermal protection of the motor</span></a></li>
+<li><a class="tile green" href="#graph-sys~motor.emergency-stop-h3x9~1" title="sys~motor.emergency-stop-h3x9~1 Emergency stop: green"><span class="sign" aria-hidden="true">✓</span><span class="sr-only">green</span> <code>sys~motor.emergency-stop-h3x9~1</code><span class="tile-title">Emergency stop</span></a></li>
+</ul>
+<p class="note">Every root of a Green Graph, grouped by its component, the part of its name before the first dot; a tile opens the requirement's Green Graph.</p>
 </section>
 <form id="filter" class="filter" role="search" hidden>
 <label>Search <input type="search" name="search" placeholder="ID or title"></label>
@@ -388,7 +413,7 @@ table.params { width: auto; margin-top: 0.25rem; }
 </section>
 <section id="graph">
 <h2>Green Graph</h2>
-<details class="graph">
+<details class="graph" id="graph-dsn~motor.temp-monitor-r5t1~1">
 <summary><span class="light red"><span aria-hidden="true">✗</span> red</span> <a href="#dsn~motor.temp-monitor-r5t1~1"><code>dsn~motor.temp-monitor-r5t1~1</code></a> Temperature monitoring in the 10 ms task</summary>
 <div class="scroll">
 <svg class="green-graph" xmlns="http://www.w3.org/2000/svg" width="496" height="108" viewBox="0 0 496 108" role="group" aria-label="Chain of dsn~motor.temp-monitor-r5t1~1, red, with 3 nodes">
@@ -397,7 +422,7 @@ table.params { width: auto; margin-top: 0.25rem; }
 <a href="#dsn~motor.temp-monitor-r5t1~1" aria-label="dsn~motor.temp-monitor-r5t1~1 Temperature monitoring in the 10 ms task: red"><g class="node red"><title>dsn~motor.temp-monitor-r5t1~1 Temperature monitoring in the 10 ms task: red</title><rect x="4" y="4" width="220" height="44" rx="6"/><text x="12" y="22"><tspan class="sign">✗</tspan> dsn~motor.temp-monitor-r5t1…</text><text class="second" x="12" y="39">Temperature monitoring in t…</text></g></a><g class="node green"><title>impl ×1: green</title><rect x="272" y="4" width="220" height="44" rx="6"/><text x="280" y="22"><tspan class="sign">✓</tspan> impl ×1</text></g><g class="node green"><title>utest 1&#x2f;1: green</title><rect x="272" y="60" width="220" height="44" rx="6"/><text x="280" y="78"><tspan class="sign">✓</tspan> utest 1&#x2f;1</text></g></svg>
 </div>
 </details>
-<details class="graph">
+<details class="graph" id="graph-sys~motor.thermal-protection-q7m2~1">
 <summary><span class="light red"><span aria-hidden="true">✗</span> red</span> <a href="#sys~motor.thermal-protection-q7m2~1"><code>sys~motor.thermal-protection-q7m2~1</code></a> Thermal protection of the motor</summary>
 <div class="scroll">
 <svg class="green-graph" xmlns="http://www.w3.org/2000/svg" width="1032" height="108" viewBox="0 0 1032 108" role="group" aria-label="Chain of sys~motor.thermal-protection-q7m2~1, red, with 7 nodes">
@@ -410,7 +435,7 @@ table.params { width: auto; margin-top: 0.25rem; }
 <a href="#sys~motor.thermal-protection-q7m2~1" aria-label="sys~motor.thermal-protection-q7m2~1 Thermal protection of the motor: red"><g class="node red"><title>sys~motor.thermal-protection-q7m2~1 Thermal protection of the motor: red</title><rect x="4" y="4" width="220" height="44" rx="6"/><text x="12" y="22"><tspan class="sign">✗</tspan> sys~motor.thermal-protectio…</text><text class="second" x="12" y="39">Thermal protection of the m…</text></g></a><a href="#swr~motor.overtemp-shutdown-k4f2~2" aria-label="swr~motor.overtemp-shutdown-k4f2~2 Shut down the motor on overtemperature: red"><g class="node red"><title>swr~motor.overtemp-shutdown-k4f2~2 Shut down the motor on overtemperature: red</title><rect x="272" y="4" width="220" height="44" rx="6"/><text x="280" y="22"><tspan class="sign">✗</tspan> swr~motor.overtemp-shutdown…</text><text class="second" x="280" y="39">Shut down the motor on over…</text></g></a><a href="#dsn~motor.shutdown-signal-w9e4~1" aria-label="dsn~motor.shutdown-signal-w9e4~1 Shutdown signal: red"><g class="node red"><title>dsn~motor.shutdown-signal-w9e4~1 Shutdown signal: red</title><rect x="540" y="4" width="220" height="44" rx="6"/><text x="548" y="22"><tspan class="sign">✗</tspan> dsn~motor.shutdown-signal-w…</text><text class="second" x="548" y="39">Shutdown signal</text></g></a><g class="node green"><title>impl ×1: green</title><rect x="808" y="4" width="220" height="44" rx="6"/><text x="816" y="22"><tspan class="sign">✓</tspan> impl ×1</text></g><g class="node red"><title>utest 0&#x2f;1: red</title><rect x="808" y="60" width="220" height="44" rx="6"/><text x="816" y="78"><tspan class="sign">✗</tspan> utest 0&#x2f;1</text></g><a href="#swr~motor.overtemp-warning-p8n5~1" aria-label="swr~motor.overtemp-warning-p8n5~1 Warn before overtemperature: red"><g class="node red"><title>swr~motor.overtemp-warning-p8n5~1 Warn before overtemperature: red</title><rect x="272" y="60" width="220" height="44" rx="6"/><text x="280" y="78"><tspan class="sign">✗</tspan> swr~motor.overtemp-warning-…</text><text class="second" x="280" y="95">Warn before overtemperature</text></g></a><g class="node missing"><title>missing: dsn</title><rect x="540" y="60" width="220" height="44" rx="6"/><text x="548" y="78"><tspan class="sign">✗</tspan> missing: dsn</text></g></svg>
 </div>
 </details>
-<details class="graph">
+<details class="graph" id="graph-sys~motor.emergency-stop-h3x9~1">
 <summary><span class="light green"><span aria-hidden="true">✓</span> green</span> <a href="#sys~motor.emergency-stop-h3x9~1"><code>sys~motor.emergency-stop-h3x9~1</code></a> Emergency stop</summary>
 <div class="scroll">
 <svg class="green-graph" xmlns="http://www.w3.org/2000/svg" width="1032" height="164" viewBox="0 0 1032 164" role="group" aria-label="Chain of sys~motor.emergency-stop-h3x9~1, green, with 6 nodes">
@@ -673,10 +698,38 @@ relay opens within the interrupt, no task is involved.</p>
 <p>Generated by shall [version].</p>
 </footer>
 <script>
-// Filters the level tables and the requirement details. Without
-// JavaScript the form stays hidden and everything is shown.
+// Opens linked graphs, and filters the level tables and the requirement
+// details. Without JavaScript the form stays hidden and everything is
+// shown.
 (function () {
   "use strict";
+  // The element the hash names; none for a hash that is not encoded
+  // properly.
+  function hashTarget() {
+    var id;
+    try {
+      id = decodeURIComponent(location.hash.slice(1));
+    } catch (error) {
+      return null;
+    }
+    return id ? document.getElementById(id) : null;
+  }
+  // A link to a collapsed graph, e.g. from a tile, opens it, also when the
+  // same link is followed again.
+  function openTarget() {
+    var target = hashTarget();
+    if (target && target.tagName === "DETAILS") {
+      target.open = true;
+    }
+  }
+  window.addEventListener("hashchange", openTarget);
+  document.addEventListener("click", function (event) {
+    var link = event.target.closest && event.target.closest("a[href^='#']");
+    if (link && link.getAttribute("href") === location.hash) {
+      openTarget();
+    }
+  });
+  openTarget();
   var form = document.getElementById("filter");
   if (!form) {
     return;
@@ -728,8 +781,7 @@ relay opens within the interrupt, no task is involved.</p>
   }
   // A link to a requirement the filter hides clears the filter first.
   function reveal() {
-    var id = decodeURIComponent(location.hash.slice(1));
-    var target = id && document.getElementById(id);
+    var target = hashTarget();
     if (target && target.closest("[hidden]")) {
       form.reset();
       setTimeout(function () {

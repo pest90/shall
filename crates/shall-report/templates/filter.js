@@ -1,7 +1,35 @@
-// Filters the level tables and the requirement details. Without
-// JavaScript the form stays hidden and everything is shown.
+// Opens linked graphs, and filters the level tables and the requirement
+// details. Without JavaScript the form stays hidden and everything is
+// shown.
 (function () {
   "use strict";
+  // The element the hash names; none for a hash that is not encoded
+  // properly.
+  function hashTarget() {
+    var id;
+    try {
+      id = decodeURIComponent(location.hash.slice(1));
+    } catch (error) {
+      return null;
+    }
+    return id ? document.getElementById(id) : null;
+  }
+  // A link to a collapsed graph, e.g. from a tile, opens it, also when the
+  // same link is followed again.
+  function openTarget() {
+    var target = hashTarget();
+    if (target && target.tagName === "DETAILS") {
+      target.open = true;
+    }
+  }
+  window.addEventListener("hashchange", openTarget);
+  document.addEventListener("click", function (event) {
+    var link = event.target.closest && event.target.closest("a[href^='#']");
+    if (link && link.getAttribute("href") === location.hash) {
+      openTarget();
+    }
+  });
+  openTarget();
   var form = document.getElementById("filter");
   if (!form) {
     return;
@@ -53,8 +81,7 @@
   }
   // A link to a requirement the filter hides clears the filter first.
   function reveal() {
-    var id = decodeURIComponent(location.hash.slice(1));
-    var target = id && document.getElementById(id);
+    var target = hashTarget();
     if (target && target.closest("[hidden]")) {
       form.reset();
       setTimeout(function () {

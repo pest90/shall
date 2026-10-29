@@ -151,6 +151,21 @@ table.params { width: auto; margin-top: 0.25rem; }
 .green-graph .grey rect { fill: var(--off-bg); stroke: var(--off-fg); }
 .green-graph a:focus rect, .green-graph a:hover rect { stroke-width: 3; }
 .green-graph .grey .sign { fill: var(--off-fg); }
+.tiles { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0; padding: 0; list-style: none; }
+.tile { display: flex; flex-direction: column; gap: 0.15rem; width: 13rem; padding: 0.4rem 0.55rem; border: 1px solid var(--line); border-left-width: 0.35rem; border-radius: 0.4rem; color: var(--fg); text-decoration: none; font-size: 0.85rem; }
+.tile code { overflow-wrap: anywhere; }
+.tile .tile-title { color: var(--muted); }
+.tile .sign { font-weight: 700; }
+.tile.green { background: var(--ok-bg); border-left-color: var(--ok-fg); }
+.tile.green .sign { color: var(--ok-fg); }
+.tile.yellow { background: var(--warn-bg); border-left-color: var(--warn-fg); }
+.tile.yellow .sign { color: var(--warn-fg); }
+.tile.red { background: var(--bad-bg); border-left-color: var(--bad-fg); }
+.tile.red .sign { color: var(--bad-fg); }
+.tile.grey { background: var(--off-bg); border-left-color: var(--off-fg); }
+.tile:hover, .tile:focus { outline: 2px solid var(--muted); }
+#overview h3 .note { font-weight: 400; }
+.tile.grey .sign { color: var(--off-fg); }
 </style>
 </head>
 <body>
@@ -193,6 +208,16 @@ table.params { width: auto; margin-top: 0.25rem; }
 </div>
 <p class="note">Covered: every needed type covers the item with a valid link. Deep covered: covered, and so is everything below. Verified: deep covered, every test below passed and every review or analysis below is approved. Rejected items are not counted; test results do not count as coverage.</p>
 <p class="note legend">Signs: <span class="ok">✓ deep covered</span>, <span class="partial">! covered, gap below</span>, <span class="missing">✗ not covered</span>, <span class="rejected">– rejected</span>, <span class="unknown">? unknown type (an error)</span>.</p>
+</section>
+<section id="overview">
+<h2>Overview</h2>
+<h3>Without component <span class="note">2 green, 0 yellow, 0 red, 1 grey</span></h3>
+<ul class="tiles">
+<li><a class="tile green" href="#graph-swr~b-k4f2~1" title="swr~b-k4f2~1 &lt;b&gt;Bold&lt;&#x2f;b&gt; &amp; co: green"><span class="sign" aria-hidden="true">✓</span><span class="sr-only">green</span> <code>swr~b-k4f2~1</code><span class="tile-title">&lt;b&gt;Bold&lt;&#x2f;b&gt; &amp; co</span></a></li>
+<li><a class="tile green" href="#graph-dsn~a-k4f2~1" title="dsn~a-k4f2~1 A: green"><span class="sign" aria-hidden="true">✓</span><span class="sr-only">green</span> <code>dsn~a-k4f2~1</code><span class="tile-title">A</span></a></li>
+<li><a class="tile grey" href="#graph-dsn~old-k4f2~1" title="dsn~old-k4f2~1 Old: grey"><span class="sign" aria-hidden="true">–</span><span class="sr-only">grey</span> <code>dsn~old-k4f2~1</code><span class="tile-title">Old</span></a></li>
+</ul>
+<p class="note">Every root of a Green Graph, grouped by its component, the part of its name before the first dot; a tile opens the requirement's Green Graph.</p>
 </section>
 <form id="filter" class="filter" role="search" hidden>
 <label>Search <input type="search" name="search" placeholder="ID or title"></label>
@@ -257,21 +282,21 @@ table.params { width: auto; margin-top: 0.25rem; }
 </section>
 <section id="graph">
 <h2>Green Graph</h2>
-<details class="graph">
+<details class="graph" id="graph-swr~b-k4f2~1">
 <summary><span class="light green"><span aria-hidden="true">✓</span> green</span> <a href="#swr~b-k4f2~1"><code>swr~b-k4f2~1</code></a> &lt;b&gt;Bold&lt;&#x2f;b&gt; &amp; co</summary>
 <div class="scroll">
 <svg class="green-graph" xmlns="http://www.w3.org/2000/svg" width="228" height="52" viewBox="0 0 228 52" role="group" aria-label="Chain of swr~b-k4f2~1, green, with 1 node">
 <a href="#swr~b-k4f2~1" aria-label="swr~b-k4f2~1 &lt;b&gt;Bold&lt;&#x2f;b&gt; &amp; co: green"><g class="node green"><title>swr~b-k4f2~1 &lt;b&gt;Bold&lt;&#x2f;b&gt; &amp; co: green</title><rect x="4" y="4" width="220" height="44" rx="6"/><text x="12" y="22"><tspan class="sign">✓</tspan> swr~b-k4f2~1</text><text class="second" x="12" y="39">&lt;b&gt;Bold&lt;&#x2f;b&gt; &amp; co</text></g></a></svg>
 </div>
 </details>
-<details class="graph">
+<details class="graph" id="graph-dsn~a-k4f2~1">
 <summary><span class="light green"><span aria-hidden="true">✓</span> green</span> <a href="#dsn~a-k4f2~1"><code>dsn~a-k4f2~1</code></a> A</summary>
 <div class="scroll">
 <svg class="green-graph" xmlns="http://www.w3.org/2000/svg" width="228" height="52" viewBox="0 0 228 52" role="group" aria-label="Chain of dsn~a-k4f2~1, green, with 1 node">
 <a href="#dsn~a-k4f2~1" aria-label="dsn~a-k4f2~1 A: green"><g class="node green"><title>dsn~a-k4f2~1 A: green</title><rect x="4" y="4" width="220" height="44" rx="6"/><text x="12" y="22"><tspan class="sign">✓</tspan> dsn~a-k4f2~1</text><text class="second" x="12" y="39">A</text></g></a></svg>
 </div>
 </details>
-<details class="graph">
+<details class="graph" id="graph-dsn~old-k4f2~1">
 <summary><span class="light grey"><span aria-hidden="true">–</span> grey</span> <a href="#dsn~old-k4f2~1"><code>dsn~old-k4f2~1</code></a> Old</summary>
 <div class="scroll">
 <svg class="green-graph" xmlns="http://www.w3.org/2000/svg" width="228" height="52" viewBox="0 0 228 52" role="group" aria-label="Chain of dsn~old-k4f2~1, grey, with 1 node">
@@ -318,10 +343,38 @@ table.params { width: auto; margin-top: 0.25rem; }
 <p>Generated by shall 0.1.0.</p>
 </footer>
 <script>
-// Filters the level tables and the requirement details. Without
-// JavaScript the form stays hidden and everything is shown.
+// Opens linked graphs, and filters the level tables and the requirement
+// details. Without JavaScript the form stays hidden and everything is
+// shown.
 (function () {
   "use strict";
+  // The element the hash names; none for a hash that is not encoded
+  // properly.
+  function hashTarget() {
+    var id;
+    try {
+      id = decodeURIComponent(location.hash.slice(1));
+    } catch (error) {
+      return null;
+    }
+    return id ? document.getElementById(id) : null;
+  }
+  // A link to a collapsed graph, e.g. from a tile, opens it, also when the
+  // same link is followed again.
+  function openTarget() {
+    var target = hashTarget();
+    if (target && target.tagName === "DETAILS") {
+      target.open = true;
+    }
+  }
+  window.addEventListener("hashchange", openTarget);
+  document.addEventListener("click", function (event) {
+    var link = event.target.closest && event.target.closest("a[href^='#']");
+    if (link && link.getAttribute("href") === location.hash) {
+      openTarget();
+    }
+  });
+  openTarget();
   var form = document.getElementById("filter");
   if (!form) {
     return;
@@ -373,8 +426,7 @@ table.params { width: auto; margin-top: 0.25rem; }
   }
   // A link to a requirement the filter hides clears the filter first.
   function reveal() {
-    var id = decodeURIComponent(location.hash.slice(1));
-    var target = id && document.getElementById(id);
+    var target = hashTarget();
     if (target && target.closest("[hidden]")) {
       form.reset();
       setTimeout(function () {
