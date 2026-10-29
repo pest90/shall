@@ -225,7 +225,8 @@ fn mermaid_text(text: &str) -> String {
 }
 
 /// An SVG badge such as `requirements | 2/3 green`, for a README: how many
-/// of the requirements at the top of a chain (not rejected) are green;
+/// of the requirements at the top of a chain that are not grey (neither
+/// rejected nor provided, not requested) are green;
 /// green if all are, red if one is red, yellow otherwise, and grey if
 /// there are none.
 pub fn badge(document: &Document<'_>) -> String {

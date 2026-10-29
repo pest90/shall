@@ -166,6 +166,7 @@ table.params { width: auto; margin-top: 0.25rem; }
 .tile:hover, .tile:focus { outline: 2px solid var(--muted); }
 #overview h3 .note { font-weight: 400; }
 .tile.grey .sign { color: var(--off-fg); }
+.provided { font-size: 0.85rem; color: var(--off-fg); white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -224,7 +225,7 @@ table.params { width: auto; margin-top: 0.25rem; }
 <label>Coverage <select name="coverage"><option value="">all</option><option value="ok">✓ deep covered</option><option value="partial">! covered, gap below</option><option value="missing">✗ not covered</option><option value="rejected">– rejected</option><option value="unknown">? unknown type</option></select></label>
 <label>Status <select name="status"><option value="">all</option><option>draft</option><option>proposed</option><option>approved</option><option>rejected</option></select></label>
 <label>Type <select name="type"><option value="">all</option><option value="dsn">dsn</option><option value="swr">swr</option></select></label>
-<input type="hidden" name="tag" value=""><button type="reset">Reset</button>
+<input type="hidden" name="tag" value=""><input type="hidden" name="provided" value=""><button type="reset">Reset</button>
 <output id="filter-count" aria-live="polite"></output>
 </form>
 <section id="level-dsn">
@@ -233,7 +234,7 @@ table.params { width: auto; margin-top: 0.25rem; }
 <table class="items">
 <thead><tr><th>Coverage</th><th>Verified</th><th>ID</th><th>Title</th><th>Status</th><th>Location</th></tr></thead>
 <tbody>
-<tr class="ok" data-search="dsn~a-k4f2~1 a" data-type="dsn" data-status="approved" data-coverage="ok" data-tags="">
+<tr class="ok" data-search="dsn~a-k4f2~1 a" data-type="dsn" data-status="approved" data-coverage="ok" data-tags="" data-provided="no">
 <td class="sign"><span title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span></td>
 <td class="verified">yes</td>
 <td><a href="#dsn~a-k4f2~1"><code>dsn~a-k4f2~1</code></a></td>
@@ -241,7 +242,7 @@ table.params { width: auto; margin-top: 0.25rem; }
 <td>approved</td>
 <td><code>reqs&#x2f;a.md:7</code></td>
 </tr>
-<tr class="rejected" data-search="dsn~old-k4f2~1 old" data-type="dsn" data-status="rejected" data-coverage="rejected" data-tags="">
+<tr class="rejected" data-search="dsn~old-k4f2~1 old" data-type="dsn" data-status="rejected" data-coverage="rejected" data-tags="" data-provided="no">
 <td class="sign"><span title="rejected" aria-hidden="true">–</span><span class="sr-only">rejected</span></td>
 <td class="verified">–</td>
 <td><a href="#dsn~old-k4f2~1"><code>dsn~old-k4f2~1</code></a></td>
@@ -259,7 +260,7 @@ table.params { width: auto; margin-top: 0.25rem; }
 <table class="items">
 <thead><tr><th>Coverage</th><th>Verified</th><th>ID</th><th>Title</th><th>Status</th><th>Location</th></tr></thead>
 <tbody>
-<tr class="ok" data-search="swr~b-k4f2~1 &lt;b&gt;bold&lt;&#x2f;b&gt; &amp; co" data-type="swr" data-status="approved" data-coverage="ok" data-tags="">
+<tr class="ok" data-search="swr~b-k4f2~1 &lt;b&gt;bold&lt;&#x2f;b&gt; &amp; co" data-type="swr" data-status="approved" data-coverage="ok" data-tags="" data-provided="no">
 <td class="sign"><span title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span></td>
 <td class="verified">yes</td>
 <td><a href="#swr~b-k4f2~1"><code>swr~b-k4f2~1</code></a></td>
@@ -307,7 +308,7 @@ table.params { width: auto; margin-top: 0.25rem; }
 </section>
 <section id="details">
 <h2>Requirements</h2>
-<article id="dsn~a-k4f2~1" class="detail ok" data-search="dsn~a-k4f2~1 a" data-type="dsn" data-status="approved" data-coverage="ok" data-tags="">
+<article id="dsn~a-k4f2~1" class="detail ok" data-search="dsn~a-k4f2~1 a" data-type="dsn" data-status="approved" data-coverage="ok" data-tags="" data-provided="no">
 <h3><span class="sign" title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span> <code>dsn~a-k4f2~1</code> A</h3>
 <dl class="facts">
 <div><dt>Level</dt><dd>dsn</dd></div>
@@ -317,7 +318,7 @@ table.params { width: auto; margin-top: 0.25rem; }
 <div><dt>Location</dt><dd><code>reqs&#x2f;a.md:7</code></dd></div>
 </dl>
 </article>
-<article id="dsn~old-k4f2~1" class="detail rejected" data-search="dsn~old-k4f2~1 old" data-type="dsn" data-status="rejected" data-coverage="rejected" data-tags="">
+<article id="dsn~old-k4f2~1" class="detail rejected" data-search="dsn~old-k4f2~1 old" data-type="dsn" data-status="rejected" data-coverage="rejected" data-tags="" data-provided="no">
 <h3><span class="sign" title="rejected" aria-hidden="true">–</span><span class="sr-only">rejected</span> <code>dsn~old-k4f2~1</code> Old</h3>
 <dl class="facts">
 <div><dt>Level</dt><dd>dsn</dd></div>
@@ -327,7 +328,7 @@ table.params { width: auto; margin-top: 0.25rem; }
 <div><dt>Location</dt><dd><code>reqs&#x2f;a.md:11</code></dd></div>
 </dl>
 </article>
-<article id="swr~b-k4f2~1" class="detail ok" data-search="swr~b-k4f2~1 &lt;b&gt;bold&lt;&#x2f;b&gt; &amp; co" data-type="swr" data-status="approved" data-coverage="ok" data-tags="">
+<article id="swr~b-k4f2~1" class="detail ok" data-search="swr~b-k4f2~1 &lt;b&gt;bold&lt;&#x2f;b&gt; &amp; co" data-type="swr" data-status="approved" data-coverage="ok" data-tags="" data-provided="no">
 <h3><span class="sign" title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span> <code>swr~b-k4f2~1</code> &lt;b&gt;Bold&lt;&#x2f;b&gt; &amp; co</h3>
 <dl class="facts">
 <div><dt>Level</dt><dd>swr</dd></div>
@@ -391,6 +392,7 @@ table.params { width: auto; margin-top: 0.25rem; }
     var coverage = value("coverage");
     var type = value("type");
     var tag = value("tag");
+    var provided = value("provided");
     var words = value("search").toLowerCase().split(/\s+/).filter(Boolean);
     var shown = 0;
     var total = 0;
@@ -401,6 +403,7 @@ table.params { width: auto; margin-top: 0.25rem; }
         (!coverage || data.coverage === coverage) &&
         (!type || data.type === type) &&
         (!tag || data.tags.split("\n").indexOf(tag) >= 0) &&
+        (!provided || data.provided === provided) &&
         words.every(function (word) {
           return data.search.indexOf(word) >= 0;
         });

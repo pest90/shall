@@ -154,3 +154,4 @@ table.params { width: auto; margin-top: 0.25rem; }
 .tile:hover, .tile:focus { outline: 2px solid var(--muted); }
 #overview h3 .note { font-weight: 400; }
 .tile.grey .sign { color: var(--off-fg); }
+.provided { font-size: 0.85rem; color: var(--off-fg); white-space: nowrap; }

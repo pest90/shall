@@ -93,6 +93,7 @@
 <label>Status <select name="status"><option value="">all</option><option>draft</option><option>proposed</option><option>approved</option><option>rejected</option></select></label>
 <label>Type <select name="type"><option value="">all</option>{% for typ, name in filter_types %}<option value="{{ typ }}">{{ name }}</option>{% endfor %}</select></label>
 {% if filter_tags %}<label>Tag <select name="tag"><option value="">all</option>{% for tag in filter_tags %}<option value="{{ tag }}">{{ tag }}</option>{% endfor %}</select></label>{% else %}<input type="hidden" name="tag" value="">{% endif %}
+{% if any_provided %}<label>Requested <select name="provided"><option value="">all</option><option value="no">requested</option><option value="yes">– provided, not requested</option></select></label>{% else %}<input type="hidden" name="provided" value="">{% endif %}
 <button type="reset">Reset</button>
 <output id="filter-count" aria-live="polite"></output>
 </form>
@@ -112,10 +113,10 @@
 <thead><tr><th>Coverage</th><th>Verified</th><th>ID</th><th>Title</th><th>Status</th><th>Location</th></tr></thead>
 <tbody>
 {% for item in level.items %}
-<tr class="{{ item.coverage }}" data-search="{{ item.search }}" data-type="{{ item.typ }}" data-status="{{ item.status }}" data-coverage="{{ item.coverage }}" data-tags="{{ item.tags }}">
+<tr class="{{ item.coverage }}" data-search="{{ item.search }}" data-type="{{ item.typ }}" data-status="{{ item.status }}" data-coverage="{{ item.coverage }}" data-tags="{{ item.tags }}" data-provided="{{ "yes" if item.provided else "no" }}">
 <td class="sign"><span title="{{ item.label }}" aria-hidden="true">{{ item.sign }}</span><span class="sr-only">{{ item.label }}</span>{% if item.missing %} <span class="missing-types">missing: {% for typ in item.missing %}<code>{{ typ }}</code>{% if not loop.last %}, {% endif %}{% endfor %}</span>{% endif %}</td>
 <td class="verified">{{ item.verified }}</td>
-<td><a href="#{{ item.anchor }}"><code>{{ item.id }}</code></a>{% if item.duplicate %} <span class="duplicate">✗ duplicate ID</span>{% endif %}</td>
+<td><a href="#{{ item.anchor }}"><code>{{ item.id }}</code></a>{% if item.duplicate %} <span class="duplicate">✗ duplicate ID</span>{% endif %}{% if item.provided %} <span class="provided">– provided, not requested</span>{% endif %}</td>
 <td>{{ item.title }}</td>
 <td>{{ item.status }}</td>
 <td>{{ loc(item.location, item.location_url) }}</td>
@@ -196,12 +197,13 @@
 {% for level in levels %}
 {% for item in level.items %}
 {% set detail = item.detail %}
-<article id="{{ item.anchor }}" class="detail {{ item.coverage }}" data-search="{{ item.search }}" data-type="{{ item.typ }}" data-status="{{ item.status }}" data-coverage="{{ item.coverage }}" data-tags="{{ item.tags }}">
+<article id="{{ item.anchor }}" class="detail {{ item.coverage }}" data-search="{{ item.search }}" data-type="{{ item.typ }}" data-status="{{ item.status }}" data-coverage="{{ item.coverage }}" data-tags="{{ item.tags }}" data-provided="{{ "yes" if item.provided else "no" }}">
 <h3><span class="sign" title="{{ item.label }}" aria-hidden="true">{{ item.sign }}</span><span class="sr-only">{{ item.label }}</span> <code>{{ item.id }}</code>{% if item.title %} {{ item.title }}{% endif %}</h3>
 <dl class="facts">
 <div><dt>Level</dt><dd>{{ level.name }}</dd></div>
 <div><dt>Status</dt><dd>{{ item.status }}</dd></div>
 <div><dt>Verified</dt><dd>{{ item.verified }}</dd></div>
+{% if item.provided %}<div><dt>Requested</dt><dd>– provided by an import, requested by nothing of this project</dd></div>{% endif %}
 <div><dt>Chain</dt><dd class="light {{ item.light }}"><span aria-hidden="true">{{ item.light_sign }}</span> {{ item.light }}</dd></div>
 <div><dt>Location</dt><dd>{{ loc(item.location, item.location_url) }}</dd></div>
 {% if detail.import %}<div><dt>Import</dt><dd><code>{{ detail.import }}</code></dd></div>{% endif %}

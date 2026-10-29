@@ -437,15 +437,14 @@ covering it:
 | red | ✗ | a missing type, an invalid link of its own (e.g. an outdated revision), a failed test, a test not executed if `[verification] not-executed` is `error`, a copy of a duplicate ID, an unknown type, or part of or above a coverage cycle |
 | yellow | ! | missing evidence: a test skipped, not executed (by default), without a test definition or without `junit` results; a review that is not approved; an item in `draft` or `proposed` |
 | green | ✓ | none of these |
-| grey | – | rejected; not counted |
+| grey | – | rejected, and not counted; or provided by an import but not requested by the project (counted, information only), see [Workspaces and imports](#workspaces-and-imports) |
 
 So a requirement is green only when its whole chain is complete,
 tested, reviewed and approved, and the light tells a gap or defect
 (red) from missing evidence (yellow). A green item is always
 [verified](#verified); a verified item is red if one of its own links
 is invalid, and yellow if it is in draft. A `Covers:` link to an item
-outside the traced variant does not make an item red; showing items
-that are provided but not requested in grey is planned (M8.6).
+outside the traced variant does not make an item red.
 
 ## Reused items
 
@@ -585,6 +584,18 @@ path = "../../platform"
   import it, its test results once per importing project. Defects of a
   shared project are printed once, followed by one summary per member
   and one for the workspace. `shall new` checks the IDs of its own project only.
+- An imported item that the project does not request is *provided, not
+  requested*, e.g. a platform capability no customer requirement asks
+  for. The project requests what its own items cover and the items
+  above that, e.g. a capability its own code implements, and everything
+  below its own items and below what they cover directly, by `Covers:`
+  or `Satisfied-by:`; the other items below an item above stay provided,
+  e.g. the sibling capabilities under a platform's top item. A provided
+  item counts as nothing in the light of the items above it.
+  The report marks a provided item, shows its light in grey and leaves
+  it out of the badge, and its filter `Requested` shows or hides such
+  items; `trace.json` has `provided: true`. Its defects are those of the
+  imported project and are still reported by `shall check`.
 - `shall report` reports one project; reports of a whole workspace are
   planned.
 
@@ -839,7 +850,8 @@ the directory is created if missing:
   named by the whole line and with `file` and `line`; without defects
   there is one passed case `no defects`;
 - `badge.svg`, a badge for a README such as `requirements | 2/3 green`:
-  how many requirements at the top of a chain (not rejected) are green;
+  how many requirements at the top of a chain (not grey: not rejected and
+  not provided, not requested) are green;
   green if all are, red if one is red, yellow otherwise, grey without
   any;
 - `graph.dot` and `graph.mmd`, the project as a Graphviz and a Mermaid
@@ -939,8 +951,8 @@ reaches, such as those of a coverage cycle, follow as roots of their
 own.
 
 Above the level tables, a filter narrows the tables and the details by
-coverage, status, type and tag, and a search finds requirements whose
-ID and title contain all the words typed, ignoring case; a counter
+coverage, status, type, tag and whether they are requested, and a
+search finds requirements whose ID and title contain all the words typed, ignoring case; a counter
 says how many are shown, and a level without any shown row is hidden.
 A link to a requirement that the filter hides clears the filter. It
 needs JavaScript, which the report embeds like its CSS; without
@@ -1032,6 +1044,8 @@ Each item has:
   needed by a level, no verification type and not needed by any item;
   always `false` for rejected items;
 - `verified`: whether the item is [verified](#verified);
+- `provided`: whether an import provides it but nothing of the project
+  requests it;
 - `light`: the light of the item and everything below it,
   see [Light of a chain](#light-of-a-chain): `green`, `yellow`, `red` or
   `grey`;

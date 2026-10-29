@@ -1174,3 +1174,45 @@ fn prints_annotations_and_sarif_for_ci() {
         stdout(&output)
     );
 }
+
+#[test]
+fn marks_imported_items_nothing_requests() {
+    let dir = workspace();
+    let site = dir.path().join("site");
+    let output = shall(
+        &dir.path().join("projects/a"),
+        &["report", "--out", site.to_str().unwrap()],
+    );
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    let json: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(site.join("trace.json")).unwrap()).unwrap();
+    let provided = |id: &str| {
+        let item = json["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|item| item["id"] == id)
+            .unwrap();
+        (
+            item["provided"].as_bool().unwrap(),
+            item["light"].as_str().unwrap().to_owned(),
+        )
+    };
+    // The customer asks for protection, not for the log.
+    assert_eq!(provided("cap~protect~1"), (false, "green".to_owned()));
+    assert_eq!(provided("cap~log~1"), (true, "grey".to_owned()));
+    assert!(!provided("hlr~a.protect~1").0);
+    let html = fs::read_to_string(site.join("index.html")).unwrap();
+    assert!(
+        html.contains("<span class=\"provided\">– provided, not requested</span>"),
+        "{html}"
+    );
+    // The platform's own report requests everything.
+    let output = shall(
+        &dir.path().join("platform"),
+        &["report", "--out", site.to_str().unwrap()],
+    );
+    assert_eq!(output.status.code(), Some(0));
+    let json = fs::read_to_string(site.join("trace.json")).unwrap();
+    assert!(!json.contains("\"provided\": true"), "{json}");
+}

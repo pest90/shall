@@ -98,6 +98,7 @@ expression: normalized(&json)
       "unknown_type": false,
       "verified": true,
       "light": "red",
+      "provided": false,
       "test": null
     },
     {
@@ -158,6 +159,7 @@ expression: normalized(&json)
       "unknown_type": false,
       "verified": false,
       "light": "red",
+      "provided": false,
       "test": null
     },
     {
@@ -226,6 +228,7 @@ expression: normalized(&json)
       "unknown_type": false,
       "verified": true,
       "light": "green",
+      "provided": false,
       "test": null
     },
     {
@@ -278,6 +281,7 @@ expression: normalized(&json)
       "unknown_type": false,
       "verified": false,
       "light": "red",
+      "provided": false,
       "test": null
     },
     {
@@ -324,6 +328,7 @@ expression: normalized(&json)
       "unknown_type": false,
       "verified": false,
       "light": "red",
+      "provided": false,
       "test": null
     },
     {
@@ -376,6 +381,7 @@ expression: normalized(&json)
       "unknown_type": false,
       "verified": true,
       "light": "green",
+      "provided": false,
       "test": null
     },
     {
@@ -430,6 +436,7 @@ expression: normalized(&json)
       "unknown_type": false,
       "verified": false,
       "light": "red",
+      "provided": false,
       "test": null
     },
     {
@@ -479,6 +486,7 @@ expression: normalized(&json)
       "unknown_type": false,
       "verified": true,
       "light": "green",
+      "provided": false,
       "test": null
     },
     {
@@ -523,6 +531,7 @@ expression: normalized(&json)
       "unknown_type": false,
       "verified": true,
       "light": "red",
+      "provided": false,
       "test": null
     },
     {
@@ -567,6 +576,7 @@ expression: normalized(&json)
       "unknown_type": false,
       "verified": true,
       "light": "green",
+      "provided": false,
       "test": null
     },
     {
@@ -611,6 +621,7 @@ expression: normalized(&json)
       "unknown_type": false,
       "verified": true,
       "light": "green",
+      "provided": false,
       "test": null
     },
     {
@@ -655,6 +666,7 @@ expression: normalized(&json)
       "unknown_type": false,
       "verified": true,
       "light": "green",
+      "provided": false,
       "test": null
     },
     {
@@ -705,6 +717,7 @@ expression: normalized(&json)
       "unknown_type": false,
       "verified": true,
       "light": "green",
+      "provided": false,
       "test": {
         "name": "RelayDriverTest.OpensOnEstop",
         "verdict": "passed",
@@ -761,6 +774,7 @@ expression: normalized(&json)
       "unknown_type": false,
       "verified": false,
       "light": "red",
+      "provided": false,
       "test": {
         "name": "Shutdown.DisablesPwmOnOvertemp",
         "verdict": "failed",
@@ -817,6 +831,7 @@ expression: normalized(&json)
       "unknown_type": false,
       "verified": true,
       "light": "green",
+      "provided": false,
       "test": {
         "name": "TempMonitor.RaisesFlagAbove85C",
         "verdict": "passed",
@@ -865,6 +880,7 @@ expression: normalized(&json)
       "unknown_type": false,
       "verified": true,
       "light": "green",
+      "provided": false,
       "test": null
     }
   ],

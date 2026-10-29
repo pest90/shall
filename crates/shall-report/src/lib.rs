@@ -184,6 +184,8 @@ struct Page<'a> {
     filter_types: Vec<(&'a str, &'a str)>,
     /// Every tag of a requirement, sorted, for the filter.
     filter_tags: Vec<&'a str>,
+    /// Whether an item is provided, not requested, for the filter.
+    any_provided: bool,
     levels: Vec<LevelView<'a>>,
 }
 
@@ -354,6 +356,9 @@ struct ItemView<'a> {
     /// the CSS class.
     light_sign: &'static str,
     light: &'static str,
+    /// Whether an import provides the item but nothing of the project
+    /// requests it.
+    provided: bool,
     duplicate: bool,
     missing: Vec<&'a str>,
     location: String,
@@ -623,6 +628,7 @@ impl<'a> Page<'a> {
             tiles: tiles(&graphs),
             graphs,
             filter_types,
+            any_provided: document.items.iter().any(|item| item.provided),
             filter_tags: document
                 .items
                 .iter()
@@ -792,6 +798,7 @@ fn item_view<'a>(
         },
         light_sign: item.light.sign(),
         light: item.light.as_str(),
+        provided: item.provided,
         duplicate: item.duplicate,
         status: item.status.as_str(),
         coverage,

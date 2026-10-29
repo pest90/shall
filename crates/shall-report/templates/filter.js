@@ -46,6 +46,7 @@
     var coverage = value("coverage");
     var type = value("type");
     var tag = value("tag");
+    var provided = value("provided");
     var words = value("search").toLowerCase().split(/\s+/).filter(Boolean);
     var shown = 0;
     var total = 0;
@@ -56,6 +57,7 @@
         (!coverage || data.coverage === coverage) &&
         (!type || data.type === type) &&
         (!tag || data.tags.split("\n").indexOf(tag) >= 0) &&
+        (!provided || data.provided === provided) &&
         words.every(function (word) {
           return data.search.indexOf(word) >= 0;
         });

@@ -166,6 +166,7 @@ table.params { width: auto; margin-top: 0.25rem; }
 .tile:hover, .tile:focus { outline: 2px solid var(--muted); }
 #overview h3 .note { font-weight: 400; }
 .tile.grey .sign { color: var(--off-fg); }
+.provided { font-size: 0.85rem; color: var(--off-fg); white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -247,7 +248,7 @@ table.params { width: auto; margin-top: 0.25rem; }
 <label>Coverage <select name="coverage"><option value="">all</option><option value="ok">✓ deep covered</option><option value="partial">! covered, gap below</option><option value="missing">✗ not covered</option><option value="rejected">– rejected</option><option value="unknown">? unknown type</option></select></label>
 <label>Status <select name="status"><option value="">all</option><option>draft</option><option>proposed</option><option>approved</option><option>rejected</option></select></label>
 <label>Type <select name="type"><option value="">all</option><option value="sys">L2 – System Requirements</option><option value="swr">L3 – Software Requirements</option><option value="dsn">L3D – Design Decisions</option><option value="vrev">vrev</option></select></label>
-<input type="hidden" name="tag" value=""><button type="reset">Reset</button>
+<input type="hidden" name="tag" value=""><input type="hidden" name="provided" value=""><button type="reset">Reset</button>
 <output id="filter-count" aria-live="polite"></output>
 </form>
 <section id="level-sys">
@@ -257,7 +258,7 @@ table.params { width: auto; margin-top: 0.25rem; }
 <table class="items">
 <thead><tr><th>Coverage</th><th>Verified</th><th>ID</th><th>Title</th><th>Status</th><th>Location</th></tr></thead>
 <tbody>
-<tr class="partial" data-search="sys~motor.thermal-protection-q7m2~1 thermal protection of the motor" data-type="sys" data-status="approved" data-coverage="partial" data-tags="">
+<tr class="partial" data-search="sys~motor.thermal-protection-q7m2~1 thermal protection of the motor" data-type="sys" data-status="approved" data-coverage="partial" data-tags="" data-provided="no">
 <td class="sign"><span title="covered, gap below" aria-hidden="true">!</span><span class="sr-only">covered, gap below</span></td>
 <td class="verified">no</td>
 <td><a href="#sys~motor.thermal-protection-q7m2~1"><code>sys~motor.thermal-protection-q7m2~1</code></a></td>
@@ -265,7 +266,7 @@ table.params { width: auto; margin-top: 0.25rem; }
 <td>approved</td>
 <td><code>reqs&#x2f;system.md:4</code></td>
 </tr>
-<tr class="ok" data-search="sys~motor.emergency-stop-h3x9~1 emergency stop" data-type="sys" data-status="approved" data-coverage="ok" data-tags="">
+<tr class="ok" data-search="sys~motor.emergency-stop-h3x9~1 emergency stop" data-type="sys" data-status="approved" data-coverage="ok" data-tags="" data-provided="no">
 <td class="sign"><span title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span></td>
 <td class="verified">yes</td>
 <td><a href="#sys~motor.emergency-stop-h3x9~1"><code>sys~motor.emergency-stop-h3x9~1</code></a></td>
@@ -284,7 +285,7 @@ table.params { width: auto; margin-top: 0.25rem; }
 <table class="items">
 <thead><tr><th>Coverage</th><th>Verified</th><th>ID</th><th>Title</th><th>Status</th><th>Location</th></tr></thead>
 <tbody>
-<tr class="ok" data-search="swr~motor.overtemp-shutdown-k4f2~2 shut down the motor on overtemperature" data-type="swr" data-status="approved" data-coverage="ok" data-tags="">
+<tr class="ok" data-search="swr~motor.overtemp-shutdown-k4f2~2 shut down the motor on overtemperature" data-type="swr" data-status="approved" data-coverage="ok" data-tags="" data-provided="no">
 <td class="sign"><span title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span></td>
 <td class="verified">no</td>
 <td><a href="#swr~motor.overtemp-shutdown-k4f2~2"><code>swr~motor.overtemp-shutdown-k4f2~2</code></a></td>
@@ -292,7 +293,7 @@ table.params { width: auto; margin-top: 0.25rem; }
 <td>approved</td>
 <td><code>reqs&#x2f;software.md:4</code></td>
 </tr>
-<tr class="missing" data-search="swr~motor.overtemp-warning-p8n5~1 warn before overtemperature" data-type="swr" data-status="proposed" data-coverage="missing" data-tags="">
+<tr class="missing" data-search="swr~motor.overtemp-warning-p8n5~1 warn before overtemperature" data-type="swr" data-status="proposed" data-coverage="missing" data-tags="" data-provided="no">
 <td class="sign"><span title="not covered" aria-hidden="true">✗</span><span class="sr-only">not covered</span> <span class="missing-types">missing: <code>dsn</code></span></td>
 <td class="verified">no</td>
 <td><a href="#swr~motor.overtemp-warning-p8n5~1"><code>swr~motor.overtemp-warning-p8n5~1</code></a></td>
@@ -300,7 +301,7 @@ table.params { width: auto; margin-top: 0.25rem; }
 <td>proposed</td>
 <td><code>reqs&#x2f;software.md:20</code></td>
 </tr>
-<tr class="ok" data-search="swr~motor.estop-relay-c2v6~1 open the motor relay on emergency stop" data-type="swr" data-status="approved" data-coverage="ok" data-tags="">
+<tr class="ok" data-search="swr~motor.estop-relay-c2v6~1 open the motor relay on emergency stop" data-type="swr" data-status="approved" data-coverage="ok" data-tags="" data-provided="no">
 <td class="sign"><span title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span></td>
 <td class="verified">yes</td>
 <td><a href="#swr~motor.estop-relay-c2v6~1"><code>swr~motor.estop-relay-c2v6~1</code></a></td>
@@ -319,7 +320,7 @@ table.params { width: auto; margin-top: 0.25rem; }
 <table class="items">
 <thead><tr><th>Coverage</th><th>Verified</th><th>ID</th><th>Title</th><th>Status</th><th>Location</th></tr></thead>
 <tbody>
-<tr class="ok" data-search="dsn~motor.temp-monitor-r5t1~1 temperature monitoring in the 10 ms task" data-type="dsn" data-status="approved" data-coverage="ok" data-tags="">
+<tr class="ok" data-search="dsn~motor.temp-monitor-r5t1~1 temperature monitoring in the 10 ms task" data-type="dsn" data-status="approved" data-coverage="ok" data-tags="" data-provided="no">
 <td class="sign"><span title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span></td>
 <td class="verified">yes</td>
 <td><a href="#dsn~motor.temp-monitor-r5t1~1"><code>dsn~motor.temp-monitor-r5t1~1</code></a></td>
@@ -327,7 +328,7 @@ table.params { width: auto; margin-top: 0.25rem; }
 <td>approved</td>
 <td><code>reqs&#x2f;design.md:4</code></td>
 </tr>
-<tr class="ok" data-search="dsn~motor.shutdown-signal-w9e4~1 shutdown signal" data-type="dsn" data-status="approved" data-coverage="ok" data-tags="">
+<tr class="ok" data-search="dsn~motor.shutdown-signal-w9e4~1 shutdown signal" data-type="dsn" data-status="approved" data-coverage="ok" data-tags="" data-provided="no">
 <td class="sign"><span title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span></td>
 <td class="verified">no</td>
 <td><a href="#dsn~motor.shutdown-signal-w9e4~1"><code>dsn~motor.shutdown-signal-w9e4~1</code></a></td>
@@ -335,7 +336,7 @@ table.params { width: auto; margin-top: 0.25rem; }
 <td>approved</td>
 <td><code>reqs&#x2f;design.md:17</code></td>
 </tr>
-<tr class="ok" data-search="dsn~motor.relay-driver-b6j3~1 relay driver" data-type="dsn" data-status="approved" data-coverage="ok" data-tags="">
+<tr class="ok" data-search="dsn~motor.relay-driver-b6j3~1 relay driver" data-type="dsn" data-status="approved" data-coverage="ok" data-tags="" data-provided="no">
 <td class="sign"><span title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span></td>
 <td class="verified">yes</td>
 <td><a href="#dsn~motor.relay-driver-b6j3~1"><code>dsn~motor.relay-driver-b6j3~1</code></a></td>
@@ -353,7 +354,7 @@ table.params { width: auto; margin-top: 0.25rem; }
 <table class="items">
 <thead><tr><th>Coverage</th><th>Verified</th><th>ID</th><th>Title</th><th>Status</th><th>Location</th></tr></thead>
 <tbody>
-<tr class="ok" data-search="vrev~motor.relay-driver-review-m3q8~1 review of the relay driver" data-type="vrev" data-status="approved" data-coverage="ok" data-tags="">
+<tr class="ok" data-search="vrev~motor.relay-driver-review-m3q8~1 review of the relay driver" data-type="vrev" data-status="approved" data-coverage="ok" data-tags="" data-provided="no">
 <td class="sign"><span title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span></td>
 <td class="verified">yes</td>
 <td><a href="#vrev~motor.relay-driver-review-m3q8~1"><code>vrev~motor.relay-driver-review-m3q8~1</code></a></td>
@@ -482,7 +483,7 @@ table.params { width: auto; margin-top: 0.25rem; }
 </section>
 <section id="details">
 <h2>Requirements</h2>
-<article id="sys~motor.thermal-protection-q7m2~1" class="detail partial" data-search="sys~motor.thermal-protection-q7m2~1 thermal protection of the motor" data-type="sys" data-status="approved" data-coverage="partial" data-tags="">
+<article id="sys~motor.thermal-protection-q7m2~1" class="detail partial" data-search="sys~motor.thermal-protection-q7m2~1 thermal protection of the motor" data-type="sys" data-status="approved" data-coverage="partial" data-tags="" data-provided="no">
 <h3><span class="sign" title="covered, gap below" aria-hidden="true">!</span><span class="sr-only">covered, gap below</span> <code>sys~motor.thermal-protection-q7m2~1</code> Thermal protection of the motor</h3>
 <dl class="facts">
 <div><dt>Level</dt><dd>L2 – System Requirements</dd></div>
@@ -504,7 +505,7 @@ table.params { width: auto; margin-top: 0.25rem; }
 <li><a href="#swr~motor.overtemp-warning-p8n5~1"><code>swr~motor.overtemp-warning-p8n5~1</code></a> Warn before overtemperature</li>
 </ul>
 </article>
-<article id="sys~motor.emergency-stop-h3x9~1" class="detail ok" data-search="sys~motor.emergency-stop-h3x9~1 emergency stop" data-type="sys" data-status="approved" data-coverage="ok" data-tags="">
+<article id="sys~motor.emergency-stop-h3x9~1" class="detail ok" data-search="sys~motor.emergency-stop-h3x9~1 emergency stop" data-type="sys" data-status="approved" data-coverage="ok" data-tags="" data-provided="no">
 <h3><span class="sign" title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span> <code>sys~motor.emergency-stop-h3x9~1</code> Emergency stop</h3>
 <dl class="facts">
 <div><dt>Level</dt><dd>L2 – System Requirements</dd></div>
@@ -521,7 +522,7 @@ table.params { width: auto; margin-top: 0.25rem; }
 <li><a href="#swr~motor.estop-relay-c2v6~1"><code>swr~motor.estop-relay-c2v6~1</code></a> Open the motor relay on emergency stop</li>
 </ul>
 </article>
-<article id="swr~motor.overtemp-shutdown-k4f2~2" class="detail ok" data-search="swr~motor.overtemp-shutdown-k4f2~2 shut down the motor on overtemperature" data-type="swr" data-status="approved" data-coverage="ok" data-tags="">
+<article id="swr~motor.overtemp-shutdown-k4f2~2" class="detail ok" data-search="swr~motor.overtemp-shutdown-k4f2~2 shut down the motor on overtemperature" data-type="swr" data-status="approved" data-coverage="ok" data-tags="" data-provided="no">
 <h3><span class="sign" title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span> <code>swr~motor.overtemp-shutdown-k4f2~2</code> Shut down the motor on overtemperature</h3>
 <dl class="facts">
 <div><dt>Level</dt><dd>L3 – Software Requirements</dd></div>
@@ -551,7 +552,7 @@ temperature exceeds 85 °C.</p>
 <li><a href="#dsn~motor.temp-monitor-r5t1~1"><code>dsn~motor.temp-monitor-r5t1~1</code></a> at <code>reqs&#x2f;design.md:12</code> <span class="problem">✗ outdated, current revision 2</span></li>
 </ul>
 </article>
-<article id="swr~motor.overtemp-warning-p8n5~1" class="detail missing" data-search="swr~motor.overtemp-warning-p8n5~1 warn before overtemperature" data-type="swr" data-status="proposed" data-coverage="missing" data-tags="">
+<article id="swr~motor.overtemp-warning-p8n5~1" class="detail missing" data-search="swr~motor.overtemp-warning-p8n5~1 warn before overtemperature" data-type="swr" data-status="proposed" data-coverage="missing" data-tags="" data-provided="no">
 <h3><span class="sign" title="not covered" aria-hidden="true">✗</span><span class="sr-only">not covered</span> <code>swr~motor.overtemp-warning-p8n5~1</code> Warn before overtemperature</h3>
 <dl class="facts">
 <div><dt>Level</dt><dd>L3 – Software Requirements</dd></div>
@@ -570,7 +571,7 @@ temperature exceeds 85 °C.</p>
 </ul>
 <p class="problem">✗ Not covered by <code>dsn</code></p>
 </article>
-<article id="swr~motor.estop-relay-c2v6~1" class="detail ok" data-search="swr~motor.estop-relay-c2v6~1 open the motor relay on emergency stop" data-type="swr" data-status="approved" data-coverage="ok" data-tags="">
+<article id="swr~motor.estop-relay-c2v6~1" class="detail ok" data-search="swr~motor.estop-relay-c2v6~1 open the motor relay on emergency stop" data-type="swr" data-status="approved" data-coverage="ok" data-tags="" data-provided="no">
 <h3><span class="sign" title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span> <code>swr~motor.estop-relay-c2v6~1</code> Open the motor relay on emergency stop</h3>
 <dl class="facts">
 <div><dt>Level</dt><dd>L3 – Software Requirements</dd></div>
@@ -592,7 +593,7 @@ stop input becomes active.</p>
 <li><a href="#dsn~motor.relay-driver-b6j3~1"><code>dsn~motor.relay-driver-b6j3~1</code></a> Relay driver</li>
 </ul>
 </article>
-<article id="dsn~motor.temp-monitor-r5t1~1" class="detail ok" data-search="dsn~motor.temp-monitor-r5t1~1 temperature monitoring in the 10 ms task" data-type="dsn" data-status="approved" data-coverage="ok" data-tags="">
+<article id="dsn~motor.temp-monitor-r5t1~1" class="detail ok" data-search="dsn~motor.temp-monitor-r5t1~1 temperature monitoring in the 10 ms task" data-type="dsn" data-status="approved" data-coverage="ok" data-tags="" data-provided="no">
 <h3><span class="sign" title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span> <code>dsn~motor.temp-monitor-r5t1~1</code> Temperature monitoring in the 10 ms task</h3>
 <dl class="facts">
 <div><dt>Level</dt><dd>L3D – Design Decisions</dd></div>
@@ -618,7 +619,7 @@ the overtemperature flag above 85 °C.</p>
 <li><span class="badge ok">✓ passed</span> <code>TempMonitor.RaisesFlagAbove85C</code> <code>tests&#x2f;temp_monitor_test.cpp:5</code></li>
 </ul>
 </article>
-<article id="dsn~motor.shutdown-signal-w9e4~1" class="detail ok" data-search="dsn~motor.shutdown-signal-w9e4~1 shutdown signal" data-type="dsn" data-status="approved" data-coverage="ok" data-tags="">
+<article id="dsn~motor.shutdown-signal-w9e4~1" class="detail ok" data-search="dsn~motor.shutdown-signal-w9e4~1 shutdown signal" data-type="dsn" data-status="approved" data-coverage="ok" data-tags="" data-provided="no">
 <h3><span class="sign" title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span> <code>dsn~motor.shutdown-signal-w9e4~1</code> Shutdown signal</h3>
 <dl class="facts">
 <div><dt>Level</dt><dd>L3D – Design Decisions</dd></div>
@@ -644,7 +645,7 @@ cycle in which the overtemperature flag is raised.</p>
 <li><span class="badge missing">✗ failed</span> <code>Shutdown.DisablesPwmOnOvertemp</code> <code>tests&#x2f;shutdown_test.cpp:5</code></li>
 </ul>
 </article>
-<article id="dsn~motor.relay-driver-b6j3~1" class="detail ok" data-search="dsn~motor.relay-driver-b6j3~1 relay driver" data-type="dsn" data-status="approved" data-coverage="ok" data-tags="">
+<article id="dsn~motor.relay-driver-b6j3~1" class="detail ok" data-search="dsn~motor.relay-driver-b6j3~1 relay driver" data-type="dsn" data-status="approved" data-coverage="ok" data-tags="" data-provided="no">
 <h3><span class="sign" title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span> <code>dsn~motor.relay-driver-b6j3~1</code> Relay driver</h3>
 <dl class="facts">
 <div><dt>Level</dt><dd>L3D – Design Decisions</dd></div>
@@ -674,7 +675,7 @@ interrupt.</p>
 <li><span class="badge ok">✓ passed</span> <code>RelayDriverTest.OpensOnEstop</code> <code>tests&#x2f;relay_driver_test.cpp:10</code></li>
 </ul>
 </article>
-<article id="vrev~motor.relay-driver-review-m3q8~1" class="detail ok" data-search="vrev~motor.relay-driver-review-m3q8~1 review of the relay driver" data-type="vrev" data-status="approved" data-coverage="ok" data-tags="">
+<article id="vrev~motor.relay-driver-review-m3q8~1" class="detail ok" data-search="vrev~motor.relay-driver-review-m3q8~1 review of the relay driver" data-type="vrev" data-status="approved" data-coverage="ok" data-tags="" data-provided="no">
 <h3><span class="sign" title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span> <code>vrev~motor.relay-driver-review-m3q8~1</code> Review of the relay driver</h3>
 <dl class="facts">
 <div><dt>Level</dt><dd>vrev</dd></div>
@@ -746,6 +747,7 @@ relay opens within the interrupt, no task is involved.</p>
     var coverage = value("coverage");
     var type = value("type");
     var tag = value("tag");
+    var provided = value("provided");
     var words = value("search").toLowerCase().split(/\s+/).filter(Boolean);
     var shown = 0;
     var total = 0;
@@ -756,6 +758,7 @@ relay opens within the interrupt, no task is involved.</p>
         (!coverage || data.coverage === coverage) &&
         (!type || data.type === type) &&
         (!tag || data.tags.split("\n").indexOf(tag) >= 0) &&
+        (!provided || data.provided === provided) &&
         words.every(function (word) {
           return data.search.indexOf(word) >= 0;
         });

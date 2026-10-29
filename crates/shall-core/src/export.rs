@@ -167,8 +167,12 @@ pub struct ItemEntry<'a> {
     /// Whether everything below the item is implemented and successfully
     /// validated, see [`verify`](mod@crate::verify).
     pub verified: bool,
-    /// The light of the item and everything below it, see [`Light`].
+    /// The light of the item and everything below it, see [`Light`]; grey
+    /// for a provided item.
     pub light: Light,
+    /// Whether the item is provided by an import, but no item of the
+    /// project requests it, see [`verify`](mod@crate::verify).
+    pub provided: bool,
     /// The test of a verification tag; none for other items and without
     /// `junit` sources.
     pub test: Option<TestEntry<'a>>,
@@ -337,12 +341,18 @@ impl<'a> Document<'a> {
     pub fn new(input: Input<'a>) -> Self {
         let joined = verify::join(input.items, input.trace, input.tests.map(|(_, e)| e));
         let verified = verify::verified(&joined, input.config);
-        let lights = verify::lights(&joined, &input.trace.links, input.config);
+        let provided = verify::provided(&joined);
+        let lights = verify::lights(&joined, &input.trace.links, &provided, input.config);
         let items = joined
             .iter()
             .zip(verified)
             .zip(lights)
-            .map(|((joined, verified), light)| entry(joined, verified, light))
+            .zip(provided)
+            .map(|(((joined, verified), light), provided)| {
+                let mut entry = entry(joined, verified, light);
+                entry.provided = provided;
+                entry
+            })
             .collect();
         Self {
             schema_version: SCHEMA_VERSION,
@@ -433,6 +443,7 @@ fn entry<'a>(joined: &Joined<'a>, verified: bool, light: Light) -> ItemEntry<'a>
         unknown_type: traced.unknown_type,
         verified,
         light,
+        provided: false,
         test: run.map(|run| TestEntry {
             name: run.test.as_deref(),
             verdict: run.verdict,

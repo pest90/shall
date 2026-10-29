@@ -27,6 +27,12 @@
 //! an open gap or defect (red) from missing evidence (yellow); a green
 //! item is verified, but a verified item with an invalid link of its own
 //! is red, and one in draft yellow.
+//!
+//! An item that an import provides, but that the project does not
+//! request, is *provided, not requested*: information for a project
+//! report, grey, and nothing in the lights above it. The project
+//! requests its own items, what they cover and the items above that, and
+//! everything below its own items and below what they cover directly.
 
 use std::collections::{HashMap, HashSet, VecDeque};
 
@@ -89,7 +95,8 @@ pub fn verify(
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Light {
-    /// Rejected; not counted.
+    /// Rejected, and not counted; or provided by an import but requested
+    /// by nothing of the project, which [`crate::export`] makes grey.
     Grey,
     /// Complete: covered all the way down, every test passed, every review
     /// approved, nothing in draft.
@@ -157,7 +164,14 @@ fn own_light(entry: &Joined<'_>, broken: bool, config: &Config) -> Light {
 
 /// The light of every joined item's chain, in their order; `links` are
 /// those of the trace.
-pub(crate) fn lights(joined: &[Joined<'_>], links: &[Link], config: &Config) -> Vec<Light> {
+///
+/// A `provided` item is grey and counts as nothing in the chains above it.
+pub(crate) fn lights(
+    joined: &[Joined<'_>],
+    links: &[Link],
+    provided: &[bool],
+    config: &Config,
+) -> Vec<Light> {
     let broken: HashSet<(&Location, &ItemId)> = links
         .iter()
         .filter(|link| {
@@ -169,6 +183,9 @@ pub(crate) fn lights(joined: &[Joined<'_>], links: &[Link], config: &Config) -> 
         .map(|link| (&link.source_location, &link.source))
         .collect();
     let own = |index: usize| {
+        if provided.get(index).copied().unwrap_or(false) {
+            return Light::Grey;
+        }
         let entry = &joined[index];
         let broken = broken.contains(&(&entry.item.location, &entry.item.id));
         own_light(entry, broken, config)
@@ -225,6 +242,58 @@ pub(crate) fn lights(joined: &[Joined<'_>], links: &[Link], config: &Config) -> 
             _ => unreachable!("every item is visited"),
         })
         .collect()
+}
+
+/// For every joined item, whether it is *provided, not requested*: it
+/// comes from an import, and the project does not request it. The
+/// project requests its own items, what they cover and the items above
+/// that (e.g. a platform capability its own code implements), and
+/// everything below its own items and below what they cover directly, by
+/// `Covers:` or `Satisfied-by:` (e.g. the capabilities its customer
+/// requirements are satisfied by, with their design, code and tests).
+/// The other items below an item above are not requested by that: they
+/// stay provided, e.g. the sibling capabilities under a platform's top
+/// item. Provided items, e.g. platform capabilities no customer
+/// requirement asks for, are information.
+pub(crate) fn provided(joined: &[Joined<'_>]) -> Vec<bool> {
+    let sources = sources(joined);
+    let mut targets: Vec<Vec<usize>> = vec![Vec::new(); joined.len()];
+    for (target, sources) in sources.iter().enumerate() {
+        for &source in sources {
+            targets[source].push(target);
+        }
+    }
+    let own: Vec<usize> = (0..joined.len())
+        .filter(|&index| joined[index].item.import.is_none())
+        .collect();
+    let mut requested = vec![false; joined.len()];
+    // Upwards from the own items: what they cover, and what that covers.
+    let mut stack = own.clone();
+    while let Some(node) = stack.pop() {
+        for &target in &targets[node] {
+            if !requested[target] {
+                requested[target] = true;
+                stack.push(target);
+            }
+        }
+    }
+    // Downwards from the own items and what they cover directly.
+    let mut stack: Vec<usize> = own
+        .iter()
+        .flat_map(|&node| std::iter::once(node).chain(targets[node].iter().copied()))
+        .collect();
+    for &node in &stack {
+        requested[node] = true;
+    }
+    while let Some(node) = stack.pop() {
+        for &source in &sources[node] {
+            if !requested[source] {
+                requested[source] = true;
+                stack.push(source);
+            }
+        }
+    }
+    requested.into_iter().map(|requested| !requested).collect()
 }
 
 /// For every joined item, the positions of the items covering it.
@@ -767,7 +836,7 @@ Satisfied-by:
         let joined = join(&items, &trace, with_junit.then_some(&evaluation));
         joined
             .iter()
-            .zip(lights(&joined, &trace.links, &config))
+            .zip(lights(&joined, &trace.links, &[], &config))
             .filter(|(entry, _)| entry.item.location.path() == "reqs/a.md")
             .map(|(entry, light)| format!("{} {}", entry.item.id, light.as_str()))
             .collect()
@@ -857,6 +926,107 @@ Covers:
         assert_eq!(
             [Light::Grey, Light::Green].iter().max(),
             Some(&Light::Green)
+        );
+    }
+
+    #[test]
+    fn imports_are_requested_through_the_own_items() {
+        let config = Config::parse(
+            "[[level]]\ntype = \"hlr\"\nname = \"H\"\n\n\
+             [[level]]\ntype = \"cap\"\nname = \"C\"\nneeds = [\"impl\"]\n",
+        )
+        .unwrap();
+        let mut items = markdown::parse(
+            Path::new("a/reqs.md"),
+            "`hlr~h~1`\nSatisfied-by:\n- cap~asked~1\n",
+        )
+        .unwrap()
+        .items;
+        // The own code implements a capability nobody asks for.
+        items.extend(
+            tags::scan(Path::new("a/log.c"), "// [impl->cap~log~1]\n")
+                .unwrap()
+                .items,
+        );
+        let mut platform = markdown::parse(
+            Path::new("p/caps.md"),
+            "`cap~asked~1`\n\n`cap~log~1`\n\n`cap~unused~1`\n",
+        )
+        .unwrap()
+        .items;
+        platform.extend(
+            tags::scan(
+                Path::new("p/caps.c"),
+                "// [impl->cap~asked~1]\n// [impl->cap~log~1]\n// [impl->cap~unused~1]\n",
+            )
+            .unwrap()
+            .items,
+        );
+        for item in &mut platform {
+            item.import = Some("plat".to_owned());
+        }
+        items.extend(platform);
+        let trace = trace::trace(&items, &config);
+        let joined = join(&items, &trace, None);
+        let lines: Vec<String> = joined
+            .iter()
+            .zip(provided(&joined))
+            .filter(|(_, provided)| *provided)
+            .map(|(entry, _)| entry.item.location.to_string())
+            .collect();
+        // Only the unused capability and its code are provided.
+        assert_eq!(lines, ["p/caps.c:3", "p/caps.md:5"]);
+    }
+
+    #[test]
+    fn items_above_are_requested_but_not_their_other_children() {
+        let config = Config::parse(
+            "[[level]]\ntype = \"top\"\nname = \"T\"\nneeds = [\"cap\"]\n\n\
+             [[level]]\ntype = \"cap\"\nname = \"C\"\nneeds = [\"impl\"]\n",
+        )
+        .unwrap();
+        let mut items = tags::scan(Path::new("a/log.c"), "// [impl->cap~log~1]\n")
+            .unwrap()
+            .items;
+        let mut platform = markdown::parse(
+            Path::new("p/caps.md"),
+            "`top~t~1`\n\n`cap~log~1`\nCovers:\n- top~t~1\n\n`cap~unused~1`\nCovers:\n- top~t~1\n",
+        )
+        .unwrap()
+        .items;
+        platform.extend(
+            tags::scan(Path::new("p/caps.c"), "// [impl->cap~unused~1]\n")
+                .unwrap()
+                .items,
+        );
+        for item in &mut platform {
+            item.import = Some("plat".to_owned());
+        }
+        items.extend(platform);
+        let trace = trace::trace(&items, &config);
+        let joined = join(&items, &trace, None);
+        let provided = provided(&joined);
+        let names: Vec<String> = joined
+            .iter()
+            .zip(&provided)
+            .filter(|(_, provided)| **provided)
+            .map(|(entry, _)| entry.item.location.to_string())
+            .collect();
+        // The sibling of the implemented capability stays provided.
+        assert_eq!(names, ["p/caps.c:1", "p/caps.md:7"]);
+        // And it does not count in the light of the top item.
+        let light: Vec<(String, Light)> = joined
+            .iter()
+            .zip(lights(&joined, &trace.links, &provided, &config))
+            .map(|(entry, light)| (entry.item.id.to_string(), light))
+            .collect();
+        assert!(
+            light.contains(&("top~t~1".to_owned(), Light::Green)),
+            "{light:?}"
+        );
+        assert!(
+            light.contains(&("cap~unused~1".to_owned(), Light::Grey)),
+            "{light:?}"
         );
     }
 }
