@@ -15,13 +15,17 @@ requirements, outdated links, orphaned code and failing tests.
   output as static files, no server.
 
 > **Status:** early development, not released yet. Today `shall` traces
-> requirements, code and test tags and gtest or `cargo nextest` results
-> and prints the defects (`shall check`), writes a first HTML report with
-> coverage and verified status per level and the traced project as `trace.json`
-> (`shall report`), also per product variant, checks workspaces whose
-> projects import a shared platform, and creates new items with
-> generated IDs (`shall new`). The full HTML report and the check modes for CI are
-> being built; see [the plan](docs/konzept.md) (German).
+> requirements, code and test tags and gtest or `cargo nextest` results,
+> also across a workspace of projects that import a shared platform and
+> per product variant; prints the defects and fails by check mode
+> (`shall check`, also as CI annotations or SARIF); writes an HTML report
+> with coverage, verified status, a traffic light per chain, requirement
+> details, a tree, the Green Graph and a defect list, plus `trace.json`,
+> a badge and diagrams (`shall report`); creates new items with
+> generated IDs (`shall new`); and exports the requirements for a
+> cross-check with OpenFastTrace (`shall export --oft`). The PDF report,
+> plugins and the build check are being built; see
+> [the plan](docs/konzept.md) (German).
 
 ## Example
 

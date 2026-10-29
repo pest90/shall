@@ -1056,6 +1056,44 @@ Each item has:
   (several results can share a location in a JUnit file written on one
   line); otherwise `null`.
 
+### `shall export`
+
+```text
+shall export [PATH] --oft [--out <DIR>]
+```
+
+Writes every requirement file of the project and its imports in the
+syntax of [OpenFastTrace](https://github.com/itsallcode/openfasttrace)
+into the output directory, by default `oft` in the current directory,
+at its path relative to the project or workspace root, so that OFT can
+trace the same project as a cross-check. Every item keeps its ID,
+title, description, rationale, comment, status, `Covers:`, `Depends:`
+and tags, and the extensions of `shall` become what OFT knows:
+
+- `Needs:` lists every type the item needs, also those its level needs
+  by default, since OFT has no levels;
+- a valid `Satisfied-by:` becomes a `Covers:` in its target, back to
+  the item that names it;
+- `Source:`, `Features:` and `Params:` become a list in `Comment:`;
+- `Status:` follows the ID line, the only place where OFT reads it;
+- rejected items keep their links but need nothing.
+
+Text between items, such as headings without an ID, is left out. Inside
+an item, OFT ends the item at any heading and reads IDs and keywords
+also in code blocks, so every line of a description, rationale or
+comment that starts like a heading, an ID, a keyword (`Word:`) or a
+code fence is indented by one space, which Markdown shows the same.
+Tags with spaces or characters other than letters, digits and `_` may
+not be accepted by OFT. Code and test files need no export, since their
+tags are written in OFT's syntax; the names OFT generates for tags
+differ from those of `shall`. stderr shows the written files and the
+summary of `shall check`.
+
+Every exported file starts with
+`<!-- Exported by shall for OpenFastTrace. -->`; when `shall` reads a
+project, it skips such files with a warning, so an export inside the
+project, such as the default `oft`, is not read back.
+
 ### Exit codes
 
 All commands exit with 2 if they cannot run, e.g. without a

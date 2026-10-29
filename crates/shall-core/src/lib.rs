@@ -13,6 +13,7 @@ pub mod id;
 pub mod item;
 pub mod junit;
 pub mod markdown;
+pub mod oft;
 pub mod results;
 pub mod tags;
 pub mod trace;

@@ -1,6 +1,7 @@
 //! Command line interface of `shall`.
 
 mod check;
+mod export;
 mod new;
 mod output;
 mod project;
@@ -87,6 +88,23 @@ enum Command {
         #[arg(long, value_name = "INFO", value_parser = parse_build_info)]
         build_info: Option<BuildInfo>,
     },
+    /// Export the requirements for other tools.
+    ///
+    /// With `--oft`, writes every requirement file of the project and its
+    /// imports in OpenFastTrace syntax into the output directory, for a
+    /// cross-check with OFT.
+    Export {
+        /// A directory in the project.
+        #[arg(default_value = ".")]
+        path: PathBuf,
+        /// Write OpenFastTrace Markdown; the only format so far.
+        #[arg(long, required = true)]
+        oft: bool,
+        /// Output directory, created if missing; relative to the current
+        /// directory.
+        #[arg(long, default_value = "oft")]
+        out: PathBuf,
+    },
     /// Create a new item with a generated ID.
     ///
     /// Prints the ID. With `--file`, appends an item skeleton to the file
@@ -151,6 +169,9 @@ fn run(command: Command) -> anyhow::Result<ExitCode> {
             variant,
             workspace,
         }),
+        Command::Export { path, oft: _, out } => {
+            export::run(&path, &out).map(|()| ExitCode::SUCCESS)
+        }
         Command::Report {
             path,
             out,

@@ -1,0 +1,31 @@
+---
+source: crates/shall-cli/tests/report.rs
+expression: "fs::read_to_string(target.join(\"reqs/system.md\")).unwrap()"
+---
+<!-- Exported by shall for OpenFastTrace. -->
+
+## Thermal protection of the motor
+`sys~motor.thermal-protection-q7m2~1`
+Status: approved
+
+The drive protects the motor winding against overheating.
+
+Rationale:
+Overheating destroys the winding insulation.
+
+Comment:
+- Source: Customer specification ch. 4.2
+
+Needs: swr
+
+## Emergency stop
+`sys~motor.emergency-stop-h3x9~1`
+Status: approved
+
+The drive stops the motor when the emergency stop input is active.
+
+Comment:
+- Source: Customer specification ch. 5.1
+- Features: estop
+
+Needs: swr

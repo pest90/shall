@@ -799,6 +799,13 @@ fn read_member(root: &Path, prefix: String) -> anyhow::Result<Member> {
     let mut items: Vec<Item> = Vec::new();
     for file in &requirement_files {
         if let Some(text) = read(root, file, &mut diagnostics)? {
+            if text.starts_with(shall_core::oft::MARKER) {
+                diagnostics.push(Diagnostic::warning(
+                    location_of(root, &root.join(file)),
+                    "written by shall export --oft; skipped",
+                ));
+                continue;
+            }
             let parsed = markdown::parse(Path::new(file), &text)?;
             items.extend(parsed.items);
             diagnostics.extend(parsed.diagnostics);

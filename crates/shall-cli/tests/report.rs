@@ -279,3 +279,51 @@ fn links_locations_to_the_code_at_the_commit() {
         stderr(&output)
     );
 }
+
+#[test]
+fn exports_the_requirements_for_openfasttrace() {
+    let out = tempfile::tempdir().unwrap();
+    let target = out.path().join("oft");
+    let output = shall(
+        &fixture(),
+        &["export", "--oft", "--out", target.to_str().unwrap()],
+    );
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    for file in [
+        "reqs/system.md",
+        "reqs/software.md",
+        "reqs/design.md",
+        "verification/relay-driver-review.md",
+    ] {
+        assert!(target.join(file).is_file(), "{file}");
+    }
+    insta::assert_snapshot!(
+        "oft_system_md",
+        fs::read_to_string(target.join("reqs/system.md")).unwrap()
+    );
+    let output = shall(&fixture(), &["export"]);
+    assert_eq!(output.status.code(), Some(2));
+}
+
+#[test]
+fn an_export_inside_the_project_is_not_read_back() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("shall.toml"), "").unwrap();
+    fs::create_dir_all(dir.path().join("reqs")).unwrap();
+    fs::write(
+        dir.path().join("reqs/a.md"),
+        "# A\n`req~a~1`\n\nText.\n\n### Details\n\nMore.\n",
+    )
+    .unwrap();
+    // The default output directory `oft` is inside the project.
+    let output = shall(dir.path(), &["export", "--oft"]);
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    let exported = fs::read_to_string(dir.path().join("oft/reqs/a.md")).unwrap();
+    // OFT would end the item at the heading.
+    assert!(exported.contains("\n ### Details\n"), "{exported}");
+    let output = shall(dir.path(), &["check"]);
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        "oft/reqs/a.md:1: warning: written by shall export --oft; skipped\n"
+    );
+}
