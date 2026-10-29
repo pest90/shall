@@ -10,8 +10,12 @@
 </style>
 </head>
 <body>
+{% macro loc(text, url) %}{% if url %}<a href="{{ url }}"><code>{{ text }}</code></a>{% else %}<code>{{ text }}</code>{% endif %}{% endmacro %}
 <header>
 <h1>Traceability report</h1>
+{% if build %}
+<p class="build">{% if build.sha %}Commit <code>{{ build.sha }}</code>{% endif %}{% if build.date %}{% if build.sha %}, {% endif %}{{ build.date }}{% endif %}{% if build.pipeline %}{% if build.sha or build.date %}, {% endif %}pipeline {{ build.pipeline }}{% endif %}</p>
+{% endif %}
 {% if variant %}
 <p class="variant">Variant <strong>{{ variant.name }}</strong>: {% for feature in variant.features %}<code>{{ feature }}</code>{% if not loop.last %}, {% endif %}{% else %}no features{% endfor %}</p>
 {% endif %}
@@ -100,7 +104,7 @@
 <td><a href="#{{ item.anchor }}"><code>{{ item.id }}</code></a>{% if item.duplicate %} <span class="duplicate">✗ duplicate ID</span>{% endif %}</td>
 <td>{{ item.title }}</td>
 <td>{{ item.status }}</td>
-<td><code>{{ item.location }}</code></td>
+<td>{{ loc(item.location, item.location_url) }}</td>
 </tr>
 {% endfor %}
 </tbody>
@@ -111,7 +115,7 @@
 {% endif %}
 </section>
 {% endfor %}
-{% macro node(entry) %}<span class="sign {{ entry.class }}" title="{{ entry.label }}" aria-hidden="true">{{ entry.sign }}</span><span class="sr-only">{{ entry.label }}</span> {% if entry.anchor %}<a href="#{{ entry.anchor }}"><code>{{ entry.text }}</code></a>{% else %}<code>{{ entry.text }}</code>{% endif %}{% if entry.title %} {{ entry.title }}{% endif %}{% if entry.location %} <code>{{ entry.location }}</code>{% endif %}{% if entry.repeated %} <span class="note">(shown above)</span>{% endif %}{% endmacro %}
+{% macro node(entry) %}<span class="sign {{ entry.class }}" title="{{ entry.label }}" aria-hidden="true">{{ entry.sign }}</span><span class="sr-only">{{ entry.label }}</span> {% if entry.anchor %}<a href="#{{ entry.anchor }}"><code>{{ entry.text }}</code></a>{% else %}<code>{{ entry.text }}</code>{% endif %}{% if entry.title %} {{ entry.title }}{% endif %}{% if entry.location %} {{ loc(entry.location, entry.url) }}{% endif %}{% if entry.repeated %} <span class="note">(shown above)</span>{% endif %}{% endmacro %}
 {% if tree %}
 <section id="tree">
 <h2>Tree</h2>
@@ -141,7 +145,7 @@
 {% for defect in defects %}
 <tr class="{{ defect.class }}">
 <td class="sign"><span aria-hidden="true">{{ defect.sign }}</span> {{ defect.severity }}</td>
-<td>{% if defect.anchor %}<a href="#{{ defect.anchor }}"><code>{{ defect.location }}</code></a>{% else %}<code>{{ defect.location }}</code>{% endif %}</td>
+<td>{% if defect.anchor %}<a href="#{{ defect.anchor }}"><code>{{ defect.location }}</code></a>{% else %}{{ loc(defect.location, defect.url) }}{% endif %}</td>
 <td>{{ defect.message }}</td>
 </tr>
 {% endfor %}
@@ -163,7 +167,7 @@
 <div><dt>Level</dt><dd>{{ level.name }}</dd></div>
 <div><dt>Status</dt><dd>{{ item.status }}</dd></div>
 <div><dt>Verified</dt><dd>{{ item.verified }}</dd></div>
-<div><dt>Location</dt><dd><code>{{ item.location }}</code></dd></div>
+<div><dt>Location</dt><dd>{{ loc(item.location, item.location_url) }}</dd></div>
 {% if detail.import %}<div><dt>Import</dt><dd><code>{{ detail.import }}</code></dd></div>{% endif %}
 {% if detail.source %}<div><dt>Source</dt><dd>{{ detail.source }}</dd></div>{% endif %}
 {% if detail.tags %}<div><dt>Tags</dt><dd>{% for tag in detail.tags %}<code>{{ tag }}</code>{% if not loop.last %}, {% endif %}{% endfor %}</dd></div>{% endif %}
@@ -237,7 +241,7 @@
 <h4>Invalid links to this item</h4>
 <ul class="links">
 {% for link in detail.invalid_incoming %}
-<li>{% if link.anchor %}<a href="#{{ link.anchor }}"><code>{{ link.source }}</code></a>{% else %}<code>{{ link.source }}</code>{% endif %} at <code>{{ link.location }}</code> <span class="problem">✗ {{ link.problem }}</span></li>
+<li>{% if link.anchor %}<a href="#{{ link.anchor }}"><code>{{ link.source }}</code></a>{% else %}<code>{{ link.source }}</code>{% endif %} at {{ loc(link.location, link.url) }} <span class="problem">✗ {{ link.problem }}</span></li>
 {% endfor %}
 </ul>
 {% endif %}
@@ -248,7 +252,7 @@
 <h4>Implementation</h4>
 <ul class="links">
 {% for tag in detail.implementations %}
-<li><code>{{ tag.location }}</code> <code>{{ tag.text }}</code></li>
+<li>{{ loc(tag.location, tag.url) }} <code>{{ tag.text }}</code></li>
 {% endfor %}
 </ul>
 {% endif %}
@@ -256,7 +260,7 @@
 <h4>Tests</h4>
 <ul class="links">
 {% for test in detail.tests %}
-<li><span class="badge {{ test.class }}">{{ test.sign }} {{ test.verdict }}</span> {% if test.name %}<code>{{ test.name }}</code> {% endif %}<code>{{ test.location }}</code></li>
+<li><span class="badge {{ test.class }}">{{ test.sign }} {{ test.verdict }}</span> {% if test.name %}<code>{{ test.name }}</code> {% endif %}{{ loc(test.location, test.url) }}</li>
 {% endfor %}
 </ul>
 {% endif %}

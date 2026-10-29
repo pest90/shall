@@ -9,6 +9,8 @@ expression: normalized(&json)
     "version": "[version]"
   },
   "variant": null,
+  "build": null,
+  "code_url": null,
   "levels": [
     {
       "type": "sys",

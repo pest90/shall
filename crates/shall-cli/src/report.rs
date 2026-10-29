@@ -11,7 +11,7 @@ use std::process::ExitCode;
 
 use anyhow::{Context, bail};
 use shall_core::config;
-use shall_core::export::{Document, Input};
+use shall_core::export::{BuildInfo, Document, Input};
 
 use crate::check::{self, Project};
 
@@ -21,6 +21,7 @@ pub struct ReportArgs {
     pub out: PathBuf,
     pub variant: Option<String>,
     pub all_variants: bool,
+    pub build_info: Option<BuildInfo>,
 }
 
 /// File name of the exported graph in the output directory.
@@ -35,7 +36,7 @@ const INDEX_HTML: &str = "index.html";
 pub fn run(args: &ReportArgs) -> anyhow::Result<ExitCode> {
     if !args.all_variants {
         let project = check::analyze(&args.path, args.variant.as_deref())?;
-        write(&args.out, &document(&project))?;
+        write(&args.out, &document(&project, args.build_info.as_ref()))?;
         eprintln!("{}", project.summary());
         return Ok(ExitCode::SUCCESS);
     }
@@ -49,7 +50,10 @@ pub fn run(args: &ReportArgs) -> anyhow::Result<ExitCode> {
         .keys()
         .map(|name| read.trace(Some(name)))
         .collect::<anyhow::Result<Vec<Project>>>()?;
-    let documents: Vec<Document> = projects.iter().map(document).collect();
+    let documents: Vec<Document> = projects
+        .iter()
+        .map(|project| document(project, args.build_info.as_ref()))
+        .collect();
     for (project, document) in projects.iter().zip(&documents) {
         let name = project.variant.as_deref().expect("a variant is traced");
         write(&args.out.join(name), document)?;
@@ -63,7 +67,7 @@ pub fn run(args: &ReportArgs) -> anyhow::Result<ExitCode> {
     Ok(ExitCode::SUCCESS)
 }
 
-fn document(project: &Project) -> Document<'_> {
+fn document<'a>(project: &'a Project, build: Option<&'a BuildInfo>) -> Document<'a> {
     Document::new(Input {
         config: &project.config,
         items: &project.items,
@@ -77,6 +81,7 @@ fn document(project: &Project) -> Document<'_> {
             let variant = &project.config.variants[name];
             (name, variant)
         }),
+        build,
     })
 }
 

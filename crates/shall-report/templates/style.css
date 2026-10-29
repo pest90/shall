@@ -115,3 +115,4 @@ table.params { width: auto; margin-top: 0.25rem; }
 .filter output { font-size: 0.9rem; color: var(--muted); }
 [hidden] { display: none !important; }
 @media print { .filter { display: none !important; } }
+.build { margin: 0.25rem 0 0; color: var(--muted); }

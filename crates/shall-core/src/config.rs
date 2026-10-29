@@ -41,7 +41,24 @@ pub struct Config {
     /// `shall.toml` with it describes a workspace, not a project.
     #[serde(default)]
     pub workspace: Option<Workspace>,
+    /// Settings of the report, from the `[report]` table.
+    #[serde(default)]
+    pub report: Report,
 }
+
+/// The `[report]` table.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
+pub struct Report {
+    /// Address of a line of code at a commit, with the placeholders
+    /// `{sha}`, `{path}` and `{line}`, e.g.
+    /// `https://git.example.org/team/project/src/commit/{sha}/{path}#L{line}`.
+    /// Locations in the report link there when the commit is known.
+    #[serde(default)]
+    pub code_url: Option<String>,
+}
+
+/// The placeholders of [`Report::code_url`].
+pub const CODE_URL_PLACEHOLDERS: [&str; 3] = ["sha", "path", "line"];
 
 /// An `[[import]]`: another project of the repository whose items, levels
 /// and test results become part of this project's trace.
@@ -273,17 +290,21 @@ impl Config {
                 )));
             }
         }
+        if let Some(url) = &config.report.code_url {
+            check_code_url(url)?;
+        }
         if config.workspace.is_some()
             && (!config.levels.is_empty()
                 || !config.imports.is_empty()
                 || !config.variants.is_empty()
                 || config.sources != Sources::default()
                 || config.verification != Verification::default()
-                || config.satisfied_by != SatisfiedBy::default())
+                || config.satisfied_by != SatisfiedBy::default()
+                || config.report != Report::default())
         {
             return Err(ConfigError(
                 "a [workspace] is no project: move [[level]], [[import]], [variant.*], \
-                 [sources], [verification] and [satisfied_by] into a member"
+                 [sources], [verification], [satisfied_by] and [report] into a member"
                     .to_owned(),
             ));
         }
@@ -400,6 +421,34 @@ impl Config {
     pub fn has_parents(&self, typ: &ItemType) -> bool {
         self.levels.iter().any(|level| level.needs.contains(typ))
     }
+}
+
+/// A `code_url` must be an `http` or `https` address whose placeholders
+/// are all known.
+fn check_code_url(url: &str) -> Result<(), ConfigError> {
+    if !(url.starts_with("https://") || url.starts_with("http://")) {
+        return Err(ConfigError(format!(
+            "[report] code_url '{url}' must start with https:// or http://"
+        )));
+    }
+    let mut rest = url;
+    while let Some(open) = rest.find('{') {
+        let after = &rest[open + 1..];
+        let Some(close) = after.find('}') else {
+            return Err(ConfigError(format!(
+                "[report] code_url '{url}' has an unclosed '{{'"
+            )));
+        };
+        let name = &after[..close];
+        if !CODE_URL_PLACEHOLDERS.contains(&name) {
+            return Err(ConfigError(format!(
+                "[report] code_url '{url}' has the unknown placeholder '{{{name}}}'; \
+                 known are {{sha}}, {{path}} and {{line}}"
+            )));
+        }
+        rest = &after[close + 1..];
+    }
+    Ok(())
 }
 
 fn type_names(types: &[ItemType]) -> Vec<&str> {
@@ -608,6 +657,25 @@ junit = ["build/*.xml"]
             "invalid shall.toml: level 'swr' of import 'plat' needs [\"impl\"], but [\"dsn\"] \
              where it is defined first"
         );
+    }
+
+    #[test]
+    fn reads_and_checks_the_code_url() {
+        let config = Config::parse(
+            "[report]\ncode_url = \"https://git.example.org/p/src/commit/{sha}/{path}#L{line}\"\n",
+        )
+        .unwrap();
+        assert!(config.report.code_url.unwrap().contains("{sha}"));
+        for (url, message) in [
+            ("ftp://x/{path}", "must start with https://"),
+            ("https://x/{sha}/{file}", "unknown placeholder '{file}'"),
+            ("https://x/{sha", "unclosed '{'"),
+        ] {
+            let error = Config::parse(&format!("[report]\ncode_url = \"{url}\"\n"))
+                .unwrap_err()
+                .to_string();
+            assert!(error.contains(message), "{error}");
+        }
     }
 
     #[test]

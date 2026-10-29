@@ -815,7 +815,8 @@ site/
   with: { name: trace-report, path: site/ }
 ```
 
-- [ ] **5.7 Ausgabeordner und `--build-info` (S)** – ergänzt M5.
+- [x] **5.7 Ausgabeordner und `--build-info` (S)** – ergänzt M5.
+  - Umsetzung (`export::BuildInfo`, `[report] code_url`): `--build-info` nimmt `sha=…,date=…,pipeline=…` (jeder Teil optional) oder nur den Commit; der Commit ist auf Buchstaben, Ziffern, `.`, `_`, `-` beschränkt, weil er in URLs landet. `trace.json` bekommt `build` und `code_url`, der Report zeigt Commit, Datum und Pipeline oben. `code_url` mit `{sha}`, `{path}`, `{line}` (unbekannte Platzhalter und andere Schemata als http(s) sind Konfigurationsfehler) verlinkt jede Fundstelle im Report – Tabellen, Details, Baum, Defekte ohne Requirement-Anker; braucht die Adresse `{sha}` und fehlt der Commit, bleibt es bei `pfad:zeile`. `{path}` ist relativ zur Projekt- bzw. Workspace-Wurzel und prozentkodiert. Weil `shall` weder Commit noch Uhrzeit selbst liest, bleibt die Ausgabe ohne `--build-info` reproduzierbar. Der Ausgabeordner bleibt `--out` und wird weiter nicht von den Projektdateien ausgenommen (das Handbuch rät zu `.gitignore`); bei `--all-variants` tragen die Reports der Varianten die Build-Info, die Übersicht nicht.
 - [ ] **5.8 `defects.txt` und `junit.xml` (S)** – ergänzt M5.
 
 ## CI-Integration, Qualitätsregeln, offene Punkte (M7)

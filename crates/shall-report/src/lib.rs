@@ -54,7 +54,7 @@ use minijinja::Environment;
 use minijinja::syntax::SyntaxConfig;
 use minijinja::value::{Serde, Value};
 use serde::Serialize;
-use shall_core::export::{Document, ItemEntry};
+use shall_core::export::{BuildInfo, Document, ItemEntry};
 use shall_core::item::{Origin, Reference};
 use shall_core::results::Verdict;
 use shall_core::trace::{ItemRef, Link, LinkKind, LinkStatus};
@@ -157,6 +157,8 @@ struct VariantView<'a> {
 struct Page<'a> {
     generator: String,
     variant: Option<VariantView<'a>>,
+    /// Where the traced files come from.
+    build: Option<&'a BuildInfo>,
     summary: Summary,
     /// Every defect, errors first, each group in the order of the
     /// document.
@@ -188,6 +190,8 @@ struct DefectView<'a> {
     sign: &'static str,
     severity: &'static str,
     location: String,
+    /// Address of the location in the code at the commit, if known.
+    url: Option<String>,
     message: &'a str,
     /// Fragment of the requirement the defect is in: the one whose lines
     /// in the same file include the defect's line.
@@ -213,6 +217,8 @@ struct TreeEntry<'a> {
     title: &'a str,
     /// Where a tag is.
     location: Option<String>,
+    /// Address of the tag in the code at the commit, if known.
+    url: Option<String>,
     /// Whether the requirement's children are shown further up already.
     repeated: bool,
 }
@@ -272,6 +278,8 @@ struct ItemView<'a> {
     duplicate: bool,
     missing: Vec<&'a str>,
     location: String,
+    /// Address of the location in the code at the commit, if known.
+    location_url: Option<String>,
     detail: DetailView<'a>,
 }
 
@@ -332,6 +340,8 @@ struct IncomingView {
     anchor: Option<String>,
     /// Where the link is written.
     location: String,
+    /// Address of the link in the code at the commit, if known.
+    url: Option<String>,
     problem: String,
 }
 
@@ -340,6 +350,8 @@ struct IncomingView {
 struct TagView<'a> {
     text: &'a str,
     location: String,
+    /// Address of the tag in the code at the commit, if known.
+    url: Option<String>,
 }
 
 /// A verification tag of the item and its verdict.
@@ -347,6 +359,8 @@ struct TagView<'a> {
 struct TestView<'a> {
     text: &'a str,
     location: String,
+    /// Address of the tag in the code at the commit, if known.
+    url: Option<String>,
     /// The test as runners name it; none without a test definition or
     /// without `junit` sources.
     name: Option<&'a str>,
@@ -370,6 +384,10 @@ struct Index<'d, 'a> {
     links: HashMap<&'d Location, Vec<&'d Link>>,
     /// Links by the location of their target.
     incoming: HashMap<&'d Location, Vec<&'d Link>>,
+    /// Where the files come from and `code_url`, to link locations to the
+    /// code.
+    build: Option<&'d BuildInfo>,
+    code_url: Option<&'d str>,
 }
 
 impl<'d, 'a> Index<'d, 'a> {
@@ -414,7 +432,16 @@ impl<'d, 'a> Index<'d, 'a> {
             items,
             links,
             incoming,
+            build: document.build,
+            code_url: document.code_url,
         }
+    }
+
+    /// The address of `location` in the code at the commit, if
+    /// `code_url` and, if it needs one, the commit are given.
+    fn code(&self, location: &Location) -> Option<String> {
+        let sha = self.build.and_then(|build| build.sha.as_deref());
+        shall_core::export::code_link(self.code_url?, sha, location.path(), location.line())
     }
 
     /// The fragment of the requirement with the target's type and name at
@@ -505,6 +532,7 @@ impl<'a> Page<'a> {
         let filter_types = levels.iter().map(|level| (level.typ, level.name)).collect();
         Self {
             generator: generator(document),
+            build: document.build,
             variant: document.variant.as_ref().map(|variant| VariantView {
                 name: variant.name,
                 features: variant.features.iter().map(String::as_str).collect(),
@@ -561,6 +589,7 @@ fn defects<'a>(document: &'a Document<'_>, index: &Index<'a, '_>) -> Vec<DefectV
             sign,
             severity,
             location: defect.location.to_string(),
+            url: index.code(defect.location),
             message: defect.message,
             anchor,
         }
@@ -685,6 +714,7 @@ fn item_view<'a>(
         sign,
         missing: item.missing.iter().map(ItemType::as_str).collect(),
         location: item.location.to_string(),
+        location_url: index.code(item.location),
         detail: detail(document, index, item),
     }
 }
@@ -767,7 +797,7 @@ impl<'a> Walk<'a, '_, '_> {
     fn node(&mut self, item: &'a ItemEntry<'a>) -> Option<Vec<&'a ItemEntry<'a>>> {
         let document = self.document;
         let has_below = !item.covered_by.is_empty() || !item.missing.is_empty();
-        if !has_below && let Some(entry) = leaf(document, item) {
+        if !has_below && let Some(entry) = leaf(document, self.index, item) {
             self.entries.push(entry);
             return None;
         }
@@ -792,6 +822,9 @@ impl<'a> Walk<'a, '_, '_> {
             text,
             anchor: self.index.anchors.get(&(item.location, item.id)).cloned(),
             title: item.title,
+            url: location
+                .as_ref()
+                .and_then(|_| self.index.code(item.location)),
             location,
             repeated: !first && has_below,
         });
@@ -836,13 +869,18 @@ impl TreeEntry<'_> {
             anchor: None,
             title: "",
             location: None,
+            url: None,
             repeated: false,
         }
     }
 }
 
 /// The tree entry of a tag; none for a requirement.
-fn leaf<'a>(document: &'a Document<'_>, item: &'a ItemEntry<'_>) -> Option<TreeEntry<'a>> {
+fn leaf<'a>(
+    document: &'a Document<'_>,
+    index: &Index<'a, '_>,
+    item: &'a ItemEntry<'_>,
+) -> Option<TreeEntry<'a>> {
     let Origin::Tag { text, .. } = item.origin else {
         return None;
     };
@@ -860,6 +898,7 @@ fn leaf<'a>(document: &'a Document<'_>, item: &'a ItemEntry<'_>) -> Option<TreeE
         anchor: None,
         title: "",
         location: Some(item.location.to_string()),
+        url: index.code(item.location),
         repeated: false,
     })
 }
@@ -942,6 +981,7 @@ fn detail<'a>(
                 tests.push(TestView {
                     text,
                     location: entry.location.to_string(),
+                    url: index.code(entry.location),
                     name: entry.test.as_ref().and_then(|test| test.name),
                     class,
                     sign,
@@ -951,6 +991,7 @@ fn detail<'a>(
             Origin::Tag { text, .. } => implementations.push(TagView {
                 text,
                 location: entry.location.to_string(),
+                url: index.code(entry.location),
             }),
         }
     }
@@ -988,6 +1029,7 @@ fn detail<'a>(
                 },
                 anchor,
                 location: link.location.to_string(),
+                url: index.code(&link.location),
                 problem: problem(status).unwrap_or_default(),
             }),
         }
@@ -1062,6 +1104,7 @@ mod tests {
             tests: None,
             diagnostics: &trace.defects,
             variant: None,
+            build: None,
         }))
         .unwrap()
     }
@@ -1149,6 +1192,7 @@ mod tests {
             tests: Some((&parsed.results, &evaluation)),
             diagnostics: &[],
             variant: None,
+            build: None,
         }))
         .unwrap();
         assert!(html.contains("<dt>Tags</dt><dd>1</dd>"), "{html}");
@@ -1313,6 +1357,7 @@ mod tests {
             tests: None,
             diagnostics: &trace.defects,
             variant: None,
+            build: None,
         }))
         .unwrap();
         let b = &html[html.find("<article id=\"dsn~b-k4f2~1\"").unwrap()..];
@@ -1352,6 +1397,7 @@ mod tests {
             tests: None,
             diagnostics: &trace.defects,
             variant: None,
+            build: None,
         }))
         .unwrap();
         // The valid tag implements, the other one is an invalid link.
@@ -1404,6 +1450,7 @@ mod tests {
             tests: None,
             diagnostics: &parsed.diagnostics,
             variant: None,
+            build: None,
         }))
         .unwrap();
         let defects = &html[html.find("<section id=\"defects\">").unwrap()..];
@@ -1440,6 +1487,7 @@ mod tests {
             tests: None,
             diagnostics: &parsed.diagnostics,
             variant: Some(("basis", &variant)),
+            build: None,
         }))
         .unwrap();
         assert!(
@@ -1471,6 +1519,7 @@ mod tests {
             tests: None,
             diagnostics: &trace.defects,
             variant: None,
+            build: None,
         });
         let index = Index::new(&document);
         let mut depth = 0;

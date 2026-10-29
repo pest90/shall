@@ -201,3 +201,54 @@ fn variant_and_all_variants_exclude_each_other() {
         stderr(&output)
     );
 }
+
+#[test]
+fn links_locations_to_the_code_at_the_commit() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(
+        dir.path().join("shall.toml"),
+        "[[level]]\ntype = \"dsn\"\nname = \"D\"\nneeds = [\"impl\"]\n\n\
+         [sources]\nimpl = [\"src/*.c\"]\n\n\
+         [report]\ncode_url = \"https://git.example.org/p/src/commit/{sha}/{path}#L{line}\"\n",
+    )
+    .unwrap();
+    fs::create_dir_all(dir.path().join("reqs")).unwrap();
+    fs::create_dir_all(dir.path().join("src")).unwrap();
+    fs::write(dir.path().join("reqs/a.md"), "# A\n`dsn~a-k4f2~1`\n").unwrap();
+    fs::write(
+        dir.path().join("src/a.c"),
+        "// [impl->dsn~a-k4f2~1]\nvoid f();\n",
+    )
+    .unwrap();
+    let site = dir.path().join("site");
+    let output = shall(
+        dir.path(),
+        &[
+            "report",
+            "--out",
+            site.to_str().unwrap(),
+            "--build-info",
+            "sha=abc123,date=2026-10-29",
+        ],
+    );
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    let html = fs::read_to_string(site.join("index.html")).unwrap();
+    assert!(
+        html.contains("<a href=\"https:&#x2f;&#x2f;git.example.org&#x2f;p&#x2f;src&#x2f;commit&#x2f;abc123&#x2f;src&#x2f;a.c#L1\"><code>src&#x2f;a.c:1</code></a>"),
+        "{html}"
+    );
+    assert!(
+        html.contains("<p class=\"build\">Commit <code>abc123</code>, 2026-10-29</p>"),
+        "{html}"
+    );
+    let json = fs::read_to_string(site.join("trace.json")).unwrap();
+    assert!(json.contains("\"sha\": \"abc123\""), "{json}");
+
+    let output = shall(dir.path(), &["report", "--build-info", "commit=x"]);
+    assert_eq!(output.status.code(), Some(2));
+    assert!(
+        stderr(&output).contains("unknown key 'commit'"),
+        "{}",
+        stderr(&output)
+    );
+}

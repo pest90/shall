@@ -12,6 +12,10 @@
 //! - `generator`: name and version of the tool that wrote the file;
 //! - `variant`: name and features of the traced variant, or `null` when
 //!   all items are traced;
+//! - `build`: the commit, date and pipeline given with `--build-info`, or
+//!   `null`; the only values that may differ between runs on the same
+//!   files;
+//! - `code_url`: `[report] code_url` of `shall.toml`, or `null`;
 //! - `levels` and `verification_types`: from `shall.toml`;
 //! - `items`: every item ordered by location, with its fields, its
 //!   coverage from [`trace`](crate::trace), whether it is
@@ -49,6 +53,10 @@ pub struct Document<'a> {
     pub generator: Generator,
     /// The traced variant; none when all items are traced.
     pub variant: Option<VariantEntry<'a>>,
+    /// Where the traced files come from; none if not given.
+    pub build: Option<&'a BuildInfo>,
+    /// `[report] code_url`.
+    pub code_url: Option<&'a str>,
     /// The levels of `shall.toml`, in their order there.
     pub levels: Vec<LevelEntry<'a>>,
     /// Types whose tags are tests, from `[verification]`.
@@ -220,6 +228,100 @@ pub struct Input<'a> {
     /// Name and selection of the traced variant, whose items `items` are;
     /// none when all items are traced.
     pub variant: Option<(&'a str, &'a Variant)>,
+    /// Where the traced files come from, e.g. from `--build-info`.
+    pub build: Option<&'a BuildInfo>,
+}
+
+/// Where the traced files come from: the commit, the date and the
+/// pipeline that built them. None of them is read from the machine, so
+/// that the output stays reproducible.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+pub struct BuildInfo {
+    /// The commit, a hash or another name of it such as a tag; letters,
+    /// digits, `.`, `_` and `-` only, since it becomes part of URLs.
+    pub sha: Option<String>,
+    /// The date, as given.
+    pub date: Option<String>,
+    /// The pipeline or job, as given.
+    pub pipeline: Option<String>,
+}
+
+impl BuildInfo {
+    /// Parses `sha=<commit>,date=<date>,pipeline=<id>`, each part
+    /// optional; a text without `=` is the commit alone, as in
+    /// `--build-info "$GITHUB_SHA"`.
+    pub fn parse(text: &str) -> Result<Self, String> {
+        let mut info = Self::default();
+        if !text.contains('=') {
+            info.sha = Some(text.trim().to_owned());
+        } else {
+            for part in text.split(',') {
+                let (key, value) = part
+                    .split_once('=')
+                    .ok_or_else(|| format!("expected key=value, found '{part}'"))?;
+                let value = value.trim().to_owned();
+                let slot = match key.trim() {
+                    "sha" => &mut info.sha,
+                    "date" => &mut info.date,
+                    "pipeline" => &mut info.pipeline,
+                    other => {
+                        return Err(format!(
+                            "unknown key '{other}'; known are sha, date and pipeline"
+                        ));
+                    }
+                };
+                if slot.replace(value).is_some() {
+                    return Err(format!("'{}' is given twice", key.trim()));
+                }
+            }
+        }
+        for value in [&info.sha, &info.date, &info.pipeline]
+            .into_iter()
+            .flatten()
+        {
+            if value.is_empty() || value.chars().any(char::is_control) {
+                return Err(format!("invalid value '{value}'"));
+            }
+        }
+        if let Some(sha) = &info.sha
+            && !sha
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || "._-".contains(c))
+        {
+            return Err(format!(
+                "invalid commit '{sha}': expected letters, digits, '.', '_' or '-'"
+            ));
+        }
+        Ok(info)
+    }
+
+    /// The address of `line` in `path` at the commit, from `code_url`;
+    /// none without a commit if the address needs one. The path is
+    /// percent-encoded except for `/`.
+    pub fn code_link(&self, code_url: &str, path: &str, line: u32) -> Option<String> {
+        code_link(code_url, self.sha.as_deref(), path, line)
+    }
+}
+
+/// [`BuildInfo::code_link`] for the commit `sha`, if any.
+pub fn code_link(code_url: &str, sha: Option<&str>, path: &str, line: u32) -> Option<String> {
+    if code_url.contains("{sha}") && sha.is_none() {
+        return None;
+    }
+    let mut encoded = String::new();
+    for byte in path.bytes() {
+        if byte.is_ascii_alphanumeric() || b"/-._~".contains(&byte) {
+            encoded.push(char::from(byte));
+        } else {
+            encoded.push_str(&format!("%{byte:02X}"));
+        }
+    }
+    Some(
+        code_url
+            .replace("{sha}", sha.unwrap_or_default())
+            .replace("{path}", &encoded)
+            .replace("{line}", &line.to_string()),
+    )
 }
 
 impl<'a> Document<'a> {
@@ -243,6 +345,8 @@ impl<'a> Document<'a> {
                 name: GENERATOR,
                 version: env!("CARGO_PKG_VERSION"),
             },
+            build: input.build,
+            code_url: input.config.report.code_url.as_deref(),
             variant: input.variant.map(|(name, variant)| VariantEntry {
                 name,
                 features: &variant.features,
@@ -395,6 +499,7 @@ int helper();
             tests: with_tests.then_some((parsed.results.as_slice(), &evaluation)),
             diagnostics: &diagnostics,
             variant: None,
+            build: None,
         });
         let text = document.to_json();
         assert!(text.ends_with("}\n"), "{text}");
@@ -522,6 +627,7 @@ Covers:
             tests: None,
             diagnostics: &trace.defects,
             variant: None,
+            build: None,
         });
         let json: serde_json::Value = serde_json::from_str(&document.to_json()).unwrap();
         let link = |n: usize| {
@@ -549,6 +655,48 @@ Covers:
                 .unwrap()
                 .iter()
                 .all(|item| item["test"].is_null() && item["verified"] == false)
+        );
+    }
+
+    #[test]
+    fn parses_build_info() {
+        let info = BuildInfo::parse("3fa2c1d0").unwrap();
+        assert_eq!(info.sha.as_deref(), Some("3fa2c1d0"));
+        let info = BuildInfo::parse("sha=v1.2.0, date=2026-10-29, pipeline=CI #42").unwrap();
+        assert_eq!(
+            (
+                info.sha.as_deref(),
+                info.date.as_deref(),
+                info.pipeline.as_deref()
+            ),
+            (Some("v1.2.0"), Some("2026-10-29"), Some("CI #42"))
+        );
+        for (text, message) in [
+            ("sha=a,sha=b", "'sha' is given twice"),
+            ("commit=a", "unknown key 'commit'"),
+            ("date=x,oops", "expected key=value"),
+            ("a/b", "invalid commit 'a/b'"),
+            ("date=", "invalid value ''"),
+        ] {
+            let error = BuildInfo::parse(text).unwrap_err();
+            assert!(error.contains(message), "{text}: {error}");
+        }
+    }
+
+    #[test]
+    fn links_to_code_at_the_commit() {
+        let url = "https://git.example.org/p/src/commit/{sha}/{path}#L{line}";
+        let info = BuildInfo::parse("abc123").unwrap();
+        assert_eq!(
+            info.code_link(url, "src/a b/ü.cpp", 42).as_deref(),
+            Some("https://git.example.org/p/src/commit/abc123/src/a%20b/%C3%BC.cpp#L42")
+        );
+        assert_eq!(BuildInfo::default().code_link(url, "a.c", 1), None);
+        assert_eq!(
+            BuildInfo::default()
+                .code_link("https://x/blob/main/{path}#L{line}", "a.c", 1)
+                .as_deref(),
+            Some("https://x/blob/main/a.c#L1")
         );
     }
 }

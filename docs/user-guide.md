@@ -170,6 +170,19 @@ junit = ["build/test-results/**/*.xml"]
 | `types` | types that verify, e.g. `utest` or `vrev`; their tags are matched with test results, their items in requirement files are reviews or analyses (see [Reviews and analyses](#reviews-and-analyses)) |
 | `not-executed` | `error` (default) or `warning`: severity of a test without a result |
 
+### `[report]`
+
+| Key | Meaning |
+| --- | --- |
+| `code_url` | address of a line of code at a commit, with the placeholders `{sha}`, `{path}` and `{line}`, e.g. `https://git.example.org/team/project/src/commit/{sha}/{path}#L{line}`; must start with `https://` or `http://` |
+
+With `code_url`, every `path:line` in the report links to the code,
+at the commit given with `shall report --build-info` if the address
+contains `{sha}` (without a commit, such locations are not linked).
+`{path}` is relative to the project root, or to the workspace root in
+a workspace, and percent-encoded except for `/`; put the path of the
+project in the repository into the address if they differ.
+
 ### `[satisfied_by]`
 
 | Key | Meaning |
@@ -718,6 +731,7 @@ planned (M7.5).
 
 ```text
 shall report [PATH] [--out <DIR>] [--variant <NAME> | --all-variants]
+             [--build-info <INFO>]
 ```
 
 Reads and traces the project like `shall check` and writes the result
@@ -786,8 +800,17 @@ details show:
   `✗ failed`, `! skipped`, `! not executed`, `! no test`, or `? no
   results read` without `junit` sources).
 
-Code and test locations are shown as `path:line`; links to the code at
-the reported commit need `--build-info` and are planned (M5.7).
+Locations are shown as `path:line`, linked to the code with `[report]
+code_url`.
+
+`--build-info` tells where the traced files come from, as
+`sha=<commit>,date=<date>,pipeline=<id>` with every part optional, or
+as the commit alone, e.g. `--build-info "$GITHUB_SHA"`. The commit
+consists of letters, digits, `.`, `_` and `-`. The report shows them at
+the top and `trace.json` under `build`. `shall` reads neither the
+commit nor the time itself, so the same files give the same output.
+With `--all-variants`, the report of every variant shows them, the
+overview does not.
 
 A section `Defects` lists every problem of `shall check`, errors first,
 then warnings, each in the order of `shall check`, with sign and
@@ -828,6 +851,8 @@ timestamps. The fields of `trace.json`:
 | `schema_version` | version of this layout, currently `1`; from the first release on, increased on every change readers must know about; until then, fields and values are added without a new version |
 | `generator` | `name` (`shall`) and `version` of the tool |
 | `variant` | the traced variant, `name` and `features`; `null` without `--variant` |
+| `build` | `sha`, `date` and `pipeline` from `--build-info`, each `null` if not given; `null` without `--build-info` |
+| `code_url` | `[report] code_url`, or `null` |
 | `levels` | the `[[level]]` tables: `type`, `name`, `needs`; also those of the imports |
 | `verification_types` | `[verification] types`, also those of the imports |
 | `items` | every item, ordered by file and line (see below) |

@@ -9,6 +9,7 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
+use shall_core::export::BuildInfo;
 
 /// Specifications Hooked to Actual Lines of Logic: requirements-as-code
 /// traceability from Markdown requirements down to code and tests.
@@ -66,6 +67,12 @@ enum Command {
         /// overview into `<out>/index.html`.
         #[arg(long)]
         all_variants: bool,
+        /// Where the files come from, `sha=<commit>,date=<date>,pipeline=<id>`
+        /// with every part optional, or just the commit. Shown in the
+        /// report; with `[report] code_url`, locations link to the code at
+        /// the commit.
+        #[arg(long, value_name = "INFO", value_parser = parse_build_info)]
+        build_info: Option<BuildInfo>,
     },
     /// Create a new item with a generated ID.
     ///
@@ -91,6 +98,10 @@ enum Command {
         #[arg(long)]
         no_history: bool,
     },
+}
+
+fn parse_build_info(text: &str) -> Result<BuildInfo, String> {
+    BuildInfo::parse(text)
 }
 
 /// Exit code when a command cannot run, e.g. without `shall.toml`.
@@ -124,11 +135,13 @@ fn run(command: Command) -> anyhow::Result<ExitCode> {
             out,
             variant,
             all_variants,
+            build_info,
         } => report::run(&report::ReportArgs {
             path,
             out,
             variant,
             all_variants,
+            build_info,
         }),
         Command::New {
             typ,
