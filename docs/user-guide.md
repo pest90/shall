@@ -722,7 +722,7 @@ requirements file.
 
 ```text
 shall check [PATH] [--mode <report|new|mature|strict>] [--compare-to <TRACE_JSON>]
-            [--variant <NAME> | --workspace]
+            [--format <text|github|sarif>] [--variant <NAME> | --workspace]
 ```
 
 Reads the project, traces it and prints one line per problem, sorted by
@@ -743,7 +743,19 @@ not ok: 4 errors, 0 warnings (9 requirements, 7 tags, 3 test results)
 - In a workspace root, and with `--workspace`, every member is checked
   (see [Workspaces and imports](#workspaces-and-imports)).
 - Errors are printed as `path:line: message`, warnings as
-  `path:line: warning: message`.
+  `path:line: warning: message`. `--format github` prints them as
+  workflow commands such as
+  `::error file=reqs/a.md,line=4,title=shall::message`, which GitHub
+  Actions shows as annotations in the diff of a pull request (at most
+  10 errors and 10 warnings per step; Forgejo Actions accepts the
+  commands but shows them in the log only), and appends a Markdown
+  summary with the summary lines and a table of the first 500 defects
+  to the file `$GITHUB_STEP_SUMMARY` names, if set; a summary that
+  cannot be written gives a warning. `--format sarif` prints one SARIF
+  2.1.0 document for code scanning views, every defect a result of the
+  rule `shall`. Both name files relative to the repository: below the
+  top of the project's Git work tree, or, in a checkout without `.git`,
+  below `$GITHUB_WORKSPACE`, e.g. `fixtures/motor/reqs/design.md`.
 - `--variant` checks only the items of a variant of `shall.toml`, with
   its test results (see [Variants](#variants)); the summary then starts
   with `variant <NAME>: `. An unknown variant is an error (exit code 2).

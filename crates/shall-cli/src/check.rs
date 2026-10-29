@@ -29,6 +29,7 @@ use shall_core::results::{self, Evaluation, Packages};
 use shall_core::trace::{self, Trace};
 use shall_core::{Diagnostic, Item, Location, Origin, Severity, markdown, tags, variant};
 
+use crate::output::{self, Format};
 use crate::project::{find_root, is_markdown};
 
 /// Arguments of `shall check`.
@@ -38,6 +39,8 @@ pub struct CheckArgs {
     pub mode: Option<Mode>,
     /// The `trace.json` of an earlier run, for mode `new`.
     pub compare_to: Option<PathBuf>,
+    /// How the defects are printed.
+    pub format: Format,
     pub variant: Option<String>,
     pub workspace: bool,
 }
@@ -59,7 +62,14 @@ pub fn run(args: &CheckArgs) -> anyhow::Result<ExitCode> {
         }
         None => None,
     };
-    let (diagnostics, mut summaries, gate) = if args.workspace || is_workspace(&root)? {
+    let workspace = args.workspace || is_workspace(&root)?;
+    // The root that the paths of the diagnostics are relative to.
+    let display_root = if is_workspace(&root)? {
+        root.clone()
+    } else {
+        place(&root)?.root
+    };
+    let (diagnostics, mut summaries, gate) = if workspace {
         if args.variant.is_some() {
             bail!("--variant checks one project, not a workspace");
         }
@@ -79,14 +89,36 @@ pub fn run(args: &CheckArgs) -> anyhow::Result<ExitCode> {
     if baseline.is_some() && !gate.modes.contains("new") {
         summaries.push("warning: --compare-to is used only in mode new".to_owned());
     }
-    match print(&diagnostics) {
+    let prefix = match args.format {
+        Format::Text => String::new(),
+        Format::Github | Format::Sarif => repository_prefix(&display_root),
+    };
+    match print(&diagnostics, args.format, &prefix) {
         // The reader went away, e.g. `shall check | head`; stop quietly.
         Err(error) if error.kind() == io::ErrorKind::BrokenPipe => {}
         result => {
             result?;
-            for summary in summaries {
+            for summary in &summaries {
                 eprintln!("{summary}");
             }
+        }
+    }
+    if args.format == Format::Github
+        && let Some(path) = std::env::var_os("GITHUB_STEP_SUMMARY").filter(|path| !path.is_empty())
+    {
+        let summary = output::step_summary(&diagnostics, &summaries, &prefix);
+        let written = fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&path)
+            .and_then(|mut file| file.write_all(summary.as_bytes()));
+        // The defects are printed; a summary that cannot be written does
+        // not change the exit code of the check.
+        if let Err(error) = written {
+            eprintln!(
+                "warning: cannot write the step summary to {}: {error}",
+                Path::new(&path).display()
+            );
         }
     }
     if gate.failing() > 0 {
@@ -94,6 +126,29 @@ pub fn run(args: &CheckArgs) -> anyhow::Result<ExitCode> {
     } else {
         Ok(ExitCode::SUCCESS)
     }
+}
+
+/// The path of `root`, where the paths of diagnostics start, below the
+/// repository: below the top of its Git work tree, or else, as in a
+/// checkout without `.git`, below `$GITHUB_WORKSPACE` if it is inside;
+/// empty if `root` is that top or neither exists.
+fn repository_prefix(root: &Path) -> String {
+    let base = root
+        .ancestors()
+        .find(|dir| dir.join(".git").exists())
+        .map(Path::to_path_buf)
+        .or_else(|| {
+            std::env::var_os("GITHUB_WORKSPACE")
+                .filter(|path| !path.is_empty())
+                .and_then(|path| dunce::canonicalize(path).ok())
+                .filter(|path| root.starts_with(path))
+        });
+    base.and_then(|base| {
+        root.strip_prefix(base)
+            .ok()
+            .map(|relative| relative.to_string_lossy().replace('\\', "/"))
+    })
+    .unwrap_or_default()
 }
 
 /// Checks every member of the workspace at or above `root`: the
@@ -142,7 +197,7 @@ fn check_workspace(
     for project_diagnostics in &per_member {
         let mut count: HashMap<String, usize> = HashMap::new();
         for diagnostic in project_diagnostics {
-            *count.entry(line(diagnostic)).or_default() += 1;
+            *count.entry(output::text(diagnostic)).or_default() += 1;
         }
         for (text, count) in count {
             let entry = most.entry(text).or_default();
@@ -154,7 +209,7 @@ fn check_workspace(
         (a.location.path(), a.location.line()).cmp(&(b.location.path(), b.location.line()))
     });
     diagnostics.retain(|diagnostic| {
-        let left = most.get_mut(&line(diagnostic)).expect("counted");
+        let left = most.get_mut(&output::text(diagnostic)).expect("counted");
         let keep = *left > 0;
         *left = left.saturating_sub(1);
         keep
@@ -223,21 +278,22 @@ impl Gate {
     }
 }
 
-fn print(diagnostics: &[Diagnostic]) -> io::Result<()> {
+fn print(diagnostics: &[Diagnostic], format: Format, prefix: &str) -> io::Result<()> {
     let mut out = io::stdout().lock();
-    for diagnostic in diagnostics {
-        writeln!(out, "{}", line(diagnostic))?;
+    match format {
+        Format::Text => {
+            for diagnostic in diagnostics {
+                writeln!(out, "{}", output::text(diagnostic))?;
+            }
+        }
+        Format::Github => {
+            for diagnostic in diagnostics {
+                writeln!(out, "{}", output::github(diagnostic, prefix))?;
+            }
+        }
+        Format::Sarif => out.write_all(output::sarif(diagnostics, prefix).as_bytes())?,
     }
     out.flush()
-}
-
-/// A diagnostic as printed: `path:line: message`, warnings with
-/// `warning: ` before the message.
-fn line(diagnostic: &Diagnostic) -> String {
-    match diagnostic.severity {
-        Severity::Error => diagnostic.to_string(),
-        Severity::Warning => format!("{}: warning: {}", diagnostic.location, diagnostic.message),
-    }
 }
 
 /// A project, read and traced.
@@ -293,7 +349,7 @@ impl Project {
         all.extend(self.outside.iter().cloned());
         let mut failing: HashMap<String, usize> = HashMap::new();
         for diagnostic in gate::failing(&self.diagnostics, &all, &self.config, mode, baseline) {
-            *failing.entry(line(diagnostic)).or_default() += 1;
+            *failing.entry(output::text(diagnostic)).or_default() += 1;
         }
         Ok(Gate {
             failing,

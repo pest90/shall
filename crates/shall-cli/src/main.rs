@@ -2,6 +2,7 @@
 
 mod check;
 mod new;
+mod output;
 mod project;
 mod report;
 
@@ -43,6 +44,11 @@ enum Command {
         /// written by `shall report` on the target branch.
         #[arg(long, value_name = "TRACE_JSON")]
         compare_to: Option<PathBuf>,
+        /// How to print the defects: `text`, `github` for annotations in
+        /// GitHub Actions (Forgejo Actions: in the log) and a summary in
+        /// `$GITHUB_STEP_SUMMARY`, or `sarif`.
+        #[arg(long, value_enum, default_value_t = output::Format::Text)]
+        format: output::Format,
         /// Check only the items of this variant from `shall.toml`, with
         /// its test results.
         #[arg(long, conflicts_with = "workspace")]
@@ -134,12 +140,14 @@ fn run(command: Command) -> anyhow::Result<ExitCode> {
             path,
             mode,
             compare_to,
+            format,
             variant,
             workspace,
         } => check::run(&check::CheckArgs {
             path,
             mode,
             compare_to,
+            format,
             variant,
             workspace,
         }),

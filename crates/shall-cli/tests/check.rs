@@ -1117,3 +1117,60 @@ mode = \"strict\"
         "{out}"
     );
 }
+
+#[test]
+fn prints_annotations_and_sarif_for_ci() {
+    let dir = tempfile::tempdir().unwrap();
+    let summary = dir.path().join("summary.md");
+    // Paths are relative to the repository, here two levels up.
+    let repository = fixture().join("../..");
+    let run = |args: &[&str]| {
+        Command::new(env!("CARGO_BIN_EXE_shall"))
+            .current_dir(fixture())
+            .args(args)
+            .env("GITHUB_WORKSPACE", &repository)
+            .env("GITHUB_STEP_SUMMARY", &summary)
+            .output()
+            .unwrap()
+    };
+    let output = run(&["check", "--format", "github", "--mode", "strict"]);
+    assert_eq!(output.status.code(), Some(1));
+    assert!(
+        stdout(&output).starts_with(
+            "::error file=fixtures/motor/reqs/design.md,line=12,title=shall::\
+             dsn~motor.temp-monitor-r5t1~1: covers outdated revision \
+             swr~motor.overtemp-shutdown-k4f2~1 (current revision: 2)\n"
+        ),
+        "{}",
+        stdout(&output)
+    );
+    assert_eq!(stdout(&output).lines().count(), 4);
+    let markdown = fs::read_to_string(&summary).unwrap();
+    assert!(markdown.starts_with("### shall check\n"), "{markdown}");
+    assert!(
+        markdown.contains("check failed: 4 defects fail mode strict"),
+        "{markdown}"
+    );
+    assert_eq!(markdown.matches("| ✗ error |").count(), 4, "{markdown}");
+    assert!(
+        markdown.contains("| fixtures/motor/reqs/design.md:12 |"),
+        "{markdown}"
+    );
+
+    let output = run(&["check", "--format", "sarif"]);
+    assert_eq!(output.status.code(), Some(0));
+    let sarif: serde_json::Value = serde_json::from_str(&stdout(&output)).unwrap();
+    let results = sarif["runs"][0]["results"].as_array().unwrap();
+    assert_eq!(results.len(), 4);
+    assert_eq!(
+        results[3]["locations"][0]["physicalLocation"]["artifactLocation"]["uri"],
+        "fixtures/motor/tests/shutdown_test.cpp"
+    );
+    // Text stays relative to the project root.
+    let output = run(&["check"]);
+    assert!(
+        stdout(&output).starts_with("reqs/design.md:12: "),
+        "{}",
+        stdout(&output)
+    );
+}
