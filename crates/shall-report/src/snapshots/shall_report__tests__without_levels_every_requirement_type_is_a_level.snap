@@ -112,6 +112,16 @@ tr.unknown td.sign { background: var(--bad-bg); }
 .badge.missing, .badge.unknown { color: var(--bad-fg); background: var(--bad-bg); }
 table.params { width: auto; margin-top: 0.25rem; }
 .variant { margin: 0.25rem 0 0; }
+.tree, .tree ul { list-style: none; margin: 0; padding-left: 1.25rem; }
+.tree { padding-left: 0; }
+.tree li { margin: 0.15rem 0; }
+.tree summary { cursor: pointer; }
+.tree .sign { font-weight: 700; }
+.tree .sign.ok { color: var(--ok-fg); }
+.tree .sign.partial { color: var(--warn-fg); }
+.tree .sign.missing, .tree .sign.unknown { color: var(--bad-fg); }
+.tree .sign.rejected { color: var(--off-fg); }
+.tree .note { font-size: 0.85rem; }
 </style>
 </head>
 <body>
@@ -198,6 +208,15 @@ table.params { width: auto; margin-top: 0.25rem; }
 </tbody>
 </table>
 </div>
+</section>
+<section id="tree">
+<h2>Tree</h2>
+<ul class="tree">
+<li><span class="sign ok" title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span> <a href="#swr~b-k4f2~1"><code>swr~b-k4f2~1</code></a> &lt;b&gt;Bold&lt;&#x2f;b&gt; &amp; co</li>
+<li><span class="sign ok" title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span> <a href="#dsn~a-k4f2~1"><code>dsn~a-k4f2~1</code></a> A</li>
+<li><span class="sign rejected" title="rejected" aria-hidden="true">–</span><span class="sr-only">rejected</span> <a href="#dsn~old-k4f2~1"><code>dsn~old-k4f2~1</code></a> Old</li>
+</ul>
+<p class="note">From every requirement that covers no other item validly, what covers it: requirements, missing types, code and tests. A node that appears again shows what covers it only where it appears first; requirements no root reaches, such as those of a coverage cycle, follow as roots of their own.</p>
 </section>
 <section id="details">
 <h2>Requirements</h2>

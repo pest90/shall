@@ -43,7 +43,7 @@
 
 mod markdown;
 
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 use minijinja::Environment;
 use minijinja::syntax::SyntaxConfig;
@@ -154,6 +154,9 @@ struct Page<'a> {
     /// Every defect, errors first, each group in the order of the
     /// document.
     defects: Vec<DefectView<'a>>,
+    /// The tree of requirements from the top down, as a flat list of
+    /// entries that open and close nodes.
+    tree: Vec<TreeEntry<'a>>,
     levels: Vec<LevelView<'a>>,
 }
 
@@ -178,6 +181,29 @@ struct DefectView<'a> {
     /// Fragment of the requirement the defect is in: the one whose lines
     /// in the same file include the defect's line.
     anchor: Option<String>,
+}
+
+/// One entry of the tree: a node with children opens and later closes,
+/// one without is a leaf.
+#[derive(Debug, Serialize)]
+struct TreeEntry<'a> {
+    /// `open`, `close` or `leaf`.
+    kind: &'static str,
+    /// For the CSS class: the coverage of a requirement, the verdict of a
+    /// test, `ok` for code, `missing` for a missing type.
+    class: &'static str,
+    sign: &'static str,
+    /// The sign in words.
+    label: &'static str,
+    /// The requirement's ID, the tag as written, or the missing type.
+    text: String,
+    /// Fragment of the requirement's details.
+    anchor: Option<String>,
+    title: &'a str,
+    /// Where a tag is.
+    location: Option<String>,
+    /// Whether the requirement's children are shown further up already.
+    repeated: bool,
 }
 
 /// Verdicts of the verification tags.
@@ -468,6 +494,7 @@ impl<'a> Page<'a> {
             }),
             summary: summary(document),
             defects: defects(document, &index),
+            tree: tree(document, &index),
             levels,
         }
     }
@@ -611,17 +638,7 @@ fn item_view<'a>(
     index: &Index<'a, '_>,
     item: &'a ItemEntry<'_>,
 ) -> ItemView<'a> {
-    let (coverage, sign, label) = if item.status == Status::Rejected {
-        ("rejected", "–", "rejected")
-    } else if item.unknown_type {
-        ("unknown", "?", "unknown type")
-    } else if item.deep_covered {
-        ("ok", "✓", "deep covered")
-    } else if item.covered {
-        ("partial", "!", "covered, gap below")
-    } else {
-        ("missing", "✗", "not covered")
-    };
+    let (coverage, sign, label) = coverage(item);
     ItemView {
         anchor: index.anchors[&(item.location, item.id)].clone(),
         id: item.id.to_string(),
@@ -639,6 +656,209 @@ fn item_view<'a>(
         missing: item.missing.iter().map(ItemType::as_str).collect(),
         location: item.location.to_string(),
         detail: detail(document, index, item),
+    }
+}
+
+/// The tree of requirements. Roots are the requirements that cover no
+/// other item validly, by `Covers:` or as a target of `Satisfied-by:`,
+/// rejected ones included; then, in document order, every requirement not
+/// shown yet, such as those of a coverage cycle without a root. Below each
+/// node come the items covering it, its missing types, then code and
+/// tests; a tag that needs coverage of its own (`>>`) is a node too. A
+/// node that appears again shows its children only where it appears
+/// first, so that shared parts of the graph do not grow the tree
+/// exponentially, and a coverage cycle ends. Built with an explicit stack,
+/// so that long chains cannot overflow it.
+fn tree<'a>(document: &'a Document<'_>, index: &Index<'a, '_>) -> Vec<TreeEntry<'a>> {
+    let covering: HashSet<(&Location, &ItemId)> = document
+        .items
+        .iter()
+        .flat_map(|item| item.covered_by)
+        .map(|source| (&source.location, &source.id))
+        .collect();
+    let requirements = || {
+        document
+            .items
+            .iter()
+            .filter(|item| matches!(item.origin, Origin::Requirement))
+    };
+    let mut walk = Walk {
+        document,
+        index,
+        shown: HashSet::new(),
+        entries: Vec::new(),
+    };
+    for root in requirements().filter(|item| !covering.contains(&(item.location, item.id))) {
+        walk.from(root);
+    }
+    for rest in requirements() {
+        if !walk.shown.contains(&(rest.location, rest.id)) {
+            walk.from(rest);
+        }
+    }
+    walk.entries
+}
+
+/// The state of building the [`tree`].
+struct Walk<'a, 'i, 'd> {
+    document: &'a Document<'d>,
+    index: &'i Index<'a, 'd>,
+    shown: HashSet<(&'a Location, &'a ItemId)>,
+    entries: Vec<TreeEntry<'a>>,
+}
+
+impl<'a> Walk<'a, '_, '_> {
+    /// Adds the subtree of `root`.
+    fn from(&mut self, root: &'a ItemEntry<'a>) {
+        // (item, its children still to visit), the last on top.
+        let mut stack: Vec<std::vec::IntoIter<&ItemEntry>> = Vec::new();
+        let mut next = Some(root);
+        loop {
+            if let Some(item) = next.take()
+                && let Some(children) = self.node(item)
+            {
+                stack.push(children.into_iter());
+            }
+            let Some(children) = stack.last_mut() else {
+                break;
+            };
+            match children.next() {
+                Some(child) => next = Some(child),
+                None => {
+                    stack.pop();
+                    self.entries.push(TreeEntry::close());
+                }
+            }
+        }
+    }
+
+    /// Adds the entry of `item`, and its missing types if it opens; returns
+    /// its children if it opens.
+    fn node(&mut self, item: &'a ItemEntry<'a>) -> Option<Vec<&'a ItemEntry<'a>>> {
+        let document = self.document;
+        let has_below = !item.covered_by.is_empty() || !item.missing.is_empty();
+        if !has_below && let Some(entry) = leaf(document, item) {
+            self.entries.push(entry);
+            return None;
+        }
+        let first = self.shown.insert((item.location, item.id));
+        let opens = first && has_below;
+        // A test keeps its verdict, also when it needs coverage itself.
+        let (class, sign, label) = match item.origin {
+            Origin::Tag { .. } if document.verification_types.contains(item.typ) => {
+                verdict(item.test.as_ref().map(|test| test.verdict))
+            }
+            _ => coverage(item),
+        };
+        let (text, location) = match item.origin {
+            Origin::Tag { text, .. } => (text.clone(), Some(item.location.to_string())),
+            Origin::Requirement => (item.id.to_string(), None),
+        };
+        self.entries.push(TreeEntry {
+            kind: if opens { "open" } else { "leaf" },
+            class,
+            sign,
+            label,
+            text,
+            anchor: self.index.anchors.get(&(item.location, item.id)).cloned(),
+            title: item.title,
+            location,
+            repeated: !first && has_below,
+        });
+        if !opens {
+            return None;
+        }
+        for typ in item.missing {
+            self.entries.push(TreeEntry {
+                kind: "leaf",
+                class: "missing",
+                sign: "✗",
+                label: "missing",
+                text: typ.to_string(),
+                ..TreeEntry::close()
+            });
+        }
+        let mut children: Vec<&ItemEntry> = item
+            .covered_by
+            .iter()
+            .filter_map(|source| self.index.source_of(source, item))
+            .collect();
+        // Requirements first, then code, then tests, each in the order of
+        // `covered_by`.
+        children.sort_by_key(|child| match child.origin {
+            Origin::Requirement => 0,
+            Origin::Tag { .. } if !document.verification_types.contains(child.typ) => 1,
+            Origin::Tag { .. } => 2,
+        });
+        Some(children)
+    }
+}
+
+impl TreeEntry<'_> {
+    /// The entry that closes the node opened last.
+    fn close() -> Self {
+        Self {
+            kind: "close",
+            class: "",
+            sign: "",
+            label: "",
+            text: String::new(),
+            anchor: None,
+            title: "",
+            location: None,
+            repeated: false,
+        }
+    }
+}
+
+/// The tree entry of a tag; none for a requirement.
+fn leaf<'a>(document: &'a Document<'_>, item: &'a ItemEntry<'_>) -> Option<TreeEntry<'a>> {
+    let Origin::Tag { text, .. } = item.origin else {
+        return None;
+    };
+    let (class, sign, label) = if document.verification_types.contains(item.typ) {
+        verdict(item.test.as_ref().map(|test| test.verdict))
+    } else {
+        ("ok", "✓", "code")
+    };
+    Some(TreeEntry {
+        kind: "leaf",
+        class,
+        sign,
+        label,
+        text: text.clone(),
+        anchor: None,
+        title: "",
+        location: Some(item.location.to_string()),
+        repeated: false,
+    })
+}
+
+/// CSS class, sign and words for the coverage of a requirement.
+fn coverage(item: &ItemEntry<'_>) -> (&'static str, &'static str, &'static str) {
+    if item.status == Status::Rejected {
+        ("rejected", "–", "rejected")
+    } else if item.unknown_type {
+        ("unknown", "?", "unknown type")
+    } else if item.deep_covered {
+        ("ok", "✓", "deep covered")
+    } else if item.covered {
+        ("partial", "!", "covered, gap below")
+    } else {
+        ("missing", "✗", "not covered")
+    }
+}
+
+/// CSS class, sign and words for the verdict of a test; without `junit`
+/// sources there is none.
+fn verdict(verdict: Option<Verdict>) -> (&'static str, &'static str, &'static str) {
+    match verdict {
+        Some(Verdict::Passed) => ("ok", "✓", "passed"),
+        Some(Verdict::Failed) => ("missing", "✗", "failed"),
+        Some(Verdict::Skipped) => ("partial", "!", "skipped"),
+        Some(Verdict::NotExecuted) => ("partial", "!", "not executed"),
+        Some(Verdict::NoTest) => ("partial", "!", "no test"),
+        None => ("unknown", "?", "no results read"),
     }
 }
 
@@ -688,14 +908,7 @@ fn detail<'a>(
             }
             Origin::Requirement => {}
             Origin::Tag { text, .. } if document.verification_types.contains(entry.typ) => {
-                let (class, sign, verdict) = match entry.test.as_ref().map(|test| test.verdict) {
-                    Some(Verdict::Passed) => ("ok", "✓", "passed"),
-                    Some(Verdict::Failed) => ("missing", "✗", "failed"),
-                    Some(Verdict::Skipped) => ("partial", "!", "skipped"),
-                    Some(Verdict::NotExecuted) => ("partial", "!", "not executed"),
-                    Some(Verdict::NoTest) => ("partial", "!", "no test"),
-                    None => ("unknown", "?", "no results read"),
-                };
+                let (class, sign, verdict) = verdict(entry.test.as_ref().map(|test| test.verdict));
                 tests.push(TestView {
                     text,
                     location: entry.location.to_string(),
@@ -1199,6 +1412,138 @@ mod tests {
         assert!(
             html.contains("<td><code>reqs&#x2f;a.md:7</code></td>"),
             "{html}"
+        );
+    }
+
+    /// The tree as lines of `open`/`leaf`/`close` and the text, indented.
+    fn tree_lines(config: &str, requirements: &str) -> Vec<String> {
+        tree_lines_with_code(config, requirements, "")
+    }
+
+    fn tree_lines_with_code(config: &str, requirements: &str, code: &str) -> Vec<String> {
+        let config = Config::parse(config).unwrap();
+        let mut items = markdown::parse(Path::new("reqs/a.md"), requirements)
+            .unwrap()
+            .items;
+        items.extend(
+            shall_core::tags::scan(Path::new("src/a.c"), code)
+                .unwrap()
+                .items,
+        );
+        let trace = trace::trace(&items, &config);
+        let document = Document::new(Input {
+            config: &config,
+            items: &items,
+            trace: &trace,
+            tests: None,
+            diagnostics: &trace.defects,
+            variant: None,
+        });
+        let index = Index::new(&document);
+        let mut depth = 0;
+        let mut lines = Vec::new();
+        for entry in tree(&document, &index) {
+            match entry.kind {
+                "open" => {
+                    lines.push(format!(
+                        "{}{} {}",
+                        "  ".repeat(depth),
+                        entry.sign,
+                        entry.text
+                    ));
+                    depth += 1;
+                }
+                "leaf" => lines.push(format!(
+                    "{}{} {}{}",
+                    "  ".repeat(depth),
+                    entry.sign,
+                    entry.text,
+                    if entry.repeated { " (again)" } else { "" }
+                )),
+                _ => depth -= 1,
+            }
+        }
+        assert_eq!(depth, 0, "{lines:?}");
+        lines
+    }
+
+    #[test]
+    fn the_tree_shows_shared_items_once() {
+        let lines = tree_lines(
+            "[[level]]\ntype = \"sys\"\nname = \"S\"\nneeds = [\"swr\"]\n\n\
+             [[level]]\ntype = \"swr\"\nname = \"W\"\nneeds = [\"dsn\"]\n\n\
+             [[level]]\ntype = \"dsn\"\nname = \"D\"\n",
+            "# A\n`sys~a-k4f2~1`\n\n# B\n`sys~b-k4f2~1`\n\n\
+             # S\n`swr~s-k4f2~1`\nCovers:\n- sys~a-k4f2~1\n- sys~b-k4f2~1\n\n\
+             # D\n`dsn~d-k4f2~1`\nCovers:\n- swr~s-k4f2~1\n\n\
+             # T\n`swr~t-k4f2~1`\nCovers:\n- sys~b-k4f2~1\n",
+        );
+        assert_eq!(
+            lines,
+            [
+                "✓ sys~a-k4f2~1",
+                "  ✓ swr~s-k4f2~1",
+                "    ✓ dsn~d-k4f2~1",
+                "! sys~b-k4f2~1",
+                "  ✓ swr~s-k4f2~1 (again)",
+                "  ✗ swr~t-k4f2~1",
+                "    ✗ dsn",
+            ]
+        );
+    }
+
+    #[test]
+    fn the_tree_ends_cycles() {
+        let lines = tree_lines(
+            "",
+            "# R\n`req~r-k4f2~1`\nNeeds: req\n\n\
+             # A\n`req~a-k4f2~1`\nNeeds: req\nCovers:\n- req~r-k4f2~1\n- req~b-k4f2~1\n\n\
+             # B\n`req~b-k4f2~1`\nNeeds: req\nCovers:\n- req~a-k4f2~1\n",
+        );
+        assert_eq!(
+            lines,
+            [
+                "! req~r-k4f2~1",
+                "  ! req~a-k4f2~1",
+                "    ! req~b-k4f2~1",
+                "      ! req~a-k4f2~1 (again)",
+            ]
+        );
+    }
+
+    #[test]
+    fn the_tree_shows_rootless_cycles_and_open_tags() {
+        // A cycle that nothing above it ends: its items become roots.
+        let lines = tree_lines(
+            "",
+            "# A\n`req~a-k4f2~1`\nNeeds: req\nCovers:\n- req~b-k4f2~1\n\n\
+             # B\n`req~b-k4f2~1`\nNeeds: req\nCovers:\n- req~a-k4f2~1\n\n\
+             # L\n`req~l-k4f2~1`\nCovers:\n- req~a-k4f2~1\n- req~b-k4f2~1\n",
+        );
+        assert_eq!(
+            lines,
+            [
+                "! req~a-k4f2~1",
+                "  ! req~b-k4f2~1",
+                "    ! req~a-k4f2~1 (again)",
+                "    ✓ req~l-k4f2~1",
+                "  ✓ req~l-k4f2~1",
+            ]
+        );
+        // A tag that needs a test of its own shows the gap.
+        let lines = tree_lines_with_code(
+            "[[level]]\ntype = \"dsn\"\nname = \"D\"\nneeds = [\"impl\"]\n\n\
+             [verification]\ntypes = [\"utest\"]\n",
+            "# D\n`dsn~d-k4f2~1`\n",
+            "// [impl->dsn~d-k4f2~1>>utest]\nvoid f();\n",
+        );
+        assert_eq!(
+            lines,
+            [
+                "! dsn~d-k4f2~1",
+                "  ✗ [impl->dsn~d-k4f2~1>>utest]",
+                "    ✗ utest",
+            ]
         );
     }
 }

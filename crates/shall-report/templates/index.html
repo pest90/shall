@@ -100,6 +100,26 @@
 {% endif %}
 </section>
 {% endfor %}
+{% macro node(entry) %}<span class="sign {{ entry.class }}" title="{{ entry.label }}" aria-hidden="true">{{ entry.sign }}</span><span class="sr-only">{{ entry.label }}</span> {% if entry.anchor %}<a href="#{{ entry.anchor }}"><code>{{ entry.text }}</code></a>{% else %}<code>{{ entry.text }}</code>{% endif %}{% if entry.title %} {{ entry.title }}{% endif %}{% if entry.location %} <code>{{ entry.location }}</code>{% endif %}{% if entry.repeated %} <span class="note">(shown above)</span>{% endif %}{% endmacro %}
+{% if tree %}
+<section id="tree">
+<h2>Tree</h2>
+<ul class="tree">
+{% for entry in tree %}
+{% if entry.kind == "open" %}
+<li><details><summary>{{ node(entry) }}</summary>
+<ul>
+{% elif entry.kind == "leaf" %}
+<li>{{ node(entry) }}</li>
+{% else %}
+</ul>
+</details></li>
+{% endif %}
+{% endfor %}
+</ul>
+<p class="note">From every requirement that covers no other item validly, what covers it: requirements, missing types, code and tests. A node that appears again shows what covers it only where it appears first; requirements no root reaches, such as those of a coverage cycle, follow as roots of their own.</p>
+</section>
+{% endif %}
 {% if defects %}
 <section id="defects">
 <h2>Defects</h2>

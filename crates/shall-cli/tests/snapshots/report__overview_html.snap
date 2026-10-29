@@ -112,6 +112,16 @@ tr.unknown td.sign { background: var(--bad-bg); }
 .badge.missing, .badge.unknown { color: var(--bad-fg); background: var(--bad-bg); }
 table.params { width: auto; margin-top: 0.25rem; }
 .variant { margin: 0.25rem 0 0; }
+.tree, .tree ul { list-style: none; margin: 0; padding-left: 1.25rem; }
+.tree { padding-left: 0; }
+.tree li { margin: 0.15rem 0; }
+.tree summary { cursor: pointer; }
+.tree .sign { font-weight: 700; }
+.tree .sign.ok { color: var(--ok-fg); }
+.tree .sign.partial { color: var(--warn-fg); }
+.tree .sign.missing, .tree .sign.unknown { color: var(--bad-fg); }
+.tree .sign.rejected { color: var(--off-fg); }
+.tree .note { font-size: 0.85rem; }
 </style>
 </head>
 <body>

@@ -112,6 +112,16 @@ tr.unknown td.sign { background: var(--bad-bg); }
 .badge.missing, .badge.unknown { color: var(--bad-fg); background: var(--bad-bg); }
 table.params { width: auto; margin-top: 0.25rem; }
 .variant { margin: 0.25rem 0 0; }
+.tree, .tree ul { list-style: none; margin: 0; padding-left: 1.25rem; }
+.tree { padding-left: 0; }
+.tree li { margin: 0.15rem 0; }
+.tree summary { cursor: pointer; }
+.tree .sign { font-weight: 700; }
+.tree .sign.ok { color: var(--ok-fg); }
+.tree .sign.partial { color: var(--warn-fg); }
+.tree .sign.missing, .tree .sign.unknown { color: var(--bad-fg); }
+.tree .sign.rejected { color: var(--off-fg); }
+.tree .note { font-size: 0.85rem; }
 </style>
 </head>
 <body>
@@ -292,6 +302,52 @@ table.params { width: auto; margin-top: 0.25rem; }
 </tbody>
 </table>
 </div>
+</section>
+<section id="tree">
+<h2>Tree</h2>
+<ul class="tree">
+<li><details><summary><span class="sign ok" title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span> <a href="#dsn~motor.temp-monitor-r5t1~1"><code>dsn~motor.temp-monitor-r5t1~1</code></a> Temperature monitoring in the 10 ms task</summary>
+<ul>
+<li><span class="sign ok" title="code" aria-hidden="true">✓</span><span class="sr-only">code</span> <code>[impl-&gt;dsn~motor.temp-monitor-r5t1~1]</code> <code>src&#x2f;temp_monitor.cpp:3</code></li>
+<li><span class="sign ok" title="passed" aria-hidden="true">✓</span><span class="sr-only">passed</span> <code>[utest-&gt;dsn~motor.temp-monitor-r5t1~1]</code> <code>tests&#x2f;temp_monitor_test.cpp:5</code></li>
+</ul>
+</details></li>
+<li><details><summary><span class="sign partial" title="covered, gap below" aria-hidden="true">!</span><span class="sr-only">covered, gap below</span> <a href="#sys~motor.thermal-protection-q7m2~1"><code>sys~motor.thermal-protection-q7m2~1</code></a> Thermal protection of the motor</summary>
+<ul>
+<li><details><summary><span class="sign ok" title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span> <a href="#swr~motor.overtemp-shutdown-k4f2~2"><code>swr~motor.overtemp-shutdown-k4f2~2</code></a> Shut down the motor on overtemperature</summary>
+<ul>
+<li><details><summary><span class="sign ok" title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span> <a href="#dsn~motor.shutdown-signal-w9e4~1"><code>dsn~motor.shutdown-signal-w9e4~1</code></a> Shutdown signal</summary>
+<ul>
+<li><span class="sign ok" title="code" aria-hidden="true">✓</span><span class="sr-only">code</span> <code>[impl-&gt;dsn~motor.shutdown-signal-w9e4~1]</code> <code>src&#x2f;shutdown.cpp:3</code></li>
+<li><span class="sign missing" title="failed" aria-hidden="true">✗</span><span class="sr-only">failed</span> <code>[utest-&gt;dsn~motor.shutdown-signal-w9e4~1]</code> <code>tests&#x2f;shutdown_test.cpp:5</code></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+<li><details><summary><span class="sign missing" title="not covered" aria-hidden="true">✗</span><span class="sr-only">not covered</span> <a href="#swr~motor.overtemp-warning-p8n5~1"><code>swr~motor.overtemp-warning-p8n5~1</code></a> Warn before overtemperature</summary>
+<ul>
+<li><span class="sign missing" title="missing" aria-hidden="true">✗</span><span class="sr-only">missing</span> <code>dsn</code></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+<li><details><summary><span class="sign ok" title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span> <a href="#sys~motor.emergency-stop-h3x9~1"><code>sys~motor.emergency-stop-h3x9~1</code></a> Emergency stop</summary>
+<ul>
+<li><details><summary><span class="sign ok" title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span> <a href="#swr~motor.estop-relay-c2v6~1"><code>swr~motor.estop-relay-c2v6~1</code></a> Open the motor relay on emergency stop</summary>
+<ul>
+<li><details><summary><span class="sign ok" title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span> <a href="#dsn~motor.relay-driver-b6j3~1"><code>dsn~motor.relay-driver-b6j3~1</code></a> Relay driver</summary>
+<ul>
+<li><span class="sign ok" title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span> <a href="#vrev~motor.relay-driver-review-m3q8~1"><code>vrev~motor.relay-driver-review-m3q8~1</code></a> Review of the relay driver</li>
+<li><span class="sign ok" title="code" aria-hidden="true">✓</span><span class="sr-only">code</span> <code>[impl-&gt;dsn~motor.relay-driver-b6j3~1]</code> <code>src&#x2f;relay_driver.cpp:3</code></li>
+<li><span class="sign ok" title="passed" aria-hidden="true">✓</span><span class="sr-only">passed</span> <code>[utest-&gt;dsn~motor.relay-driver-b6j3~1]</code> <code>tests&#x2f;relay_driver_test.cpp:10</code></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+</ul>
+</details></li>
+</ul>
+<p class="note">From every requirement that covers no other item validly, what covers it: requirements, missing types, code and tests. A node that appears again shows what covers it only where it appears first; requirements no root reaches, such as those of a coverage cycle, follow as roots of their own.</p>
 </section>
 <section id="defects">
 <h2>Defects</h2>

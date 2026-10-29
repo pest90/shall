@@ -792,9 +792,18 @@ A section `Defects` lists every problem of `shall check`, errors first,
 then warnings, each in the order of `shall check`, with sign and
 severity in words; a location in a requirement file links to the
 requirement whose lines include it, from its ID to the next ID or
-heading that ends it, and the error and
-warning counts at the top link to the list. The tree view, filters and
-the graph view are planned (M5).
+heading that ends it, and the error and warning counts at the top link
+to the list.
+
+A section `Tree` shows, collapsible without JavaScript, every
+requirement that covers no other item with a valid `Covers:` and is no
+target of a valid `Satisfied-by:`, rejected ones included, and below
+each node what covers it: requirements, missing types, code and tests,
+each with sign and words. A code tag that needs coverage of its own
+(`>>`) opens like a requirement. A node that appears again shows what
+covers it only where it appears first; requirements that no root
+reaches, such as those of a coverage cycle, follow as roots of their
+own. Filters and the graph view are planned (M5).
 
 The output directory is not excluded from the project's files. Add it
 to `.gitignore` (e.g. `/site/`), or make sure no pattern in `[sources]`
