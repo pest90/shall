@@ -770,6 +770,14 @@ the directory is created if missing:
   systems: an error is a failed test case, a warning a skipped one,
   named by the whole line and with `file` and `line`; without defects
   there is one passed case `no defects`.
+- `badge.svg`, a badge for a README such as `requirements | 2/3 green`:
+  how many requirements at the top of a chain (not rejected) are green;
+  green if all are, red if one is red, yellow otherwise;
+- `graph.dot` and `graph.mmd`, the project as a Graphviz and a Mermaid
+  diagram from left to right: every requirement once with an edge to
+  every requirement covering it, code and tests bundled per type, a
+  dashed node for every missing type, each node with the sign and the
+  colour of its [light](#light-of-a-chain).
 
 With `--variant`, all files contain only the items of the variant (see
 [Variants](#variants)), and the report names the variant and its
@@ -884,7 +892,7 @@ part of their names before the first `.` (e.g. `motor` for
 `sys~motor.estop-h3x9~1`), with the number of green, yellow, red and
 grey tiles per group; a tile jumps to the root's graph, which the
 embedded script opens (without JavaScript, click it open). Grouping by
-tags, zoom and a graph export are planned (M5.12, M5.13).
+tags and zoom are planned (M5.12).
 
 The output directory is not excluded from the project's files. Add it
 to `.gitignore` (e.g. `/site/`), or make sure no pattern in `[sources]`

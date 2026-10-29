@@ -1,0 +1,39 @@
+---
+source: crates/shall-cli/tests/report.rs
+expression: "fs::read_to_string(target.join(file)).unwrap()"
+---
+flowchart LR
+  n0["✗ dsn~motor.temp-monitor-r5t1~1<br>Temperature monitoring in the 10 ms task"]:::red
+  n1["✗ dsn~motor.shutdown-signal-w9e4~1<br>Shutdown signal"]:::red
+  n2["✓ dsn~motor.relay-driver-b6j3~1<br>Relay driver"]:::green
+  n3["✗ swr~motor.overtemp-shutdown-k4f2~2<br>Shut down the motor on overtemperature"]:::red
+  n4["✗ swr~motor.overtemp-warning-p8n5~1<br>Warn before overtemperature"]:::red
+  n5["✓ swr~motor.estop-relay-c2v6~1<br>Open the motor relay on emergency stop"]:::green
+  n6["✗ sys~motor.thermal-protection-q7m2~1<br>Thermal protection of the motor"]:::red
+  n7["✓ sys~motor.emergency-stop-h3x9~1<br>Emergency stop"]:::green
+  n8["✓ vrev~motor.relay-driver-review-m3q8~1<br>Review of the relay driver"]:::green
+  n9["✓ impl ×1"]:::green
+  n10["✓ utest 1/1"]:::green
+  n11["✓ impl ×1"]:::green
+  n12["✗ utest 0/1"]:::red
+  n13["✓ impl ×1"]:::green
+  n14["✓ utest 1/1"]:::green
+  n15["✗ missing: dsn"]:::missing
+  n0 --> n9
+  n0 --> n10
+  n1 --> n11
+  n1 --> n12
+  n2 --> n8
+  n2 --> n13
+  n2 --> n14
+  n3 --> n1
+  n4 -.-> n15
+  n5 --> n2
+  n6 --> n3
+  n6 --> n4
+  n7 --> n5
+  classDef green fill:#dff3e4,stroke:#1f7a3d
+  classDef yellow fill:#fbf0d6,stroke:#8a5d00
+  classDef red fill:#f9e0e0,stroke:#b3261e
+  classDef grey fill:#eceef1,stroke:#5f6670
+  classDef missing fill:#f9e0e0,stroke:#b3261e,stroke-dasharray:4 3

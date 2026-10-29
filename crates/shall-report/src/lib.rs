@@ -54,6 +54,7 @@
 //! links them, with the verdict and counts of each.
 
 pub mod defects;
+pub mod diagram;
 mod graph;
 mod markdown;
 

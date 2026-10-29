@@ -1,0 +1,37 @@
+---
+source: crates/shall-cli/tests/report.rs
+expression: "fs::read_to_string(target.join(file)).unwrap()"
+---
+digraph shall {
+  rankdir=LR;
+  node [shape=box, style="rounded,filled", fontname="sans-serif"];
+  n0 [label="✗ dsn~motor.temp-monitor-r5t1~1\nTemperature monitoring in the 10 ms task", class="red", fillcolor="#f9e0e0", color="#b3261e", style="rounded,filled"];
+  n1 [label="✗ dsn~motor.shutdown-signal-w9e4~1\nShutdown signal", class="red", fillcolor="#f9e0e0", color="#b3261e", style="rounded,filled"];
+  n2 [label="✓ dsn~motor.relay-driver-b6j3~1\nRelay driver", class="green", fillcolor="#dff3e4", color="#1f7a3d", style="rounded,filled"];
+  n3 [label="✗ swr~motor.overtemp-shutdown-k4f2~2\nShut down the motor on overtemperature", class="red", fillcolor="#f9e0e0", color="#b3261e", style="rounded,filled"];
+  n4 [label="✗ swr~motor.overtemp-warning-p8n5~1\nWarn before overtemperature", class="red", fillcolor="#f9e0e0", color="#b3261e", style="rounded,filled"];
+  n5 [label="✓ swr~motor.estop-relay-c2v6~1\nOpen the motor relay on emergency stop", class="green", fillcolor="#dff3e4", color="#1f7a3d", style="rounded,filled"];
+  n6 [label="✗ sys~motor.thermal-protection-q7m2~1\nThermal protection of the motor", class="red", fillcolor="#f9e0e0", color="#b3261e", style="rounded,filled"];
+  n7 [label="✓ sys~motor.emergency-stop-h3x9~1\nEmergency stop", class="green", fillcolor="#dff3e4", color="#1f7a3d", style="rounded,filled"];
+  n8 [label="✓ vrev~motor.relay-driver-review-m3q8~1\nReview of the relay driver", class="green", fillcolor="#dff3e4", color="#1f7a3d", style="rounded,filled"];
+  n9 [label="✓ impl ×1", class="green", fillcolor="#dff3e4", color="#1f7a3d", style="rounded,filled"];
+  n10 [label="✓ utest 1/1", class="green", fillcolor="#dff3e4", color="#1f7a3d", style="rounded,filled"];
+  n11 [label="✓ impl ×1", class="green", fillcolor="#dff3e4", color="#1f7a3d", style="rounded,filled"];
+  n12 [label="✗ utest 0/1", class="red", fillcolor="#f9e0e0", color="#b3261e", style="rounded,filled"];
+  n13 [label="✓ impl ×1", class="green", fillcolor="#dff3e4", color="#1f7a3d", style="rounded,filled"];
+  n14 [label="✓ utest 1/1", class="green", fillcolor="#dff3e4", color="#1f7a3d", style="rounded,filled"];
+  n15 [label="✗ missing: dsn", class="missing", fillcolor="#f9e0e0", color="#b3261e", style="rounded,filled, dashed"];
+  n0 -> n9;
+  n0 -> n10;
+  n1 -> n11;
+  n1 -> n12;
+  n2 -> n8;
+  n2 -> n13;
+  n2 -> n14;
+  n3 -> n1;
+  n4 -> n15;
+  n5 -> n2;
+  n6 -> n3;
+  n6 -> n4;
+  n7 -> n5;
+}

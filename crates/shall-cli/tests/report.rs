@@ -38,7 +38,15 @@ fn writes_the_report_of_the_fixture() {
     let index_html = target.join("index.html");
     let trace_json = target.join("trace.json");
     let mut wrote = String::new();
-    for file in ["index.html", "trace.json", "defects.txt", "junit.xml"] {
+    for file in [
+        "index.html",
+        "trace.json",
+        "defects.txt",
+        "junit.xml",
+        "badge.svg",
+        "graph.dot",
+        "graph.mmd",
+    ] {
         wrote.push_str(&format!("wrote {}\n", target.join(file).display()));
     }
     assert_eq!(
@@ -54,6 +62,9 @@ fn writes_the_report_of_the_fixture() {
         "junit_xml",
         fs::read_to_string(target.join("junit.xml")).unwrap()
     );
+    for file in ["badge.svg", "graph.dot", "graph.mmd"] {
+        insta::assert_snapshot!(file, fs::read_to_string(target.join(file)).unwrap());
+    }
     let json = fs::read_to_string(&trace_json).unwrap();
     insta::assert_snapshot!("trace_json", normalized(&json));
     let html = fs::read_to_string(&index_html).unwrap();
@@ -133,7 +144,15 @@ fn writes_a_report_per_variant_and_an_overview() {
     assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
     let mut expected = String::new();
     for variant in ["basis", "safety"] {
-        for file in ["index.html", "trace.json", "defects.txt", "junit.xml"] {
+        for file in [
+            "index.html",
+            "trace.json",
+            "defects.txt",
+            "junit.xml",
+            "badge.svg",
+            "graph.dot",
+            "graph.mmd",
+        ] {
             expected.push_str(&format!(
                 "wrote {}\n",
                 site.join(variant).join(file).display()

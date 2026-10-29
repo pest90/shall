@@ -114,8 +114,9 @@ shall check
 `--mode strict` makes it fail on every defect, e.g. in a release job.
 `shall report --out site` writes the report `site/index.html`, a single
 file that opens without a server, the whole traced project as
-`site/trace.json`, and the defects as `site/defects.txt` and, for CI
-test reports, `site/junit.xml`.
+`site/trace.json`, the defects as `site/defects.txt` and, for CI test
+reports, `site/junit.xml`, a badge `site/badge.svg`, and the project as
+Graphviz and Mermaid diagrams.
 
 The [user guide](docs/user-guide.md) describes the requirement syntax, the
 configuration and the commands.

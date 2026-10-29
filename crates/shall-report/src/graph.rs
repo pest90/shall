@@ -112,23 +112,13 @@ enum Kind<'a> {
 /// requirements that cover no other item, and then those no root
 /// reaches.
 pub(crate) fn graphs<'a>(document: &'a Document<'_>, index: &Index<'a, '_>) -> Vec<GraphView> {
-    let covering: std::collections::HashSet<(&Location, &ItemId)> = document
-        .items
-        .iter()
-        .flat_map(|item| item.covered_by)
-        .map(|source| (&source.location, &source.id))
-        .collect();
     let requirements = document
         .items
         .iter()
         .filter(|item| matches!(item.origin, Origin::Requirement));
     let mut reached = HashMap::new();
     let mut graphs = Vec::new();
-    let roots: Vec<&ItemEntry> = requirements
-        .clone()
-        .filter(|item| !covering.contains(&(item.location, item.id)))
-        .collect();
-    for root in roots {
+    for root in top(document) {
         graphs.push(graph(document, index, root, &mut reached));
     }
     for rest in requirements {
@@ -137,6 +127,25 @@ pub(crate) fn graphs<'a>(document: &'a Document<'_>, index: &Index<'a, '_>) -> V
         }
     }
     graphs
+}
+
+/// The requirements at the top of a chain: those that cover no other item
+/// with a valid link, in document order.
+pub(crate) fn top<'a>(document: &'a Document<'_>) -> Vec<&'a ItemEntry<'a>> {
+    let covering: std::collections::HashSet<(&Location, &ItemId)> = document
+        .items
+        .iter()
+        .flat_map(|item| item.covered_by)
+        .map(|source| (&source.location, &source.id))
+        .collect();
+    document
+        .items
+        .iter()
+        .filter(|item| {
+            matches!(item.origin, Origin::Requirement)
+                && !covering.contains(&(item.location, item.id))
+        })
+        .collect()
 }
 
 /// The graph below `root`; records its requirements in `reached`, with

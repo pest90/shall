@@ -2,8 +2,9 @@
 //!
 //! These are `index.html`, the HTML report (see [`shall_report`]),
 //! `trace.json`, the graph it is made from (see [`shall_core::export`]),
-//! and the defects as `defects.txt` and `junit.xml` for CI (see
-//! [`shall_report::defects`]).
+//! the defects as `defects.txt` and `junit.xml` for CI (see
+//! [`shall_report::defects`]), and `badge.svg`, `graph.dot` and
+//! `graph.mmd` (see [`shall_report::diagram`]).
 //! With `--all-variants`, every variant gets them in a directory of its
 //! own, and `index.html` above links them.
 
@@ -37,6 +38,13 @@ const DEFECTS_TXT: &str = "defects.txt";
 
 /// File name of the defects as JUnit XML in the output directory.
 const JUNIT_XML: &str = "junit.xml";
+
+/// File name of the badge for a README in the output directory.
+const BADGE_SVG: &str = "badge.svg";
+
+/// File names of the diagram of the project as Graphviz DOT and Mermaid.
+const GRAPH_DOT: &str = "graph.dot";
+const GRAPH_MMD: &str = "graph.mmd";
 
 /// Traces the project, writes the files into the output directory and
 /// prints what it wrote and the summary of `shall check` to stderr.
@@ -93,8 +101,8 @@ fn document<'a>(project: &'a Project, build: Option<&'a BuildInfo>) -> Document<
     })
 }
 
-/// Writes the report, `trace.json`, `defects.txt` and `junit.xml` of a
-/// document into `dir`.
+/// Writes the report, `trace.json`, `defects.txt`, `junit.xml`, the badge
+/// and the diagrams of a document into `dir`.
 fn write(dir: &Path, document: &Document) -> anyhow::Result<()> {
     let html = shall_report::render(document).context("cannot render the report")?;
     write_file(&dir.join(INDEX_HTML), &html)?;
@@ -106,6 +114,15 @@ fn write(dir: &Path, document: &Document) -> anyhow::Result<()> {
     write_file(
         &dir.join(JUNIT_XML),
         &shall_report::defects::junit(document),
+    )?;
+    write_file(
+        &dir.join(BADGE_SVG),
+        &shall_report::diagram::badge(document),
+    )?;
+    write_file(&dir.join(GRAPH_DOT), &shall_report::diagram::dot(document))?;
+    write_file(
+        &dir.join(GRAPH_MMD),
+        &shall_report::diagram::mermaid(document),
     )
 }
 

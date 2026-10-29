@@ -642,8 +642,9 @@ Oben ist die Kette bis zum bestandenen Test geschlossen. Unten macht der fehlend
   - Umsetzung (`shall_report`, Abschnitt „Overview“): eine Kachel je Wurzel der Graphen (dieselben wie im Baum) in Farbe und Zeichen ihrer Ampel, gruppiert nach Komponente = Teil des Namens vor dem ersten Punkt (Gruppen nach Namen sortiert, „Without component“ zuerst), je Gruppe die Zahl grüner, gelber, roter und grauer Kacheln. Ein Klick springt zum Graphen (`#graph-<ID>`), das eingebettete Skript klappt ihn auf. Gruppieren nach Tags fehlt noch: Ein Item kann mehrere Tags haben, die Kachel stünde dann mehrfach – das gehört zur Interaktion (5.12) als Umschalter.
 * [ ] **5.12 Interaktion (M)**
   - Wenig Vanilla-JS: aufklappen, Zoom und Verschieben, Klick auf Knoten springt zum Requirement bzw. zur Code-Stelle.
-* [ ] **5.13 Badge und Export (S)**
+* [x] **5.13 Badge und Export (S)**
   - SVG-Badge für das README („L1: 42/45 grün“); Graph zusätzlich als DOT oder Mermaid exportierbar.
+  - Umsetzung (`shall_report::diagram`): `shall report` schreibt immer `badge.svg` (`requirements | grün/alle green` über die Wurzeln ohne abgelehnte; Farbe grün, wenn alle grün sind, rot bei einem roten, sonst gelb; feste Zeichenbreite statt Schriftmessung, damit die Datei reproduzierbar bleibt), `graph.dot` und `graph.mmd`: jedes Requirement einmal, Kanten zu den abdeckenden Requirements, Tags je Typ gebündelt, fehlende Typen gestrichelt, Ampel als Zeichen, Klasse und Farbe; Knotennamen `n0`, `n1`, … in Item-Reihenfolge. Badge statt „L1“: es zählt die Wurzeln, weil die Ebenen konfigurierbar sind.
 
 #### PDF-Export
 
