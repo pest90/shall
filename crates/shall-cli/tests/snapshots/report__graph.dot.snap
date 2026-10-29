@@ -20,7 +20,7 @@ digraph shall {
   n12 [label="✗ utest 0/1", class="red", fillcolor="#f9e0e0", color="#b3261e", style="rounded,filled"];
   n13 [label="✓ impl ×1", class="green", fillcolor="#dff3e4", color="#1f7a3d", style="rounded,filled"];
   n14 [label="✓ utest 1/1", class="green", fillcolor="#dff3e4", color="#1f7a3d", style="rounded,filled"];
-  n15 [label="✗ missing: dsn", class="missing", fillcolor="#f9e0e0", color="#b3261e", style="rounded,filled, dashed"];
+  n15 [label="✗ missing: dsn", class="missing", fillcolor="#f9e0e0", color="#b3261e", style="rounded,filled,dashed"];
   n0 -> n9;
   n0 -> n10;
   n1 -> n11;
@@ -29,7 +29,7 @@ digraph shall {
   n2 -> n13;
   n2 -> n14;
   n3 -> n1;
-  n4 -> n15;
+  n4 -> n15 [style=dashed];
   n5 -> n2;
   n6 -> n3;
   n6 -> n4;

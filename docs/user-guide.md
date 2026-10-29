@@ -769,15 +769,19 @@ the directory is created if missing:
 - `junit.xml`, the defects as JUnit XML for the test reports of CI
   systems: an error is a failed test case, a warning a skipped one,
   named by the whole line and with `file` and `line`; without defects
-  there is one passed case `no defects`.
+  there is one passed case `no defects`;
 - `badge.svg`, a badge for a README such as `requirements | 2/3 green`:
   how many requirements at the top of a chain (not rejected) are green;
-  green if all are, red if one is red, yellow otherwise;
+  green if all are, red if one is red, yellow otherwise, grey without
+  any;
 - `graph.dot` and `graph.mmd`, the project as a Graphviz and a Mermaid
   diagram from left to right: every requirement once with an edge to
   every requirement covering it, code and tests bundled per type, a
   dashed node for every missing type, each node with the sign and the
-  colour of its [light](#light-of-a-chain).
+  colour of its [light](#light-of-a-chain). Mermaid renders at most 500
+  edges and 50,000 characters by default, which a few hundred
+  requirements exceed; use `graph.dot` with Graphviz for large
+  projects.
 
 With `--variant`, all files contain only the items of the variant (see
 [Variants](#variants)), and the report names the variant and its

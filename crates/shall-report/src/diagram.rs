@@ -121,7 +121,7 @@ pub fn dot(document: &Document<'_>) -> String {
     for (number, node) in nodes.iter().enumerate() {
         let (fill, stroke) = colours(node.class);
         let dashed = if node.class == "missing" {
-            ", dashed"
+            ",dashed"
         } else {
             ""
         };
@@ -134,7 +134,12 @@ pub fn dot(document: &Document<'_>) -> String {
         );
     }
     for (from, to) in edges {
-        let _ = writeln!(out, "  n{from} -> n{to};");
+        let style = if nodes[to].class == "missing" {
+            " [style=dashed]"
+        } else {
+            ""
+        };
+        let _ = writeln!(out, "  n{from} -> n{to}{style};");
     }
     out.push_str("}\n");
     out
@@ -207,6 +212,8 @@ fn mermaid_text(text: &str) -> String {
         match c {
             '"' => out.push_str("#quot;"),
             '#' => out.push_str("#35;"),
+            // Mermaid inserts labels as HTML; `&amp;` stays as written.
+            '&' => out.push_str("#38;"),
             '<' => out.push_str("#lt;"),
             '>' => out.push_str("#gt;"),
             '\n' => out.push_str("<br>"),
@@ -219,7 +226,8 @@ fn mermaid_text(text: &str) -> String {
 
 /// An SVG badge such as `requirements | 2/3 green`, for a README: how many
 /// of the requirements at the top of a chain (not rejected) are green;
-/// green if all are, red if one is red, yellow otherwise.
+/// green if all are, red if one is red, yellow otherwise, and grey if
+/// there are none.
 pub fn badge(document: &Document<'_>) -> String {
     let lights: Vec<Light> = crate::graph::top(document)
         .into_iter()
@@ -230,7 +238,7 @@ pub fn badge(document: &Document<'_>) -> String {
         .iter()
         .filter(|&&light| light == Light::Green)
         .count();
-    let worst = lights.iter().max().copied().unwrap_or(Light::Green);
+    let worst = lights.iter().max().copied().unwrap_or(Light::Grey);
     let (_, colour) = colours(worst.as_str());
     let label = "requirements";
     let value = format!("{green}/{} green", lights.len());
@@ -260,8 +268,8 @@ mod tests {
     fn escapes_labels() {
         assert_eq!(dot_text("a \"b\" \\ c\nd\u{1}"), "a \\\"b\\\" \\\\ c\\nd ");
         assert_eq!(
-            mermaid_text("a \"b\" #1 <c>\nd"),
-            "a #quot;b#quot; #35;1 #lt;c#gt;<br>d"
+            mermaid_text("a \"b\" #1 <c>&amp;\nd"),
+            "a #quot;b#quot; #35;1 #lt;c#gt;#38;amp;<br>d"
         );
     }
 }
