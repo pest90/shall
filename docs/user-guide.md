@@ -725,6 +725,7 @@ into the output directory, by default `site` in the current directory;
 the directory is created if missing:
 
 - `index.html`, the report: one self-contained file with embedded CSS
+  and a small script for the filter
   that opens from disk without a server;
 - `trace.json`, the whole traced project as JSON, from which the report
   is made (see below).
@@ -803,7 +804,15 @@ each with sign and words. A code tag that needs coverage of its own
 (`>>`) opens like a requirement. A node that appears again shows what
 covers it only where it appears first; requirements that no root
 reaches, such as those of a coverage cycle, follow as roots of their
-own. Filters and the graph view are planned (M5).
+own.
+
+Above the level tables, a filter narrows the tables and the details by
+coverage, status, type and tag, and a search finds requirements whose
+ID and title contain all the words typed, ignoring case; a counter
+says how many are shown, and a level without any shown row is hidden.
+A link to a requirement that the filter hides clears the filter. It
+needs JavaScript, which the report embeds like its CSS; without
+JavaScript the filter is not shown and the report shows everything. The graph view is planned (M5).
 
 The output directory is not excluded from the project's files. Add it
 to `.gitignore` (e.g. `/site/`), or make sure no pattern in `[sources]`

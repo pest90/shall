@@ -2,7 +2,7 @@
 //! ([`shall_core::export::Document`]).
 //!
 //! The report is one self-contained HTML file, `index.html`, with its CSS
-//! embedded, so that it opens from disk without a server. Like
+//! and a small script embedded, so that it opens from disk without a server. Like
 //! `trace.json` it is deterministic: the same document gives the same
 //! bytes.
 //!
@@ -29,6 +29,11 @@
 //! the requirements, code tags and tests covering it, the tests with their
 //! verdict, the requirements it satisfies or that depend on it, and the
 //! invalid links to it.
+//!
+//! A filter above the level tables narrows them and the details by
+//! coverage, status, type and tag, with a search over ID and title. Its
+//! script is embedded like the CSS; without JavaScript, the filter stays
+//! hidden and everything is shown.
 //!
 //! The levels are those of `shall.toml`, in their order there; types of
 //! requirement items without a level follow in alphabetical order, named
@@ -58,6 +63,7 @@ use shall_core::{ItemId, ItemType, Location, Severity, Status};
 const INDEX: &str = include_str!("../templates/index.html");
 const OVERVIEW: &str = include_str!("../templates/overview.html");
 const STYLE: &str = include_str!("../templates/style.css");
+const FILTER: &str = include_str!("../templates/filter.js");
 
 /// Renders the start page, `index.html`.
 ///
@@ -117,6 +123,7 @@ fn environment() -> Result<Environment<'static>, minijinja::Error> {
     env.add_template("index.html", INDEX)?;
     env.add_template("overview.html", OVERVIEW)?;
     env.add_template("style.css", STYLE)?;
+    env.add_template("filter.js", FILTER)?;
     env.set_undefined_behavior(minijinja::UndefinedBehavior::Strict);
     Ok(env)
 }
@@ -157,6 +164,10 @@ struct Page<'a> {
     /// The tree of requirements from the top down, as a flat list of
     /// entries that open and close nodes.
     tree: Vec<TreeEntry<'a>>,
+    /// The types of the tables with their names, for the filter.
+    filter_types: Vec<(&'a str, &'a str)>,
+    /// Every tag of a requirement, sorted, for the filter.
+    filter_tags: Vec<&'a str>,
     levels: Vec<LevelView<'a>>,
 }
 
@@ -242,6 +253,11 @@ struct ItemView<'a> {
     /// after the first get `-2`, `-3` and so on.
     anchor: String,
     id: String,
+    typ: &'a str,
+    /// Tags of the item, joined by newlines for the filter.
+    tags: String,
+    /// ID and title in lower case, for the search.
+    search: String,
     title: &'a str,
     status: &'static str,
     /// `ok`, `partial`, `missing`, `rejected` or `unknown`, for the CSS
@@ -476,7 +492,7 @@ impl<'a> Page<'a> {
             .map(|item| item.typ)
             .filter(|typ| !configured.contains(typ))
             .collect();
-        let levels = document
+        let levels: Vec<LevelView> = document
             .levels
             .iter()
             .map(|entry| level(document, &index, entry.typ, entry.name, entry.needs))
@@ -486,6 +502,7 @@ impl<'a> Page<'a> {
                     .map(|typ| level(document, &index, typ, typ.as_str(), &[])),
             )
             .collect();
+        let filter_types = levels.iter().map(|level| (level.typ, level.name)).collect();
         Self {
             generator: generator(document),
             variant: document.variant.as_ref().map(|variant| VariantView {
@@ -495,6 +512,16 @@ impl<'a> Page<'a> {
             summary: summary(document),
             defects: defects(document, &index),
             tree: tree(document, &index),
+            filter_types,
+            filter_tags: document
+                .items
+                .iter()
+                .filter(|item| matches!(item.origin, Origin::Requirement))
+                .flat_map(|item| item.tags)
+                .map(String::as_str)
+                .collect::<BTreeSet<_>>()
+                .into_iter()
+                .collect(),
             levels,
         }
     }
@@ -642,6 +669,9 @@ fn item_view<'a>(
     ItemView {
         anchor: index.anchors[&(item.location, item.id)].clone(),
         id: item.id.to_string(),
+        typ: item.typ.as_str(),
+        tags: item.tags.join("\n"),
+        search: format!("{} {}", item.id, item.title).to_lowercase(),
         title: item.title,
         label,
         verified: match (item.status, item.verified) {
@@ -1048,12 +1078,13 @@ mod tests {
         );
         assert!(
             html.contains(
-                "<tr class=\"unknown\">\n<td class=\"sign\">\
+                "\">\n<td class=\"sign\">\
                  <span title=\"unknown type\" aria-hidden=\"true\">?</span>\
                  <span class=\"sr-only\">unknown type</span>"
             ),
             "{html}"
         );
+        assert!(html.contains("<tr class=\"unknown\" "), "{html}");
         assert_eq!(html.matches("✗ duplicate ID").count(), 2, "{html}");
     }
 
@@ -1065,8 +1096,8 @@ mod tests {
              # R\n\n`zzz~r-k4f2~1`\n\nStatus: rejected\n",
         );
         assert!(!html.contains("unknown-type\">"), "{html}");
-        assert!(!html.contains("<tr class=\"unknown\">"), "{html}");
-        assert!(html.contains("<tr class=\"rejected\">"), "{html}");
+        assert!(!html.contains("<tr class=\"unknown\""), "{html}");
+        assert!(html.contains("<tr class=\"rejected\""), "{html}");
         assert!(html.contains("<h2>itst</h2>"), "{html}");
     }
 
@@ -1237,7 +1268,9 @@ mod tests {
             html.contains("&lt;script&gt;alert(2)&lt;/script&gt;"),
             "{html}"
         );
-        assert!(!html.contains("<script"), "{html}");
+        // The only script is the report's own filter.
+        assert_eq!(html.matches("<script").count(), 1, "{html}");
+        assert!(!html.contains("<img"), "{html}");
     }
 
     #[test]
@@ -1544,6 +1577,31 @@ mod tests {
                 "  ✗ [impl->dsn~d-k4f2~1>>utest]",
                 "    ✗ utest",
             ]
+        );
+    }
+
+    #[test]
+    fn filters_offer_the_tags_of_requirements() {
+        let html = html(
+            "[[level]]\ntype = \"dsn\"\nname = \"Design\"\n",
+            "# A \"quoted\"\n`dsn~a-k4f2~1`\n\nTags: a\"b, <t>\n",
+        );
+        assert!(
+            html.contains("<option value=\"&lt;t&gt;\">&lt;t&gt;</option>"),
+            "{html}"
+        );
+        assert!(
+            html.contains("<option value=\"a&quot;b\">a&quot;b</option>"),
+            "{html}"
+        );
+        assert!(
+            html.contains("data-search=\"dsn~a-k4f2~1 a &quot;quoted&quot;\""),
+            "{html}"
+        );
+        assert!(html.contains("data-tags=\"a&quot;b\n&lt;t&gt;\""), "{html}");
+        assert!(
+            html.contains("<form id=\"filter\" class=\"filter\" role=\"search\" hidden>"),
+            "{html}"
         );
     }
 }

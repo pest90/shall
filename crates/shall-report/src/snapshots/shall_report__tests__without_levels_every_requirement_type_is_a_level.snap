@@ -122,6 +122,11 @@ table.params { width: auto; margin-top: 0.25rem; }
 .tree .sign.missing, .tree .sign.unknown { color: var(--bad-fg); }
 .tree .sign.rejected { color: var(--off-fg); }
 .tree .note { font-size: 0.85rem; }
+.filter { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center; margin: 1.5rem 0 0; padding: 0.5rem 0.75rem; border: 1px solid var(--line); border-radius: 0.4rem; background: var(--head); }
+.filter label { display: flex; gap: 0.35rem; align-items: center; font-size: 0.9rem; }
+.filter output { font-size: 0.9rem; color: var(--muted); }
+[hidden] { display: none !important; }
+@media print { .filter { display: none !important; } }
 </style>
 </head>
 <body>
@@ -165,13 +170,21 @@ table.params { width: auto; margin-top: 0.25rem; }
 <p class="note">Covered: every needed type covers the item with a valid link. Deep covered: covered, and so is everything below. Verified: deep covered, every test below passed and every review or analysis below is approved. Rejected items are not counted; test results do not count as coverage.</p>
 <p class="note legend">Signs: <span class="ok">✓ deep covered</span>, <span class="partial">! covered, gap below</span>, <span class="missing">✗ not covered</span>, <span class="rejected">– rejected</span>, <span class="unknown">? unknown type (an error)</span>.</p>
 </section>
+<form id="filter" class="filter" role="search" hidden>
+<label>Search <input type="search" name="search" placeholder="ID or title"></label>
+<label>Coverage <select name="coverage"><option value="">all</option><option value="ok">✓ deep covered</option><option value="partial">! covered, gap below</option><option value="missing">✗ not covered</option><option value="rejected">– rejected</option><option value="unknown">? unknown type</option></select></label>
+<label>Status <select name="status"><option value="">all</option><option>draft</option><option>proposed</option><option>approved</option><option>rejected</option></select></label>
+<label>Type <select name="type"><option value="">all</option><option value="dsn">dsn</option><option value="swr">swr</option></select></label>
+<input type="hidden" name="tag" value=""><button type="reset">Reset</button>
+<output id="filter-count" aria-live="polite"></output>
+</form>
 <section id="level-dsn">
 <h2>dsn</h2>
 <div class="scroll">
 <table class="items">
 <thead><tr><th>Coverage</th><th>Verified</th><th>ID</th><th>Title</th><th>Status</th><th>Location</th></tr></thead>
 <tbody>
-<tr class="ok">
+<tr class="ok" data-search="dsn~a-k4f2~1 a" data-type="dsn" data-status="approved" data-coverage="ok" data-tags="">
 <td class="sign"><span title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span></td>
 <td class="verified">yes</td>
 <td><a href="#dsn~a-k4f2~1"><code>dsn~a-k4f2~1</code></a></td>
@@ -179,7 +192,7 @@ table.params { width: auto; margin-top: 0.25rem; }
 <td>approved</td>
 <td><code>reqs&#x2f;a.md:7</code></td>
 </tr>
-<tr class="rejected">
+<tr class="rejected" data-search="dsn~old-k4f2~1 old" data-type="dsn" data-status="rejected" data-coverage="rejected" data-tags="">
 <td class="sign"><span title="rejected" aria-hidden="true">–</span><span class="sr-only">rejected</span></td>
 <td class="verified">–</td>
 <td><a href="#dsn~old-k4f2~1"><code>dsn~old-k4f2~1</code></a></td>
@@ -197,7 +210,7 @@ table.params { width: auto; margin-top: 0.25rem; }
 <table class="items">
 <thead><tr><th>Coverage</th><th>Verified</th><th>ID</th><th>Title</th><th>Status</th><th>Location</th></tr></thead>
 <tbody>
-<tr class="ok">
+<tr class="ok" data-search="swr~b-k4f2~1 &lt;b&gt;bold&lt;&#x2f;b&gt; &amp; co" data-type="swr" data-status="approved" data-coverage="ok" data-tags="">
 <td class="sign"><span title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span></td>
 <td class="verified">yes</td>
 <td><a href="#swr~b-k4f2~1"><code>swr~b-k4f2~1</code></a></td>
@@ -220,7 +233,7 @@ table.params { width: auto; margin-top: 0.25rem; }
 </section>
 <section id="details">
 <h2>Requirements</h2>
-<article id="dsn~a-k4f2~1" class="detail ok">
+<article id="dsn~a-k4f2~1" class="detail ok" data-search="dsn~a-k4f2~1 a" data-type="dsn" data-status="approved" data-coverage="ok" data-tags="">
 <h3><span class="sign" title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span> <code>dsn~a-k4f2~1</code> A</h3>
 <dl class="facts">
 <div><dt>Level</dt><dd>dsn</dd></div>
@@ -229,7 +242,7 @@ table.params { width: auto; margin-top: 0.25rem; }
 <div><dt>Location</dt><dd><code>reqs&#x2f;a.md:7</code></dd></div>
 </dl>
 </article>
-<article id="dsn~old-k4f2~1" class="detail rejected">
+<article id="dsn~old-k4f2~1" class="detail rejected" data-search="dsn~old-k4f2~1 old" data-type="dsn" data-status="rejected" data-coverage="rejected" data-tags="">
 <h3><span class="sign" title="rejected" aria-hidden="true">–</span><span class="sr-only">rejected</span> <code>dsn~old-k4f2~1</code> Old</h3>
 <dl class="facts">
 <div><dt>Level</dt><dd>dsn</dd></div>
@@ -238,7 +251,7 @@ table.params { width: auto; margin-top: 0.25rem; }
 <div><dt>Location</dt><dd><code>reqs&#x2f;a.md:11</code></dd></div>
 </dl>
 </article>
-<article id="swr~b-k4f2~1" class="detail ok">
+<article id="swr~b-k4f2~1" class="detail ok" data-search="swr~b-k4f2~1 &lt;b&gt;bold&lt;&#x2f;b&gt; &amp; co" data-type="swr" data-status="approved" data-coverage="ok" data-tags="">
 <h3><span class="sign" title="deep covered" aria-hidden="true">✓</span><span class="sr-only">deep covered</span> <code>swr~b-k4f2~1</code> &lt;b&gt;Bold&lt;&#x2f;b&gt; &amp; co</h3>
 <dl class="facts">
 <div><dt>Level</dt><dd>swr</dd></div>
@@ -252,5 +265,88 @@ table.params { width: auto; margin-top: 0.25rem; }
 <footer>
 <p>Generated by shall 0.1.0.</p>
 </footer>
+<script>
+// Filters the level tables and the requirement details. Without
+// JavaScript the form stays hidden and everything is shown.
+(function () {
+  "use strict";
+  var form = document.getElementById("filter");
+  if (!form) {
+    return;
+  }
+  form.hidden = false;
+  var items = document.querySelectorAll("[data-search]");
+  var levels = document.querySelectorAll("section[id^='level-']");
+  var count = document.getElementById("filter-count");
+  function value(name) {
+    return form.elements[name].value;
+  }
+  function apply() {
+    var status = value("status");
+    var coverage = value("coverage");
+    var type = value("type");
+    var tag = value("tag");
+    var words = value("search").toLowerCase().split(/\s+/).filter(Boolean);
+    var shown = 0;
+    var total = 0;
+    items.forEach(function (item) {
+      var data = item.dataset;
+      var match =
+        (!status || data.status === status) &&
+        (!coverage || data.coverage === coverage) &&
+        (!type || data.type === type) &&
+        (!tag || data.tags.split("\n").indexOf(tag) >= 0) &&
+        words.every(function (word) {
+          return data.search.indexOf(word) >= 0;
+        });
+      item.hidden = !match;
+      // Rows and details come in pairs; count each requirement once.
+      if (item.tagName === "TR") {
+        total += 1;
+        if (match) {
+          shown += 1;
+        }
+      }
+    });
+    // A level whose rows are all filtered out is hidden as a whole.
+    levels.forEach(function (level) {
+      var rows = level.querySelectorAll("tr[data-search]");
+      level.hidden =
+        rows.length > 0 &&
+        Array.prototype.every.call(rows, function (row) {
+          return row.hidden;
+        });
+    });
+    count.textContent = shown + " of " + total + " requirements shown";
+  }
+  // A link to a requirement the filter hides clears the filter first.
+  function reveal() {
+    var id = decodeURIComponent(location.hash.slice(1));
+    var target = id && document.getElementById(id);
+    if (target && target.closest("[hidden]")) {
+      form.reset();
+      setTimeout(function () {
+        apply();
+        target.scrollIntoView();
+      }, 0);
+    }
+  }
+  window.addEventListener("hashchange", reveal);
+  document.addEventListener("click", function (event) {
+    var link = event.target.closest && event.target.closest("a[href^='#']");
+    if (link && link.getAttribute("href") === location.hash) {
+      reveal();
+    }
+  });
+  form.addEventListener("input", apply);
+  form.addEventListener("submit", function (event) {
+    event.preventDefault();
+  });
+  form.addEventListener("reset", function () {
+    setTimeout(apply, 0);
+  });
+  apply();
+})();
+</script>
 </body>
 </html>

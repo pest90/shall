@@ -122,6 +122,11 @@ table.params { width: auto; margin-top: 0.25rem; }
 .tree .sign.missing, .tree .sign.unknown { color: var(--bad-fg); }
 .tree .sign.rejected { color: var(--off-fg); }
 .tree .note { font-size: 0.85rem; }
+.filter { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center; margin: 1.5rem 0 0; padding: 0.5rem 0.75rem; border: 1px solid var(--line); border-radius: 0.4rem; background: var(--head); }
+.filter label { display: flex; gap: 0.35rem; align-items: center; font-size: 0.9rem; }
+.filter output { font-size: 0.9rem; color: var(--muted); }
+[hidden] { display: none !important; }
+@media print { .filter { display: none !important; } }
 </style>
 </head>
 <body>
