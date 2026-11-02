@@ -330,3 +330,131 @@ fn upgrade_check_lists_the_links_a_newer_state_makes_stale() {
         format!("3 stale links, 2 to review, 1 updated in {commit} (master)\n")
     );
 }
+
+#[test]
+fn mode_new_compares_with_a_commit() {
+    let dir = repository();
+    let root = dir.path();
+    // A defect that the commit has already, and a new one.
+    fs::write(
+        root.join("p/reqs/a.md"),
+        "# Stop\n`swr~stop~1`\n\n# Gone\n`swr~gone~1`\n\n# Handler\n`dsn~handler~1`\n\
+         Covers:\n- swr~stop~1\n- swr~typo~1\n",
+    )
+    .unwrap();
+    let output = shall(
+        &root.join("p"),
+        &["check", "--mode", "new", "--since", "HEAD"],
+    );
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert!(
+        stderr(&output).ends_with("check failed: 1 defect fails mode new\n"),
+        "{}",
+        stderr(&output)
+    );
+    // Also for a whole workspace, as in a pre-commit hook at its root, or
+    // from a member.
+    let output = shall(root, &["check", "--mode", "new", "--since", "HEAD"]);
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    let output = shall(
+        &root.join("p"),
+        &["check", "--mode", "new", "--since", "HEAD", "--workspace"],
+    );
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert!(!stderr(&output).contains("warning:"), "{}", stderr(&output));
+    git(root, &["commit", "-q", "-am", "typo"]);
+    let output = shall(root, &["check", "--mode", "new", "--since", "HEAD"]);
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    let output = shall(
+        root,
+        &[
+            "check",
+            "--mode",
+            "new",
+            "--since",
+            "HEAD",
+            "--compare-to",
+            "x",
+        ],
+    );
+    assert_eq!(output.status.code(), Some(2));
+}
+
+#[test]
+fn before_the_first_commit_everything_is_new() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    fs::write(root.join("shall.toml"), LEVELS).unwrap();
+    fs::write(root.join("a.md"), "# A\n`swr~a~1`\n").unwrap();
+    git(root, &["init", "-q", "-b", "master"]);
+    let output = shall(root, &["check", "--mode", "new", "--since", "HEAD"]);
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert!(stdout(&output).contains("not covered by required type 'dsn'"));
+}
+
+#[test]
+fn since_works_with_configured_modes_broken_states_and_orphans() {
+    let dir = repository();
+    let root = dir.path();
+    // A member configured for mode new is no problem for the baseline.
+    fs::write(
+        root.join("p/shall.toml"),
+        format!("{LEVELS}\n[check]\nmode = \"new\"\n"),
+    )
+    .unwrap();
+    git(root, &["commit", "-q", "-am", "mode new"]);
+    let output = shall(root, &["check", "--since", "HEAD"]);
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    // A broken shall.toml in the commit does not block the fix.
+    fs::write(root.join("p/shall.toml"), "[[level]\n").unwrap();
+    git(root, &["commit", "-q", "-am", "broken", "--no-verify"]);
+    fs::write(root.join("p/shall.toml"), LEVELS).unwrap();
+    let output = shall(root, &["check", "--mode", "new", "--since", "HEAD"]);
+    assert!(
+        stderr(&output).contains(", so every defect counts as new: in "),
+        "{}",
+        stderr(&output)
+    );
+    // The first commit of an orphan branch.
+    git(root, &["checkout", "-q", "--orphan", "fresh"]);
+    let output = shall(
+        &root.join("p"),
+        &["check", "--mode", "new", "--since", "HEAD"],
+    );
+    assert_ne!(output.status.code(), Some(2), "{}", stderr(&output));
+}
+
+#[test]
+fn test_results_outside_git_count_for_both_states() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    fs::write(
+        root.join("shall.toml"),
+        "[[level]]\ntype = \"dsn\"\nname = \"D\"\nneeds = [\"utest\"]\n\n\
+         [verification]\ntypes = [\"utest\"]\n\n\
+         [sources]\nutest = [\"tests/*.cpp\"]\njunit = [\"build/*.xml\"]\n",
+    )
+    .unwrap();
+    fs::write(root.join("r.md"), "# D\n`dsn~d~1`\n").unwrap();
+    fs::create_dir_all(root.join("tests")).unwrap();
+    fs::write(
+        root.join("tests/t.cpp"),
+        "// [utest->dsn~d~1]\nTEST(Suite, Works) {}\n",
+    )
+    .unwrap();
+    fs::write(root.join(".gitignore"), "build/\n").unwrap();
+    git(root, &["init", "-q", "-b", "master"]);
+    git(root, &["add", "-A"]);
+    git(root, &["commit", "-q", "-m", "base"]);
+    // A local test run that failed, never committed.
+    fs::create_dir_all(root.join("build")).unwrap();
+    fs::write(
+        root.join("build/r.xml"),
+        "<testsuite name=\"Suite\"><testcase classname=\"Suite\" name=\"Works\">\
+         <failure message=\"no\"/></testcase></testsuite>",
+    )
+    .unwrap();
+    let output = shall(root, &["check", "--mode", "new", "--since", "HEAD"]);
+    assert!(stdout(&output).contains("failed"), "{}", stdout(&output));
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+}

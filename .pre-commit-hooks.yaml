@@ -1,0 +1,8 @@
+# Hook for https://pre-commit.com: fails a commit only on the defects that
+# it adds, compared with HEAD; see "Pre-commit hook" in docs/user-guide.md.
+- id: shall-check
+  name: shall check
+  description: Fail on defects that the commit adds to requirements, tags or tests.
+  entry: shall check --mode new --since HEAD
+  language: system
+  pass_filenames: false

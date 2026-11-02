@@ -38,15 +38,20 @@ enum Command {
         #[arg(default_value = ".")]
         path: PathBuf,
         /// When the check fails, replacing `[check]` of `shall.toml`:
-        /// `report` never, `new` on errors that the `--compare-to` run
-        /// does not have, `mature` on errors at items with a mature
+        /// `report` never, `new` on errors that the `--since` or
+        /// `--compare-to` state does not have, `mature` on errors at items with a mature
         /// status, `strict` on every error or warning.
         #[arg(long, value_parser = parse_mode, value_name = "report|new|mature|strict")]
         mode: Option<Mode>,
         /// The `trace.json` of the run to compare with in mode `new`, e.g.
         /// written by `shall report` on the target branch.
-        #[arg(long, value_name = "TRACE_JSON")]
+        #[arg(long, value_name = "TRACE_JSON", conflicts_with = "since")]
         compare_to: Option<PathBuf>,
+        /// The commit to compare with in mode `new`, e.g. `HEAD` in a
+        /// pre-commit hook or the merge base in a merge request: checked
+        /// from the repository's objects like `shall diff` does.
+        #[arg(long, value_name = "REV")]
+        since: Option<String>,
         /// How to print the defects: `text`, `github` for annotations in
         /// GitHub Actions (Forgejo Actions: in the log) and a summary in
         /// `$GITHUB_STEP_SUMMARY`, or `sarif`.
@@ -211,6 +216,7 @@ fn run(command: Command) -> anyhow::Result<ExitCode> {
             path,
             mode,
             compare_to,
+            since,
             format,
             variant,
             workspace,
@@ -221,6 +227,7 @@ fn run(command: Command) -> anyhow::Result<ExitCode> {
             format,
             variant,
             workspace,
+            since,
         }),
         Command::Init {
             dir,

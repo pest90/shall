@@ -205,14 +205,14 @@ fn output(command: &mut Command) -> anyhow::Result<String> {
 }
 
 /// The top of the Git work tree of `dir`.
-fn git_top(dir: &Path) -> anyhow::Result<PathBuf> {
+pub(crate) fn git_top(dir: &Path) -> anyhow::Result<PathBuf> {
     let top = output(git(dir).args(["rev-parse", "--show-toplevel"]))
         .with_context(|| format!("{} is not in a Git work tree", dir.display()))?;
     dunce::canonicalize(&top).with_context(|| format!("cannot resolve {top}"))
 }
 
 /// The commit a revision names.
-fn commit(top: &Path, revision: &str) -> anyhow::Result<String> {
+pub(crate) fn commit(top: &Path, revision: &str) -> anyhow::Result<String> {
     if revision.starts_with('-') {
         bail!("invalid revision '{revision}'");
     }
@@ -225,6 +225,13 @@ fn commit(top: &Path, revision: &str) -> anyhow::Result<String> {
             .arg(format!("{object}^{{commit}}")),
     )
     .map_err(|_| anyhow::anyhow!("'{revision}' names no commit"))
+}
+
+/// Whether `HEAD` of the repository at `top` names a branch without a
+/// commit yet, as before the first commit or on a new orphan branch.
+pub(crate) fn is_unborn(top: &Path) -> bool {
+    output(git(top).args(["symbolic-ref", "-q", "HEAD"])).is_ok()
+        && output(git(top).args(["rev-parse", "--verify", "-q", "HEAD"])).is_err()
 }
 
 /// The base commit and the head commit of a range, the head none for the
@@ -256,14 +263,14 @@ fn range(top: &Path, range: &str) -> anyhow::Result<(String, Option<String>)> {
 }
 
 /// An abbreviated commit for messages.
-fn short(commit: &str) -> String {
+pub(crate) fn short(commit: &str) -> String {
     commit.chars().take(12).collect()
 }
 
 /// A commit written into a temporary directory, removed on drop.
-struct Tree {
+pub(crate) struct Tree {
     /// The directory of the files, like the top of a work tree.
-    dir: PathBuf,
+    pub(crate) dir: PathBuf,
     /// The commit, for messages.
     commit: String,
     /// Removes the files on drop.
@@ -272,13 +279,20 @@ struct Tree {
 
 impl Tree {
     /// Writes the files of `commit` of the repository at `top`.
-    fn write(top: &Path, commit: &str) -> anyhow::Result<Self> {
+    pub(crate) fn write(top: &Path, commit: &str) -> anyhow::Result<Self> {
+        Self::write_part(top, commit, Path::new(""))
+    }
+
+    /// Writes only the files of `commit` below `part`, a directory
+    /// relative to `top`, e.g. the root of a workspace.
+    pub(crate) fn write_part(top: &Path, commit: &str, part: &Path) -> anyhow::Result<Self> {
         let temp = tempfile::Builder::new()
             .prefix("shall-diff-")
             .tempdir()
             .context("cannot create a temporary directory")?;
         let dir = dunce::canonicalize(temp.path())?.join("tree");
-        write_tree(top, commit, &dir).with_context(|| format!("cannot read {}", short(commit)))?;
+        write_tree(top, commit, &dir, part)
+            .with_context(|| format!("cannot read {}", short(commit)))?;
         // Ends the search for a workspace above, as at the top of a work
         // tree.
         std::fs::write(dir.join(".git"), "").context("cannot write the temporary tree")?;
@@ -289,6 +303,27 @@ impl Tree {
         })
     }
 
+    /// Adds `files` of the working tree, absolute paths below `top`, where
+    /// this state has no file at their place, e.g. test results.
+    pub(crate) fn add_files(&self, top: &Path, files: &[PathBuf]) -> anyhow::Result<()> {
+        for file in files {
+            let Ok(relative) = file.strip_prefix(top) else {
+                continue;
+            };
+            let target = self.dir.join(relative);
+            if target.exists() || !file.is_file() {
+                continue;
+            }
+            if let Some(parent) = target.parent() {
+                std::fs::create_dir_all(parent)
+                    .with_context(|| format!("cannot create {}", parent.display()))?;
+            }
+            std::fs::copy(file, &target)
+                .with_context(|| format!("cannot copy {}", relative.display()))?;
+        }
+        Ok(())
+    }
+
     /// Reads and traces the project at `relative`; none if the project
     /// does not exist in this state. Messages name the commit instead of
     /// the temporary directory.
@@ -297,17 +332,23 @@ impl Tree {
         if !dir.join(config::FILE_NAME).is_file() {
             return Ok(None);
         }
-        check::analyze(&dir, None).map(Some).map_err(|error| {
-            let message = format!("{error:#}").replace(
-                &format!("{}{}", self.dir.display(), std::path::MAIN_SEPARATOR),
-                &format!("{}:", short(&self.commit)),
-            );
-            if message.contains(&short(&self.commit)) {
-                anyhow::anyhow!(message)
-            } else {
-                anyhow::anyhow!("in {}: {message}", short(&self.commit))
-            }
-        })
+        check::analyze(&dir, None)
+            .map(Some)
+            .map_err(|error| self.error(&error))
+    }
+
+    /// An error of reading this state, naming the commit instead of the
+    /// temporary directory.
+    pub(crate) fn error(&self, error: &anyhow::Error) -> anyhow::Error {
+        let message = format!("{error:#}").replace(
+            &format!("{}{}", self.dir.display(), std::path::MAIN_SEPARATOR),
+            &format!("{}:", short(&self.commit)),
+        );
+        if message.contains(&short(&self.commit)) {
+            anyhow::anyhow!(message)
+        } else {
+            anyhow::anyhow!("in {}: {message}", short(&self.commit))
+        }
     }
 }
 
@@ -326,12 +367,14 @@ impl Drop for Tree {
 /// blobs as files, executable or not, symbolic links as links where the
 /// platform has them and as files with the target otherwise, and a
 /// submodule from its own repository below `repo`, if it is cloned.
-fn write_tree(repo: &Path, commit: &str, dir: &Path) -> anyhow::Result<()> {
+fn write_tree(repo: &Path, commit: &str, dir: &Path, part: &Path) -> anyhow::Result<()> {
     std::fs::create_dir_all(dir).with_context(|| format!("cannot create {}", dir.display()))?;
-    let list = git(repo)
-        .args(["ls-tree", "-r", "-z", "--full-tree", commit])
-        .output()
-        .context("cannot run git")?;
+    let mut command = git(repo);
+    command.args(["ls-tree", "-r", "-z", "--full-tree", commit]);
+    if !part.as_os_str().is_empty() {
+        command.arg("--").arg(part);
+    }
+    let list = command.output().context("cannot run git")?;
     if !list.status.success() {
         bail!("{}", String::from_utf8_lossy(&list.stderr).trim());
     }
@@ -387,7 +430,7 @@ fn write_tree(repo: &Path, commit: &str, dir: &Path) -> anyhow::Result<()> {
                     short(commit)
                 );
             } else if has(object) {
-                write_tree(&submodule, object, &target)?;
+                write_tree(&submodule, object, &target, Path::new(""))?;
             } else {
                 let checked_out = output(git(&submodule).args(["rev-parse", "HEAD"]))
                     .with_context(|| format!("cannot read submodule {}", relative.display()))?;
@@ -399,7 +442,7 @@ fn write_tree(repo: &Path, commit: &str, dir: &Path) -> anyhow::Result<()> {
                     short(commit),
                     short(&checked_out)
                 );
-                write_tree(&submodule, &checked_out, &target)?;
+                write_tree(&submodule, &checked_out, &target, Path::new(""))?;
             }
             continue;
         }

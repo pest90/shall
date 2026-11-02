@@ -836,7 +836,8 @@ requirements file.
 ### `shall check`
 
 ```text
-shall check [PATH] [--mode <report|new|mature|strict>] [--compare-to <TRACE_JSON>]
+shall check [PATH] [--mode <report|new|mature|strict>]
+            [--since <REV> | --compare-to <TRACE_JSON>]
             [--format <text|github|sarif>] [--variant <NAME> | --workspace]
 ```
 
@@ -910,7 +911,7 @@ of the Git server:
 | Mode | Exit code 1 on |
 | --- | --- |
 | `report` (default) | nothing; the defects are only reported |
-| `new` | errors that the run given with `--compare-to` does not have |
+| `new` | errors that the state given with `--since` or `--compare-to` does not have |
 | `mature` | errors at mature items, and errors at no item, such as an unreadable file; an item is mature if its status is in `[check] mature_status`, a code or test tag if an item it covers is or it covers no existing one |
 | `strict` | every error and warning |
 
@@ -920,16 +921,56 @@ The mode comes from `[check]` in `shall.toml` (see
 lines include it, from its ID to its last line, or to the tag on its
 line; if the line holds several tags, those the message names decide.
 Items outside a traced variant keep their defects. For mode `new`,
+`--since` names a commit to compare with, e.g. `HEAD` before a commit
+or `origin/master` in a merge request: `shall` checks the project, or
+the workspace, at that commit as [`shall diff`](#shall-diff) reads it,
+with the same variant, and with the test results of the working tree
+(the files of the `junit` patterns) where the commit has none, since
+they come from the build, not from the history. A project that does
+not exist there yet, and `HEAD` before the first commit of a branch,
+have no defects. So has, with a warning, a state that cannot be
+checked, e.g. because of a broken `shall.toml`: then every defect
+counts as new, and a commit that repairs such a state needs
+`git commit --no-verify`. Instead,
 `--compare-to` names the `trace.json` of the run to compare with, e.g.
 written by `shall report` on the target branch, of the same variant;
-defects are compared by severity, file and message, not by line and
-ignoring line numbers in the message, since lines move with every edit.
-Unless every mode is `report`, a last line says whether the check
-failed, e.g. `check failed: 3 defects fail mode mature`; in a workspace
-a defect of a shared project counts once. A workspace check cannot
-compare yet, so a member in mode `new` needs `--mode` there or a check
-of its own. Computing the run to compare with from the merge base by
-itself is planned (M7.5).
+it works for one project, not for a workspace check. Defects are
+compared by severity, file and message, not by line and ignoring line
+numbers in the message, since lines move with every edit. Unless every
+mode is `report`, a last line says whether the check failed, e.g.
+`check failed: 3 defects fail mode mature`; in a workspace a defect of
+a shared project counts once.
+
+#### Pre-commit hook
+
+To stop a commit only on the defects it adds, run mode `new` against
+`HEAD`. With [pre-commit](https://pre-commit.com), this repository
+provides the hook `shall-check` (`shall` must be installed):
+
+```yaml
+# .pre-commit-config.yaml
+repos:
+  - repo: <URL of the shall repository>
+    rev: <tag>
+    hooks:
+      - id: shall-check
+        # args: [path/to/project]  # if it is not at the top of the repository
+```
+
+Without it, a plain Git hook does the same:
+
+```sh
+#!/bin/sh
+# .git/hooks/pre-commit
+exec shall check --mode new --since HEAD   # append the path if needed
+```
+
+Both run at the top of the repository, so name the project or
+workspace if it is elsewhere. The hook checks the whole project, since
+a change in one file can break links in others, and existing defects
+do not stop a commit. pre-commit puts unstaged changes aside while its
+hooks run; a plain Git hook checks the working tree, unstaged changes
+included.
 
 ### `shall report`
 

@@ -1048,7 +1048,7 @@ fn modes_decide_the_exit_code() {
     let output = shall(&fixture(), &["check", "--mode", "new"]);
     assert_eq!(output.status.code(), Some(2));
     assert!(
-        stderr(&output).contains("mode new needs --compare-to"),
+        stderr(&output).contains("mode new needs a state to compare with"),
         "{}",
         stderr(&output)
     );
@@ -1146,7 +1146,7 @@ fn workspaces_count_shared_defects_once_and_name_mode_new() {
     let output = shall(dir.path(), &["check"]);
     assert_eq!(output.status.code(), Some(2));
     assert!(
-        stderr(&output).contains("mode new of projects/a needs --compare-to"),
+        stderr(&output).contains("mode new of projects/a needs a state to compare with"),
         "{}",
         stderr(&output)
     );

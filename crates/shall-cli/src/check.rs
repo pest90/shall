@@ -30,6 +30,7 @@ use shall_core::results::{self, Evaluation, Packages};
 use shall_core::trace::{self, Trace};
 use shall_core::{Diagnostic, Item, Location, Origin, Severity, markdown, tags, variant};
 
+use crate::diff;
 use crate::output::{self, Format};
 use crate::project::{find_root, is_markdown};
 
@@ -44,6 +45,8 @@ pub struct CheckArgs {
     pub format: Format,
     pub variant: Option<String>,
     pub workspace: bool,
+    /// A commit whose defects are the baseline of mode `new`.
+    pub since: Option<String>,
 }
 
 /// Exit code when defects fail the check.
@@ -64,6 +67,10 @@ pub fn run(args: &CheckArgs) -> anyhow::Result<ExitCode> {
         None => None,
     };
     let workspace = args.workspace || is_workspace(&root)?;
+    let baseline = match &args.since {
+        Some(revision) => Some(baseline_at(&root, revision, workspace, args)?),
+        None => baseline,
+    };
     // The root that the paths of the diagnostics are relative to.
     let display_root = if is_workspace(&root)? {
         root.clone()
@@ -74,10 +81,10 @@ pub fn run(args: &CheckArgs) -> anyhow::Result<ExitCode> {
         if args.variant.is_some() {
             bail!("--variant checks one project, not a workspace");
         }
-        if baseline.is_some() {
-            bail!("--compare-to checks one project, not a workspace");
+        if args.compare_to.is_some() {
+            bail!("--compare-to checks one project, not a workspace; use --since");
         }
-        check_workspace(&root, args.mode)?
+        check_workspace(&root, args.mode, baseline.as_ref())?
     } else {
         let project = Reader::new(place(&root)?)
             .project(&root)?
@@ -88,7 +95,12 @@ pub fn run(args: &CheckArgs) -> anyhow::Result<ExitCode> {
     };
     summaries.extend(gate.verdict());
     if baseline.is_some() && !gate.modes.contains("new") {
-        summaries.push("warning: --compare-to is used only in mode new".to_owned());
+        let option = if args.since.is_some() {
+            "--since"
+        } else {
+            "--compare-to"
+        };
+        summaries.push(format!("warning: {option} is used only in mode new"));
     }
     let prefix = match args.format {
         Format::Text => String::new(),
@@ -129,6 +141,111 @@ pub fn run(args: &CheckArgs) -> anyhow::Result<ExitCode> {
     }
 }
 
+/// The defects of the project or workspace at `root` in the commit
+/// `revision`, as the baseline of mode `new`: the commit is written into
+/// a temporary directory as by `shall diff` and checked there like the
+/// working tree, with the same variant. A project that does not exist
+/// there has no defects, and neither has `HEAD` before the first commit.
+fn baseline_at(
+    root: &Path,
+    revision: &str,
+    workspace: bool,
+    args: &CheckArgs,
+) -> anyhow::Result<Baseline> {
+    let top = diff::git_top(root)?;
+    let inside = |dir: &Path| -> anyhow::Result<PathBuf> {
+        Ok(dir
+            .strip_prefix(&top)
+            .with_context(|| {
+                format!(
+                    "{} is not in the Git work tree {}",
+                    dir.display(),
+                    top.display()
+                )
+            })?
+            .to_path_buf())
+    };
+    let relative = inside(root)?;
+    let commit = match diff::commit(&top, revision) {
+        Ok(commit) => commit,
+        // Before the first commit of a branch, as in its pre-commit hook,
+        // everything is new.
+        Err(_) if revision == "HEAD" && diff::is_unborn(&top) => return Ok(Baseline::default()),
+        Err(error) => return Err(error),
+    };
+    // Only the part of the repository that the check reads: the workspace
+    // or the project, with the untracked test results of the working tree.
+    let part = inside(&workspace_place(root)?.root)?;
+    let tree = diff::Tree::write_part(&top, &commit, &part)?;
+    tree.add_files(&top, &junit_in_working_tree(root, workspace))?;
+    let dir = tree.dir.join(&relative);
+    let mut baseline = Baseline::default();
+    if !dir.join(config::FILE_NAME).is_file() {
+        return Ok(baseline);
+    }
+    let diagnostics = (|| -> anyhow::Result<Vec<Diagnostic>> {
+        if workspace {
+            // Mode `report`: the modes of the members do not matter here.
+            Ok(check_workspace(&dir, Some(Mode::Report), None)?.0)
+        } else {
+            Ok(Reader::new(place(&dir)?)
+                .project(&dir)?
+                .trace(args.variant.as_deref())?
+                .diagnostics)
+        }
+    })();
+    let diagnostics = match diagnostics {
+        Ok(diagnostics) => diagnostics,
+        // E.g. a broken shall.toml in the commit: nothing to compare with.
+        Err(error) => {
+            eprintln!(
+                "warning: cannot check {}, so every defect counts as new: {:#}",
+                diff::short(&commit),
+                tree.error(&error)
+            );
+            return Ok(baseline);
+        }
+    };
+    for diagnostic in &diagnostics {
+        baseline.add(
+            diagnostic.severity,
+            diagnostic.location.path(),
+            &diagnostic.message,
+        );
+    }
+    Ok(baseline)
+}
+
+/// The JUnit files that the project or workspace at `root` reads in the
+/// working tree, with the patterns of `[sources]` and of every variant,
+/// as absolute paths; none if it cannot be read. Test results come from
+/// the build, not from the history, so an earlier state shares them.
+fn junit_in_working_tree(root: &Path, workspace: bool) -> Vec<PathBuf> {
+    let read = || -> anyhow::Result<Vec<PathBuf>> {
+        let place = workspace_place(root)?;
+        let projects = match &place.members {
+            Some(members) if workspace => members.clone(),
+            _ => vec![root.to_path_buf()],
+        };
+        let mut reader = Reader::new(place);
+        let mut files = Vec::new();
+        for project in projects {
+            let read = reader.project(&project)?;
+            for member in std::iter::once(&read.member).chain(read.imports.iter().map(|(_, m)| m)) {
+                let mut patterns = member.config.sources.junit.clone();
+                for variant in member.config.variants.values() {
+                    patterns.extend(variant.junit.iter().flatten().cloned());
+                }
+                let candidates =
+                    junit_files(&member.root, &patterns, &member.files, &mut Vec::new());
+                files.extend(candidates.iter().map(|file| member.root.join(file)));
+            }
+        }
+        Ok(files)
+    };
+    read().unwrap_or_default()
+}
+
 /// The path of `root`, where the paths of diagnostics start, below the
 /// repository: below the top of its Git work tree, or else, as in a
 /// checkout without `.git`, below `$GITHUB_WORKSPACE` if it is inside;
@@ -152,21 +269,28 @@ fn repository_prefix(root: &Path) -> String {
     .unwrap_or_default()
 }
 
+/// The [`Place`] of `root`: the workspace it is the root of, or else the
+/// place of the project.
+fn workspace_place(root: &Path) -> anyhow::Result<Place> {
+    if is_workspace(root)? {
+        Ok(Place {
+            root: root.to_path_buf(),
+            members: Some(members(root)?),
+        })
+    } else {
+        place(root)
+    }
+}
+
 /// Checks every member of the workspace at or above `root`: the
 /// diagnostics of all members, each once, sorted by path and line, and a
 /// summary per member plus one for the workspace.
 fn check_workspace(
     root: &Path,
     mode: Option<Mode>,
+    baseline: Option<&Baseline>,
 ) -> anyhow::Result<(Vec<Diagnostic>, Vec<String>, Gate)> {
-    let place = if is_workspace(root)? {
-        Place {
-            root: root.to_path_buf(),
-            members: Some(members(root)?),
-        }
-    } else {
-        place(root)?
-    };
+    let place = workspace_place(root)?;
     let Some(members) = place.members.clone() else {
         bail!(
             "--workspace: {} is in no workspace within its Git work tree",
@@ -189,7 +313,7 @@ fn check_workspace(
         summaries.push(project.summary());
         // Defects of a shared project fail the check of every project
         // that imports it; count them once per project.
-        gate.add(project.gate(mode, None)?);
+        gate.add(project.gate(mode, baseline)?);
         per_member.push(project.diagnostics);
     }
     // Shared projects are traced with every project that imports them;
@@ -341,9 +465,8 @@ impl Project {
                 .map(|member| format!(" of {member}"))
                 .unwrap_or_default();
             bail!(
-                "mode new{which} needs --compare-to with the trace.json of the run to compare \
-                 with, e.g. on the target branch; a workspace check cannot compare yet, so \
-                 check that project alone or pass --mode"
+                "mode new{which} needs a state to compare with: --since with a commit, e.g. \
+                 HEAD or the target branch, or --compare-to with the trace.json of such a run"
             );
         }
         let mut all = self.items.clone();
