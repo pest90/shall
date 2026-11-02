@@ -16,9 +16,12 @@ docker compose run --rm check         # all pull request checks
 docker compose run --rm shall --version
 ```
 
-`scripts/check.sh` runs the same checks as CI: formatting, clippy,
-tests, rustdoc without warnings and a build on the MSRV. Without
-compose:
+`scripts/check.sh` runs the checks of CI: formatting, clippy, tests,
+rustdoc without warnings and a build on the MSRV. CI builds and tests
+on Windows and macOS natively; locally, the script runs clippy for
+those platforms instead, with the `targets` from `rust-toolchain.toml`.
+If a local toolchain lacks them, run `rustup toolchain install` in the
+repository, or `rustup target add <target>`. Without compose:
 
 ```sh
 docker build --target check .         # fails if a check fails

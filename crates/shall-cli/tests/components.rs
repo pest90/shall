@@ -60,7 +60,7 @@ fn importer(component: &Path, rev: &str) -> tempfile::TempDir {
         dir.path().join("shall.toml"),
         format!(
             "[[level]]\ntype = \"hlr\"\nname = \"Customer\"\nneeds = [\"cap\"]\n\n\
-             [[import]]\nname = \"can\"\ngit = \"{}\"\nrev = \"{rev}\"\n",
+             [[import]]\nname = \"can\"\ngit = '{}'\nrev = \"{rev}\"\n",
             component.display()
         ),
     )
@@ -146,7 +146,7 @@ fn one_component_in_two_states_is_an_error() {
     fs::write(
         other.path().join("shall.toml"),
         format!(
-            "[[import]]\nname = \"can\"\ngit = \"{}\"\nrev = \"v2\"\n",
+            "[[import]]\nname = \"can\"\ngit = '{}'\nrev = \"v2\"\n",
             component.path().display()
         ),
     )
@@ -156,7 +156,7 @@ fn one_component_in_two_states_is_an_error() {
     git(other.path(), &["commit", "-q", "-m", "other"]);
     let mut config = fs::read_to_string(project.path().join("shall.toml")).unwrap();
     config.push_str(&format!(
-        "\n[[import]]\nname = \"other\"\ngit = \"{}\"\nrev = \"master\"\n",
+        "\n[[import]]\nname = \"other\"\ngit = '{}'\nrev = \"master\"\n",
         other.path().display()
     ));
     fs::write(project.path().join("shall.toml"), config).unwrap();
@@ -278,7 +278,7 @@ fn a_branch_works_offline_and_names_share_no_cache() {
             dir.join("shall.toml"),
             format!(
                 "[[level]]\ntype = \"hlr\"\nname = \"H\"\nneeds = [\"cap\"]\n\n\
-                 [[import]]\nname = \"can\"\ngit = \"{}\"\nrev = \"{rev}\"\n",
+                 [[import]]\nname = \"can\"\ngit = '{}'\nrev = \"{rev}\"\n",
                 repos.path().join(repo).display()
             ),
         )
@@ -345,7 +345,7 @@ fn components_name_components_by_url_and_never_link_out() {
         .unwrap();
     };
     write(&format!(
-        "[[import]]\nname = \"c\"\ngit = \"{}\"\nrev = \"master\"\n",
+        "[[import]]\nname = \"c\"\ngit = '{}'\nrev = \"master\"\n",
         c.display()
     ));
     let output = shall(project.path(), &["check"]);
@@ -356,7 +356,7 @@ fn components_name_components_by_url_and_never_link_out() {
         stderr(&output)
     );
     write(&format!(
-        "[[import]]\nname = \"s\"\ngit = \"{}\"\nrev = \"v2\"\n",
+        "[[import]]\nname = \"s\"\ngit = '{}'\nrev = \"v2\"\n",
         s.display()
     ));
     let output = shall(project.path(), &["check"]);
@@ -370,8 +370,8 @@ fn components_name_components_by_url_and_never_link_out() {
     // One component under two names, and an invalid rev.
     let a = repos.path().join("a");
     write(&format!(
-        "[[import]]\nname = \"x\"\ngit = \"{0}\"\nrev = \"v1\"\n\n\
-         [[import]]\nname = \"y\"\ngit = \"{0}/\"\nrev = \"v1\"\n",
+        "[[import]]\nname = \"x\"\ngit = '{0}'\nrev = \"v1\"\n\n\
+         [[import]]\nname = \"y\"\ngit = '{0}/'\nrev = \"v1\"\n",
         a.display()
     ));
     let output = shall(project.path(), &["check"]);
@@ -381,8 +381,8 @@ fn components_name_components_by_url_and_never_link_out() {
         stderr(&output)
     );
     write(&format!(
-        "[[import]]\nname = \"x\"\ngit = \"file://{}\"\nrev = \"v1\"\n\n\
-         [[import]]\nname = \"y\"\ngit = \"{}/.git\"\nrev = \"v1\"\n",
+        "[[import]]\nname = \"x\"\ngit = 'file://{}'\nrev = \"v1\"\n\n\
+         [[import]]\nname = \"y\"\ngit = '{}/.git'\nrev = \"v1\"\n",
         a.display(),
         a.display()
     ));
@@ -400,7 +400,7 @@ fn components_name_components_by_url_and_never_link_out() {
         stderr(&output)
     );
     write(&format!(
-        "[[import]]\nname = \"x\"\ngit = \"{}\"\nrev = \"HEAD~1\"\n",
+        "[[import]]\nname = \"x\"\ngit = '{}'\nrev = \"HEAD~1\"\n",
         a.display()
     ));
     let output = shall(project.path(), &["check"]);
@@ -422,7 +422,7 @@ fn the_mirror_follows_branches_that_were_renamed_upstream() {
         project.path().join("shall.toml"),
         format!(
             "[[level]]\ntype = \"cap\"\nname = \"C\"\n\n\
-             [[import]]\nname = \"a\"\ngit = \"{}.git/\"\nrev = \"master\"\n",
+             [[import]]\nname = \"a\"\ngit = '{}.git/'\nrev = \"master\"\n",
             a.display()
         ),
     )
