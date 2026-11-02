@@ -2,6 +2,7 @@
 
 mod check;
 mod export;
+mod init;
 mod new;
 mod output;
 mod project;
@@ -105,6 +106,23 @@ enum Command {
         #[arg(long, default_value = "oft")]
         out: PathBuf,
     },
+    /// Create a project from a template.
+    ///
+    /// Writes `shall.toml` and requirement files with an example chain
+    /// into the directory, created if missing, and prints the files.
+    /// Existing files are never overwritten.
+    Init {
+        /// Directory of the new project.
+        #[arg(default_value = ".")]
+        dir: PathBuf,
+        /// The levels and examples to start with.
+        #[arg(long, value_enum, default_value_t = init::Template::Simple)]
+        template: init::Template,
+        /// Path of the platform that `--template project` imports, relative
+        /// to the new project.
+        #[arg(long, value_name = "PATH")]
+        platform: Option<String>,
+    },
     /// Create a new item with a generated ID.
     ///
     /// Prints the ID. With `--file`, appends an item skeleton to the file
@@ -169,6 +187,16 @@ fn run(command: Command) -> anyhow::Result<ExitCode> {
             variant,
             workspace,
         }),
+        Command::Init {
+            dir,
+            template,
+            platform,
+        } => init::run(&init::InitArgs {
+            dir,
+            template,
+            platform,
+        })
+        .map(|()| ExitCode::SUCCESS),
         Command::Export { path, oft: _, out } => {
             export::run(&path, &out).map(|()| ExitCode::SUCCESS)
         }

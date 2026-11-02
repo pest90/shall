@@ -418,7 +418,7 @@ features = ["motor_ctrl", "can", "diag_uds", "ota"]
 
 ### Neuer Auftrag in der Praxis
 
-1. Projektordner anlegen: `shall new-project projects/kunde-c` (Vorlage mit `shall.toml` und Ordnern).
+1. Projektordner anlegen: `shall init projects/kunde-c --template project` (Vorlage mit `shall.toml` und Ordnern).
 2. Plattform und benötigte Komponenten per `[[import]]` einbinden; externe Komponenten mit festem `rev`.
 3. Kundenanforderungen als L1 (und bei Bedarf L2) schreiben.
 4. Pro Kundenanforderung `Satisfied-by:` auf vorhandene Plattform- oder Komponenten-Items setzen; der Report listet alle noch nicht zugeordneten.
@@ -686,8 +686,9 @@ Neben HTML erzeugt `shall report --format pdf` (oder `--format html,pdf`) densel
 - [x] **6.2 Weiterleitung (S)**
   - Syntax `sys --> swr : hlr~x~1` parsen; im Tracer zählt das Item als von sys abgedeckt, sobald swr es abdeckt.
   - Umsetzung (`markdown`, `Item::forwarded`): Wie in OFT erzeugt die Zeile (Spalte 0, mehrere Typen mit Komma) ein Item `sys~x~1` mit Name und Revision des Ziels, das `hlr~x~1` abdeckt und die genannten Typen braucht; `swr`-Items decken `sys~x~1` ab. Der Tracer braucht dafür nichts Eigenes: Ketten-, Revisions- und Duplikatprüfung greifen wie bei geschriebenen Items, Varianten erben die Features über `Covers:`. Die Zeile beendet das Item davor; ungültige Teile und der eigene Typ als übersprungener sind Fehler, eine Zeile ohne ID rechts oder ohne einzelnes Wort links bleibt Text. Ein Schlüsselwort direkt danach gehört zu keinem Item und bekommt eine Warnung. Der Status ist wie in OFT `approved`; der Prüfmodus `mature` beurteilt das Item und alles, was es abdeckt, aber nach dem Status des weitergeleiteten Items (auch über Weiterleitungen von Weiterleitungen). Der Report zeigt „→ forwarded to swr“, `shall export --oft` schreibt wieder eine Weiterleitung (als Ziel eines `Satisfied-by:` ein ausgeschriebenes Item). Offen für die Gegenprobe mit OFT (2.6): ob OFT Einrückung vor der Zeile und Text nach der ID zulässt und ob es das Item davor beendet.
-- [ ] **6.3 Projektvorlagen (S)**
+- [x] **6.3 Projektvorlagen (S)**
   - `shall init --template automotive` (L1/L2/L3/L3D), `--template platform` (Fähigkeiten/L3/L3D), `--template project` (Kunden-L1 mit Plattform-Import) bzw. `--template simple` (req/dsn) legt Ordner, Beispiel-Items und `shall.toml` an.
+  - Umsetzung (`shall-cli/src/init.rs`, `templates/init/`): Die Vorlagen sind Dateien mit Platzhaltern `@@typ~basis@@` für erzeugte IDs (wie `shall new`, aber ohne Git-Historie, weil alle Dateien neu sind) und `@@typ~basis|anderer@@` für das Item einer Weiterleitung; `simple` ist der Standard. Jede Vorlage enthält eine Beispielkette bis zur Design-Entscheidung, `automotive` zusätzlich eine Weiterleitung (6.2). `shall init` überschreibt nichts, auch nicht über einen Symlink (`create_new`), prüft vor dem ersten Schreiben und räumt bei einem Fehler das schon Geschriebene wieder weg. Danach warnt es mit der Meldung, an der `shall check` scheitern würde (dieselbe Workspace-Prüfung, z. B. Verzeichnis kein Mitglied oder ein Muster in `members`, das noch nichts findet), und bei `project` ohne Workspace oder ohne `shall.toml` unter `--platform` (Standard `../../platform`, als TOML-String geschrieben). Nach `shall init` meldet `shall check` nur die Lücken des Beispiels: fehlende Abdeckung der Design-Entscheidungen und leere Code-Muster, bei `project` das noch nicht zugeordnete Kunden-Requirement. Im Abschnitt „Neuer Auftrag in der Praxis“ ersetzt es das frühere `shall new-project`.
 - [x] **6.4 Ebenen-Namen im Report (S)**
   - Überschriften, Spalten und Filter im HTML nutzen die Namen aus der Konfiguration.
   - Umsetzung (`shall_report`): Zusammenfassung, Tabellen, Details und der Typ-Filter nennen die Ebenen mit `name` aus `shall.toml` (Zusammenfassung und Überschriften mit dem Typ daneben), in ihrer Reihenfolge dort; Typen ohne Ebene folgen unter ihrem Typ.

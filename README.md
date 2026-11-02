@@ -23,8 +23,9 @@ requirements, outdated links, orphaned code and failing tests.
 > with coverage, verified status, a traffic light per chain, requirement
 > details, a tree, the Green Graph and a defect list, plus `trace.json`,
 > a badge and diagrams (`shall report`); creates new items with
-> generated IDs (`shall new`); and exports the requirements for a
-> cross-check with OpenFastTrace (`shall export --oft`). The PDF report,
+> generated IDs (`shall new`) and projects from templates
+> (`shall init`); and exports the requirements for a cross-check with
+> OpenFastTrace (`shall export --oft`). The PDF report,
 > plugins and the build check are being built; see
 > [the plan](docs/konzept.md) (German).
 
@@ -68,7 +69,16 @@ cd shall
 cargo install --locked --path crates/shall-cli
 ```
 
-Describe your levels in `shall.toml` at the root of your project:
+Start a project from a template, with `shall.toml` and an example
+chain of requirements (`--template simple`, `automotive`, `platform` or
+`project`):
+
+```sh
+shall init --template simple
+```
+
+or describe your levels in `shall.toml` at the root of your project
+yourself:
 
 ```toml
 [[level]]

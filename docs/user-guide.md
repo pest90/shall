@@ -704,6 +704,50 @@ requirement asks for is planned (M8.6).
 
 ## Commands
 
+### `shall init`
+
+```text
+shall init [DIR] [--template <TEMPLATE>] [--platform <PATH>]
+```
+
+Creates a project in `DIR`, the current directory by default, created
+if missing: a `shall.toml` and requirement files in `reqs/` with an
+example chain from the top level down to a design decision, and prints
+the files it wrote. The IDs of the examples are generated as by
+`shall new`.
+
+| `--template` | Levels | Files in `reqs/` |
+| --- | --- | --- |
+| `simple` (default) | `req` → `dsn` → `impl`, `utest` | `requirements.md`, `design.md` |
+| `automotive` | `hlr` (L1) → `sys` (L2) → `swr` (L3) → `dsn` (L3D) → `impl`, `utest`; one `hlr` item [forwarded](#skipping-a-level) past `sys` | `hlr.md`, `sys.md`, `swr.md`, `design.md` |
+| `platform` | `cap` → `swr` → `dsn` → `impl`, `utest`, with `[satisfied_by]` for capabilities, see [Reused items](#reused-items) | `capabilities.md`, `software.md`, `design.md` |
+| `project` | `hlr` → `swr`, with an `[[import]]` of the platform | `customer.md` |
+
+- Existing files are never overwritten: if one of the files exists,
+  also as a symbolic link, or a directory on its way is a file, nothing
+  is written; if writing fails, the files written so far are removed
+  again.
+- `[sources]` reads `reqs/**/*.md`; except for `project`, it also scans
+  `src/` and `tests/` for C, C++ and Rust files, and the JUnit pattern
+  is commented out. Adapt them to the project. Right after `shall init`,
+  `shall check` reports the gaps of the example: the design decisions
+  are not covered by `impl` and `utest` and the patterns match no file;
+  for `project`, the customer requirement is not covered by `swr` until
+  it names the platform's capabilities in `Satisfied-by:`, as its
+  comment shows.
+- `--platform` is the `path` of the `[[import]]` of `--template
+  project`, relative to the new project; by default `../../platform`,
+  as in a workspace with `platform/` and `projects/<name>/`, see
+  [Workspaces and imports](#workspaces-and-imports).
+- After writing, `shall init` warns about what keeps `shall check` from
+  running in the new project, for example that `DIR` is below a
+  workspace without being a member of it, or that a pattern of the
+  workspace's `members` matches no directory yet. For `project`, it also
+  warns when no `shall.toml` is at `--platform` yet or `--platform` is
+  the new project itself, and when the
+  project is in no workspace, since a project imports only members of
+  its own workspace.
+
 ### `shall new`
 
 ```text

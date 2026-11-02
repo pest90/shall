@@ -1,0 +1,15 @@
+# Created by `shall init --template project`: customer requirements of
+# one project, met by the capabilities of an imported platform. All
+# settings are described in the user guide of shall.
+
+[[level]]
+type  = "hlr"
+name  = "Customer Requirements"
+needs = ["swr"]
+
+[[import]]
+name = "plat"
+path = "@@platform@@"
+
+[sources]
+requirements = ["reqs/**/*.md"]

@@ -424,19 +424,19 @@ pub fn analyze(start: &Path, variant: Option<&str>) -> anyhow::Result<Project> {
 
 /// Where the project at `root` lives: the root that paths in diagnostics
 /// are relative to and that imports must stay in, and its workspace.
-struct Place {
+pub(crate) struct Place {
     /// The workspace root if the project is a member of one, otherwise the
     /// project root.
     root: PathBuf,
     /// The member directories, if `root` is a workspace root.
-    members: Option<Vec<PathBuf>>,
+    pub(crate) members: Option<Vec<PathBuf>>,
 }
 
 /// Finds the workspace above the project at `root`, if any: the closest
 /// directory above, up to the top of the Git work tree, whose `shall.toml`
 /// has a `[workspace]`. Such a file that cannot be read or parsed is an
 /// error; other `shall.toml` files above are not read further.
-fn place(root: &Path) -> anyhow::Result<Place> {
+pub(crate) fn place(root: &Path) -> anyhow::Result<Place> {
     let standalone = Place {
         root: root.to_path_buf(),
         members: None,

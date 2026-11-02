@@ -1,0 +1,23 @@
+# Created by `shall init --template simple`: requirements refined by
+# design decisions, which code implements and tests verify. All settings
+# are described in the user guide of shall.
+
+[[level]]
+type  = "req"
+name  = "Requirements"
+needs = ["dsn"]
+
+[[level]]
+type  = "dsn"
+name  = "Design Decisions"
+needs = ["impl", "utest"]
+
+[verification]
+types = ["utest"]
+
+[sources]
+requirements = ["reqs/**/*.md"]
+impl  = ["src/**/*.{c,h,cpp,hpp,rs}"]
+utest = ["tests/**/*.{c,h,cpp,hpp,rs}"]
+# Test results as JUnit XML, e.g. from gtest or cargo nextest:
+# junit = ["build/test-results/**/*.xml"]

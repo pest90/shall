@@ -1,0 +1,35 @@
+# Created by `shall init --template platform`: a platform shared by
+# several projects, which describes what it can do as capabilities that
+# customer requirements name in `Satisfied-by:`. All settings are
+# described in the user guide of shall.
+
+[[level]]
+type  = "cap"
+name  = "Platform Capabilities"
+needs = ["swr"]
+
+[[level]]
+type  = "swr"
+name  = "L3 – Software Requirements"
+needs = ["dsn"]
+
+[[level]]
+type  = "dsn"
+name  = "L3D – Design Decisions"
+needs = ["impl", "utest"]
+
+[verification]
+types = ["utest", "itest", "vrev", "vana"]
+
+# Customer requirements may name capabilities only; software
+# requirements are allowed with a warning.
+[satisfied_by]
+targets  = ["cap"]
+fallback = ["swr"]
+
+[sources]
+requirements = ["reqs/**/*.md"]
+impl  = ["src/**/*.{c,h,cpp,hpp,rs}"]
+utest = ["tests/**/*.{c,h,cpp,hpp,rs}"]
+# Test results as JUnit XML, e.g. from gtest or cargo nextest:
+# junit = ["build/test-results/**/*.xml"]

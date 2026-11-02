@@ -1,0 +1,33 @@
+# Created by `shall init --template automotive`: high-level, system and
+# software requirements, design decisions, code and tests. All settings
+# are described in the user guide of shall.
+
+[[level]]
+type  = "hlr"
+name  = "L1 – High-Level Requirements"
+needs = ["sys"]
+
+[[level]]
+type  = "sys"
+name  = "L2 – System Requirements"
+needs = ["swr"]
+
+[[level]]
+type  = "swr"
+name  = "L3 – Software Requirements"
+needs = ["dsn"]
+
+[[level]]
+type  = "dsn"
+name  = "L3D – Design Decisions"
+needs = ["impl", "utest"]
+
+[verification]
+types = ["utest", "itest", "vrev", "vana"]
+
+[sources]
+requirements = ["reqs/**/*.md"]
+impl  = ["src/**/*.{c,h,cpp,hpp,rs}"]
+utest = ["tests/**/*.{c,h,cpp,hpp,rs}"]
+# Test results as JUnit XML, e.g. from gtest or cargo nextest:
+# junit = ["build/test-results/**/*.xml"]
