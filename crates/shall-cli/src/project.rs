@@ -5,6 +5,19 @@ use std::path::{Path, PathBuf};
 use anyhow::Context;
 use shall_core::config;
 
+/// A path as messages show it. Files the tool writes are named with
+/// `/` (template and export paths), so on Windows the whole path is shown
+/// with `/` instead of mixing both separators; elsewhere it is unchanged,
+/// since `\` is a valid character in a Unix file name.
+pub fn shown(path: &Path) -> String {
+    let text = path.display().to_string();
+    if cfg!(windows) {
+        text.replace('\\', "/")
+    } else {
+        text
+    }
+}
+
 /// Returns the closest directory at or above `start` with a `shall.toml`,
 /// with symbolic links resolved.
 pub fn find_root(start: &Path) -> anyhow::Result<PathBuf> {

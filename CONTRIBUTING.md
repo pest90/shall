@@ -16,9 +16,12 @@ docker compose run --rm check         # all pull request checks
 docker compose run --rm shall --version
 ```
 
-`scripts/check.sh` runs the same checks as CI: formatting, clippy,
-tests, rustdoc without warnings and a build on the MSRV. Without
-compose:
+`scripts/check.sh` runs the checks of CI: formatting, clippy, tests,
+rustdoc without warnings and a build on the MSRV. CI builds and tests
+on Windows and macOS natively; locally, the script runs clippy for
+those platforms instead, with the `targets` from `rust-toolchain.toml`.
+If a local toolchain lacks them, run `rustup toolchain install` in the
+repository, or `rustup target add <target>`. Without compose:
 
 ```sh
 docker build --target check .         # fails if a check fails
@@ -201,7 +204,6 @@ lines at 72 characters.
 | `Closes #42` / `Refs #42` | links an issue |
 | `Plan: M2.3` | work package from `docs/konzept.md` |
 | `BREAKING CHANGE: …` | describes an incompatible change |
-| `Signed-off-by: Name <mail>` | Developer Certificate of Origin, see below |
 
 ### Examples
 
@@ -213,7 +215,6 @@ revision 2, so changed requirements cannot slip through unnoticed.
 
 Plan: M2.1
 Closes #17
-Signed-off-by: Jane Doe <jane@example.org>
 ```
 
 ```
@@ -257,16 +258,10 @@ How a release is made (maintainers):
 Tags are never moved or deleted once pushed; a broken release is fixed by
 a new patch release. Until 1.0, only the latest release receives fixes.
 
-## Developer Certificate of Origin (DCO)
+## License of contributions
 
-Every commit must be signed off, which certifies that you wrote the change
-or have the right to submit it under the project's MIT license
-([developercertificate.org](https://developercertificate.org)). Use
-`git commit -s`, which adds:
-
-```
-Signed-off-by: Your Name <your@email>
-```
-
-The sign-off is a statement by you as a person. If you use an AI coding
-assistant, you are still the one signing off and responsible for the change.
+By submitting a contribution, for example a pull request, you license
+it under the project's MIT license (inbound = outbound) and confirm that
+you have the right to do so. No `Signed-off-by` and no CLA are
+required. If you use an AI coding assistant, you are responsible for
+the change, including its license.

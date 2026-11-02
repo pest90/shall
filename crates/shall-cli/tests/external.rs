@@ -1,5 +1,6 @@
 //! Tests for external subcommands `shall-<name>`.
 
+#[cfg(unix)]
 use std::fs;
 use std::path::Path;
 use std::process::{Command, Output};
@@ -13,6 +14,8 @@ fn shall(dir: &Path, path: &Path, args: &[&str]) -> Output {
         .unwrap()
 }
 
+// Only the Unix tests run a script that prints.
+#[cfg(unix)]
 fn stdout(output: &Output) -> String {
     String::from_utf8(output.stdout.clone()).unwrap()
 }

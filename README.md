@@ -144,10 +144,11 @@ configuration and the commands.
 
 - [User guide](docs/user-guide.md): syntax, configuration, commands
 - [Concept and plan](docs/konzept.md) (German): design decisions and work packages
-- [Contributing](CONTRIBUTING.md): development environment, commit rules, releases
+- [Contributing](CONTRIBUTING.md): development environment, commit rules, releases,
+  license of contributions
 - API documentation: `cargo doc --open`
 
 ## License
 
-MIT, see [LICENSE](LICENSE). Contributions are accepted under the
-Developer Certificate of Origin, see [CONTRIBUTING.md](CONTRIBUTING.md).
+MIT, see [LICENSE](LICENSE). Contributions are licensed under MIT as
+well, see [CONTRIBUTING.md](CONTRIBUTING.md).

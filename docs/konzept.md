@@ -473,7 +473,7 @@ command = ["python3", "tools/wording_lint.py"]
 - **Keine Annahmen über Branche oder Werkzeuge:** Automotive-Ebenen sind nur eine von mehreren Vorlagen; Hosting, Git-Server und CI bleiben dem Anwender überlassen.
 - **Einfache Installation:** fertige Binaries für Linux, macOS und Windows, `cargo install`, Container-Image.
 - **Dogfooding:** Das Werkzeug verfolgt seine eigenen Requirements mit sich selbst; der eigene Report ist zugleich die beste Demo.
-- **Lizenz:** MIT – kurz, verständlich, für Firmen ohne Hürde und mit fast allem kombinierbar. Beiträge laufen über ein Developer Certificate of Origin (DCO, `Signed-off-by` im Commit), kein CLA. Ein späterer Wechsel neuer Versionen auf eine andere Lizenz (z. B. EUPL-1.2) bleibt möglich; veröffentlichte Versionen bleiben MIT. Da nur die Syntax von OFT übernommen wird und kein Code, gibt es keine Bindung an dessen GPL.
+- **Lizenz:** MIT – kurz, verständlich, für Firmen ohne Hürde und mit fast allem kombinierbar. Beiträge stehen ebenfalls unter MIT (inbound = outbound), ohne CLA. Ein Developer Certificate of Origin (DCO, `Signed-off-by` im Commit) war vorgesehen, ist aber vorerst gestrichen: Solange das Projekt nur einen Maintainer hat, behindert es nur; sobald externe Beiträge kommen, kann es wieder eingeführt werden. Ein späterer Wechsel neuer Versionen auf eine andere Lizenz (z. B. EUPL-1.2) bleibt möglich; veröffentlichte Versionen bleiben MIT. Da nur die Syntax von OFT übernommen wird und kein Code, gibt es keine Bindung an dessen GPL.
 
 ## Implementierungsplan in Arbeitspaketen
 
@@ -937,7 +937,7 @@ Blockierend wird das erst, wenn der Job `trace` in der Branch-Schutzregel als er
 - [x] Defekte blockieren nicht automatisch; Prüfmodus und Branch-Schutzregel steuern die Verschärfung
 - [x] Hosting und CI-System wählt der Anwender; das Werkzeug liefert nur statische Dateien
 - [x] Open Source für ein breites Publikum, erweiterbar über Konfiguration, Prozess-Plugins und als Bibliothek
-- [x] Lizenz: MIT, Beiträge per DCO
+- [x] Lizenz: MIT, Beiträge ebenfalls unter MIT (DCO vorerst gestrichen)
 - [x] Monorepo-Projekte folgen immer dem aktuellen Stand; Einfrieren per Release-Branch, feste Stände nur für externe Komponenten
 - [x] Plattform mit eigener Fähigkeiten-Ebene (`cap`) über L3/L3D; Kundenprojekte verlinken nur darauf
 

@@ -1,3 +1,5 @@
 [toolchain]
 channel = "1.99"
 components = ["rustfmt", "clippy"]
+# Standard libraries for the cross-platform lint in scripts/check.sh.
+targets = ["x86_64-pc-windows-msvc", "aarch64-apple-darwin"]

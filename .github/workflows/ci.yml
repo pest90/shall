@@ -58,7 +58,8 @@ jobs:
           fi
           rustup toolchain install "$tc" --profile minimal
           rustup override set "$tc"
-      - run: cargo test --workspace --locked
+      # Run every test binary, so one run shows all failures of a platform.
+      - run: cargo test --workspace --locked --no-fail-fast
       - run: cargo run --locked -p shall-cli -- --version
 
   docker:
