@@ -31,7 +31,35 @@ docker run --rm -u "$(id -u):$(id -g)" -v "$PWD:/project" shall check
 - Open an issue first for larger changes, so the design can be discussed.
 - Keep one topic per pull request, and keep pull requests small.
 - `cargo fmt`, `cargo clippy -- -D warnings`, `cargo test` and
-  `cargo doc` without warnings must pass.
+  `cargo doc` without warnings must pass. Before requesting a review and
+  before merging, run `scripts/check.sh` (or `docker compose run --rm
+  check`) on the final state and let it finish; never review or merge a
+  state it has not passed.
+- Before committing, re-read the staged diff (`git diff --cached`).
+  Before requesting a review, re-read the whole branch diff (after
+  `git fetch`, `git diff origin/master...HEAD`), not only the check
+  results.
+- Every change is reviewed before it lands on `master` by someone who
+  did not write it: a pull request review by a maintainer other than
+  the author. A maintainer who squash-merges locally
+  (`git merge --squash`) instead of in the pull request needs the same
+  review. If you work with an AI agent, also have a review agent with a
+  fresh context review the branch before you request the human review.
+  While the project has a single maintainer, a review agent with a
+  fresh context stands in for the second maintainer on that
+  maintainer's own changes.
+- Dependencies, including `Cargo.lock` updates and tools in the
+  `Dockerfile`: only releases at least two weeks old, so that a
+  compromised or broken release has time to be noticed. Exception: a
+  release that fixes a known vulnerability, noted in the pull request
+  description.
+- Snapshot tests use [`insta`](https://insta.rs). Update snapshots with
+  `INSTA_UPDATE=always cargo test` only once the tests fail for the
+  expected reason, read the diff of every changed `.snap` like code, and
+  delete leftover `*.snap.new` files.
+- A finished work package of [`docs/konzept.md`](docs/konzept.md) is
+  ticked off there in the same pull request, with an `Umsetzung` note
+  on what was built, deviations and what is still open.
 - Update the documentation with the change: [`docs/user-guide.md`](docs/user-guide.md)
   for anything users see (syntax, configuration, commands, diagnostics),
   [`README.md`](README.md) if the overview changes, rustdoc for public

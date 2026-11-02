@@ -6,8 +6,12 @@ Markdown (later also Typst) files in Git; `shall` links them across levels down
 to code and tests and produces an HTML/PDF report.
 
 The full concept and implementation plan (German) is in `docs/konzept.md`.
-Read the relevant section before starting a work package, and tick off
-work packages there (`- [x]`) when they are done.
+Read the relevant section before starting a work package. When it is
+done, tick it off there (`- [x]`) and add an indented `- Umsetzung:`
+sub-item in German, like the rest of the file, optionally naming the
+module in parentheses (`` - Umsetzung (`shall_core::trace`): ``): what
+was built, deviations from the plan and what is still open, so the next
+maintainer starts from the real state.
 
 ## Fixed decisions
 
@@ -73,6 +77,23 @@ coverage, console report = MVP).
   `fixtures/motor/expected-defects.txt`.
 - Diagnostics format: `path:line: message`.
 - Keep `shall-core` free of I/O-heavy dependencies where possible.
+- Dependencies, snapshots and reviews: see "Pull requests" in
+  `CONTRIBUTING.md`; it binds every maintainer, with or without an agent.
+
+## Working as an agent
+
+- Before a branch is merged into `master` (also locally) or a pull
+  request is opened for review, have a review agent with a fresh
+  context, one that did not write the change, review the whole branch.
+  Fix its confirmed findings, run `scripts/check.sh` again and have the
+  fixes reviewed the same way. Report the findings and what was fixed
+  to the person you work for, and in the pull request description.
+- Run `scripts/check.sh` after the last edit and let it finish before a
+  review or a merge, and before committing unless the commit is an
+  explicit work-in-progress commit.
+- Merge locally only with `git merge --squash`, and never chain
+  scripted edits and the merge without a guard (`set -e` or `&&`): if
+  an edit fails, the merge must not run, or it lands without that edit.
 
 ## Commit messages
 
