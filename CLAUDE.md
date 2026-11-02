@@ -34,7 +34,8 @@ maintainer starts from the real state.
 - Output is deterministic static files (`site/`); hosting is the user's choice.
 - Extensibility: configuration, process plugins (JSON over stdin/stdout),
   `shall-core` as a library. No native dynamic plugins.
-- License: MIT. Contributions via DCO (`Signed-off-by`).
+- License: MIT. Contributions are licensed under MIT as well
+  (inbound = outbound); no DCO sign-off and no CLA for now.
 - Project language: English (code, CLI messages, docs, commit messages).
 
 ## Workspace layout (target, see work package 10.1)
@@ -115,8 +116,7 @@ Closes #42
   `cli`, `plugin`, `build-check`, `deps`, `ci`, `release`.
 - Summary: imperative, lower case, no trailing period, at most 72 characters.
 - `Plan:` footer names the work package from `docs/konzept.md`.
-- One logical change per commit. Do not add `Signed-off-by` yourself: the
-  human author signs off (DCO) with `git commit -s`.
+- One logical change per commit.
 - Pull requests are squash-merged only, so the PR title must follow these
   rules. Never force-push a branch whose PR is under review; merge `master`
   into it instead (stacked branches: see `CONTRIBUTING.md`).
