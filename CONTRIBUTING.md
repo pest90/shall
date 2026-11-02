@@ -17,9 +17,14 @@ docker compose run --rm shall --version
 ```
 
 `scripts/check.sh` runs the checks of CI: formatting, clippy, tests,
-rustdoc without warnings and a build on the MSRV. CI builds and tests
-on Windows and macOS natively; locally, the script runs clippy for
-those platforms instead, with the `targets` from `rust-toolchain.toml`.
+rustdoc without warnings and a build on the MSRV. CI tests pull
+requests on Linux and Windows. macOS runs in a workflow of its own
+(`macos.yml`) after a merge to `master` or by hand, so a missing macOS
+runner never fails CI; to test a branch on macOS before merging, start
+`macos` by hand on that branch (`gh workflow run macos.yml --ref
+<branch>`). Locally, the script cannot run the Windows and macOS tests;
+it runs clippy for those targets instead, with the `targets` from
+`rust-toolchain.toml`.
 If a local toolchain lacks them, run `rustup toolchain install` in the
 repository, or `rustup target add <target>`. Without compose:
 
