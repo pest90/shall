@@ -1,0 +1,60 @@
+{
+  // Copy to .vscode/shall.code-snippets of your project. Snippets for the
+  // keywords of requirement files; create the ID itself with `shall new`
+  // or the task "shall: new item", never by hand. VSCode shows no
+  // suggestions while typing in Markdown or in comments by default: use
+  // Ctrl+Space, or set "[markdown]": {"editor.quickSuggestions":
+  // {"other": "on"}}.
+  "shall: Covers": {
+    "scope": "markdown",
+    "prefix": "covers",
+    "body": ["Covers:", "- ${1:typ~name~1}", "$0"],
+    "description": "Items this item refines or implements"
+  },
+  "shall: Needs": {
+    "scope": "markdown",
+    "prefix": "needs",
+    "body": ["Needs: ${1:dsn}", "$0"],
+    "description": "Types that must cover this item"
+  },
+  "shall: Depends": {
+    "scope": "markdown",
+    "prefix": "depends",
+    "body": ["Depends:", "- ${1:typ~name~1}", "$0"],
+    "description": "Lateral dependencies without effect on coverage"
+  },
+  "shall: Satisfied-by": {
+    "scope": "markdown",
+    "prefix": "satisfied-by",
+    "body": ["Satisfied-by:", "- ${1:cap~name~1}", "", "Params:", "- ${2:name} = ${3:value}", "$0"],
+    "description": "Reused items that meet this item, with their parameter values"
+  },
+  "shall: Rationale": {
+    "scope": "markdown",
+    "prefix": "rationale",
+    "body": ["Rationale:", "${1:Why the requirement exists.}", "$0"],
+    "description": "Reason for the requirement"
+  },
+  "shall: Status": {
+    "scope": "markdown",
+    "prefix": "status",
+    "body": ["Status: ${1|draft,proposed,approved,rejected|}", "$0"],
+    "description": "Maturity of the item"
+  },
+  "shall: Forwarding": {
+    "scope": "markdown",
+    "prefix": "forward",
+    "body": ["${1:sys} --> ${2:swr} : ${3:hlr~name~1}", "$0"],
+    "description": "Skip a level for one item"
+  },
+  "shall: impl tag": {
+    "prefix": "shall-impl",
+    "body": ["[impl->${1:dsn~name~1}]"],
+    "description": "Code that implements an item"
+  },
+  "shall: utest tag": {
+    "prefix": "shall-utest",
+    "body": ["[utest->${1:dsn~name~1}]"],
+    "description": "Test that verifies an item"
+  }
+}

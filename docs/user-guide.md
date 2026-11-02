@@ -829,9 +829,8 @@ Git cannot read the history, `shall new` stops with an error; pass
 `--no-history` to skip the history deliberately. Outside of a Git
 repository it only warns that deleted IDs cannot be excluded.
 
-For VSCode, copy [`contrib/vscode/tasks.json`](../contrib/vscode/tasks.json)
-to `.vscode/tasks.json` and run the task "shall: new item" in an open
-requirements file.
+For VSCode, see [Editor support](#editor-support): the task "shall:
+new item" runs `shall new` for the open requirements file.
 
 ### `shall check`
 
@@ -1324,6 +1323,34 @@ Every exported file starts with
 `<!-- Exported by shall for OpenFastTrace. -->`; when `shall` reads a
 project, it skips such files with a warning, so an export inside the
 project, such as the default `oft`, is not read back.
+
+### Editor support
+
+For VSCode, `contrib/vscode` has two files for the `.vscode` folder of
+the folder you open:
+
+- [`tasks.json`](../contrib/vscode/tasks.json): merge its tasks into an
+  existing `tasks.json`. "shall: new item" appends an item with a new
+  ID to the open requirements file; "shall: check", also the default
+  build task (drop `isDefault` if you have another), runs `shall check`
+  and puts every defect into the Problems panel, warnings as warnings.
+  The paths of `shall check` are relative to the project root, or to
+  the workspace root for a member of a workspace, so open that folder.
+  For a project in a subfolder of the opened folder, set `cwd` of the
+  task and the base of its `fileLocation` (the second element) both to
+  `${workspaceFolder}/<subfolder>`.
+- [`shall.code-snippets`](../contrib/vscode/shall.code-snippets):
+  snippets for `Covers:`, `Needs:`, `Depends:`, `Satisfied-by:` with
+  `Params:`, `Rationale:`, `Status:`, a forwarding, and the tags
+  (`shall-impl`, `shall-utest`). IDs come from `shall new`, not from a
+  snippet. VSCode suggests nothing while typing in Markdown and in
+  comments by default: press Ctrl+Space, or set
+  `"[markdown]": {"editor.quickSuggestions": {"other": "on"}}`.
+
+Since the syntax is OFT's, the
+[OpenFastTrace Language Server](https://github.com/fgorke/openfasttrace-language-server)
+offers go to definition for IDs; it does not know the extensions of
+`shall`, such as `Satisfied-by:`.
 
 ### External commands
 

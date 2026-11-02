@@ -540,6 +540,7 @@ dependencies = [
  "ignore",
  "insta",
  "rand",
+ "regex",
  "serde_json",
  "shall-core",
  "shall-report",
