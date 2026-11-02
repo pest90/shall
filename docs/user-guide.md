@@ -612,8 +612,45 @@ path = "../../platform"
   their names.
 - `path` is relative to the importing project and must name a member
   of the workspace; it always follows the current state of the files, so a
-  `rev` is an error. Imports from other repositories (`git`, `rev`)
-  are planned (M8.3).
+  `rev` is an error.
+- An *external component* from another repository is imported with
+  `git` and `rev` instead of `path`, at a fixed state: a tag, a branch
+  or a commit.
+
+  ```toml
+  [[import]]
+  name = "can"
+  git  = "https://git.example.org/team/can-stack.git"
+  rev  = "v1.2.0"
+  ```
+
+  `shall` mirrors the repository into `.shall/cache/<name>-<hash>/`
+  below the workspace root, or the project root without a workspace,
+  where the hash stands for the repository, writes the commit of `rev`
+  there and reads the component from it; it writes a `.gitignore` into
+  `.shall/`, so the cache is not committed. Several runs at once share
+  the cache. The component's files show up in diagnostics below
+  `.shall/cache/<name>-<hash>/<commit>/`, and `shall export --oft`
+  writes them below `components/<name>-<hash>/`. Since the path holds
+  the commit, mode `new` counts the component's defects as new after a
+  change of its `rev`.
+- `rev` is a tag, a branch or a commit ID, not an expression such as
+  `HEAD~1`. A tag or a full commit ID that the cache has is not fetched
+  again, a branch on every run; with `--offline`, nothing is fetched,
+  the cache's state of a branch is used, and a `rev` the cache does not
+  have is an error. Fetching uses `git` with your credentials.
+- A `git` without a scheme or host is a path, relative to the
+  importing project; a `file://` URL needs an absolute path. A path and
+  its `.git` directory, or a URL with and without `.git`, name the same
+  component. A component names its own components by URL or
+  absolute path, not by a relative path, since it lives in the cache.
+- The files of a component are written without its symbolic links, so
+  that a component cannot make `shall` read files outside of it, and
+  without its submodules.
+- An external component imports other components with `git` and `rev`
+  only. One component, the same `git`, imported at two states along
+  different ways, or under two names, is an error: import a component
+  once.
 - The imports of an import are part of the trace too, each project
   once, also when it is imported along several ways. An item of an
   import of the import `plat` named `motor` in the platform's
@@ -1282,9 +1319,11 @@ p/reqs/c.md:5: dsn~mine~1 covers swr~gone~1: removed in 3f2a9c1d0b7e; to review
   there, `PATH` must be a project, not a workspace root. A warning says
   when the project does not exist in `--to`. The summary on stderr
   counts both kinds; the exit code stays 0.
-- Upgrading an external component to a new `rev`
-  (`shall upgrade-check <import> --to <rev>`) is planned with external
-  imports (M8.3).
+- With `--import <name>`, only that external component of the project
+  moves to the `rev` given with `--to`, as a new `rev` in its
+  `[[import]]` would: `shall upgrade-check --import can --to v1.3.0`
+  lists the links of the project, and of its other imports, whose
+  targets the component changes. That form needs no Git work tree.
 
 ### `shall export`
 

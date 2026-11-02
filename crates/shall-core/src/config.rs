@@ -166,10 +166,12 @@ pub struct Import {
     /// Directory of the imported project, relative to this project's
     /// root, e.g. `../../platform`.
     pub path: Option<String>,
-    /// URL of an external repository; not supported yet.
+    /// URL of the repository of an external component, or a path to it
+    /// relative to this project's root.
     pub git: Option<String>,
-    /// Fixed revision of an external repository; not supported yet, and an
-    /// error for a `path` import, which always follows the current state.
+    /// The tag, branch or commit of an external component that `git` names;
+    /// needed with `git`, and an error for a `path` import, which always
+    /// follows the current state.
     pub rev: Option<String>,
 }
 
@@ -443,9 +445,10 @@ impl Config {
                         import.name
                     )));
                 }
-                (None, Some(_), _) => {
+                (None, Some(_), Some(_)) => {}
+                (None, Some(_), None) => {
                     return Err(ConfigError(format!(
-                        "import '{}': imports with 'git' are not supported yet",
+                        "import '{}': 'git' needs a 'rev', a tag, branch or commit",
                         import.name
                     )));
                 }
@@ -760,8 +763,8 @@ junit = ["build/*.xml"]
                 "import 'a': 'rev' needs 'git'",
             ),
             (
-                "[[import]]\nname = \"a\"\ngit = \"https://x\"\nrev = \"v1\"\n",
-                "import 'a': imports with 'git' are not supported yet",
+                "[[import]]\nname = \"a\"\ngit = \"https://x\"\n",
+                "import 'a': 'git' needs a 'rev', a tag, branch or commit",
             ),
             ("[[import]]\nname = \"a\"\n", "import 'a' needs a 'path'"),
             (

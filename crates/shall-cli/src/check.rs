@@ -30,6 +30,7 @@ use shall_core::results::{self, Evaluation, Packages};
 use shall_core::trace::{self, Trace};
 use shall_core::{Diagnostic, Item, Location, Origin, Severity, markdown, tags, variant};
 
+use crate::component;
 use crate::diff;
 use crate::output::{self, Format};
 use crate::project::{find_root, is_markdown};
@@ -175,7 +176,10 @@ fn baseline_at(
     };
     // Only the part of the repository that the check reads: the workspace
     // or the project, with the untracked test results of the working tree.
-    let part = inside(&workspace_place(root)?.root)?;
+    let real = workspace_place(root)?.root;
+    // The earlier state uses the components of the working tree's cache.
+    component::share_cache(&real);
+    let part = inside(&real)?;
     let tree = diff::Tree::write_part(&top, &commit, &part)?;
     tree.add_files(&top, &junit_in_working_tree(root, workspace))?;
     let dir = tree.dir.join(&relative);
@@ -706,6 +710,12 @@ struct Member {
 struct Reader {
     place: Place,
     read: HashMap<PathBuf, Rc<Member>>,
+    /// The external components read, by directory: their normalised
+    /// `git`, their `rev` and its commit.
+    external: HashMap<PathBuf, (String, String, String)>,
+    /// Another `rev` for an external component that a project imports
+    /// directly: the project's root, the import's name and the `rev`.
+    rev: Option<(PathBuf, String, String)>,
 }
 
 impl Reader {
@@ -713,6 +723,8 @@ impl Reader {
         Self {
             place,
             read: HashMap::new(),
+            external: HashMap::new(),
+            rev: None,
         }
     }
 
@@ -722,11 +734,16 @@ impl Reader {
         if let Some(member) = self.read.get(root) {
             return Ok(Rc::clone(member));
         }
-        let prefix = root
-            .strip_prefix(&self.place.root)
-            .expect("projects are inside the root of their place")
-            .to_string_lossy()
-            .replace('\\', "/");
+        // A component of the cache has the same path in every state, also
+        // when an earlier state is read from a temporary tree.
+        let prefix = match component::display(root) {
+            Some(prefix) => prefix,
+            None => root
+                .strip_prefix(&self.place.root)
+                .expect("projects are inside the root of their place")
+                .to_string_lossy()
+                .replace('\\', "/"),
+        };
         let member = Rc::new(read_member(root, prefix)?);
         self.read.insert(root.to_path_buf(), Rc::clone(&member));
         Ok(member)
@@ -767,6 +784,30 @@ impl Reader {
                 };
                 imports.push((full.clone(), Rc::clone(&read)));
                 queue.push_back((Some(full), read));
+            }
+        }
+        // One component, two states: the same repository at two commits,
+        // or under two names, which would read its items twice.
+        let mut states: HashMap<&str, (&str, &str, &str, &Path)> = HashMap::new();
+        for (name, read) in &imports {
+            if let Some((url, rev, commit)) = self.external.get(&read.root) {
+                match states.get(url.as_str()) {
+                    Some(&(other, other_rev, other_commit, dir)) if dir != read.root => {
+                        if other_commit == commit {
+                            bail!(
+                                "{url} is imported twice, as '{other}' and as '{name}'; \
+                                 import a component once"
+                            );
+                        }
+                        bail!(
+                            "{url} is imported at two states: as '{other}' at {other_rev} and \
+                             as '{name}' at {rev}; import one state of a component"
+                        );
+                    }
+                    _ => {
+                        states.insert(url, (name, rev, commit, &read.root));
+                    }
+                }
             }
         }
         if let Some(cycle) = import_cycle(&member.root, &direct) {
@@ -830,15 +871,55 @@ impl Reader {
     fn imports(&mut self, member: &Member) -> anyhow::Result<Vec<(String, Rc<Member>)>> {
         let mut imports: Vec<(String, Rc<Member>)> = Vec::new();
         for import in &member.config.imports {
-            let path = import.path.as_deref().expect("the configuration checks it");
             let what = format!("import '{}' of {}", import.name, member.root.display());
+            let rev = match &self.rev {
+                Some((root, name, rev)) if *root == member.root && *name == import.name => {
+                    if import.git.is_none() {
+                        bail!("{what}: '{name}' is no external component with 'git' and 'rev'");
+                    }
+                    Some(rev.clone())
+                }
+                _ => import.rev.clone(),
+            };
+            if let (Some(url), Some(rev)) = (&import.git, &rev) {
+                let fetched = component::fetch(&component::Request {
+                    root: &self.place.root,
+                    from: &member.root,
+                    from_component: self.external.contains_key(&member.root),
+                    name: &import.name,
+                    url,
+                    rev,
+                })?;
+                let dir = fetched.dir;
+                if !dir.join(config::FILE_NAME).is_file() {
+                    bail!("{what}: {url} at {rev} has no {}", config::FILE_NAME);
+                }
+                if let Some((other, _)) = imports.iter().find(|(_, read)| read.root == dir) {
+                    bail!("{what}: {url} at {rev} is imported as '{other}' already");
+                }
+                let imported = self.member(&dir)?;
+                if imported.config.workspace.is_some() {
+                    bail!("{what}: {url} at {rev} describes a workspace");
+                }
+                self.external
+                    .insert(dir, (fetched.url, rev.clone(), fetched.commit));
+                imports.push((import.name.clone(), imported));
+                continue;
+            }
+            if self.external.contains_key(&member.root) {
+                bail!(
+                    "{what}: an external component can import other components with 'git' \
+                     and 'rev' only"
+                );
+            }
+            let path = import.path.as_deref().expect("the configuration checks it");
             let dir = dunce::canonicalize(member.root.join(path))
                 .with_context(|| format!("{what}: cannot resolve {path}"))?;
             if !dir.starts_with(&self.place.root) {
                 if self.place.members.is_some() {
                     bail!(
-                        "{what}: {} is outside the workspace {}; imports from other \
-                         repositories are planned (M8.3)",
+                        "{what}: {} is outside the workspace {}; import other \
+                         repositories with 'git' and 'rev'",
                         dir.display(),
                         self.place.root.display()
                     );
@@ -883,6 +964,9 @@ impl Reader {
     /// A project directory as messages show it, relative to the root of
     /// the [`Place`].
     fn display(&self, dir: &Path) -> String {
+        if let Some(component) = component::display(dir) {
+            return component;
+        }
         let relative = dir.strip_prefix(&self.place.root).unwrap_or(dir);
         if relative.as_os_str().is_empty() {
             ".".to_owned()
@@ -942,6 +1026,25 @@ pub fn read_project(start: &Path) -> anyhow::Result<ReadProject> {
     let root = find_root(start)?;
     let mut reader = Reader::new(place(&root)?);
     reader.project(&root)
+}
+
+/// Reads and traces the project at or above `start` as [`analyze`] does,
+/// but with its external component `import` at `rev`.
+pub fn analyze_at(start: &Path, import: &str, rev: &str) -> anyhow::Result<Project> {
+    let root = find_root(start)?;
+    if !Config::parse(&fs::read_to_string(root.join(config::FILE_NAME))?)?
+        .imports
+        .iter()
+        .any(|known| known.name == import)
+    {
+        bail!(
+            "{} has no [[import]] named '{import}'",
+            root.join(config::FILE_NAME).display()
+        );
+    }
+    let mut reader = Reader::new(place(&root)?);
+    reader.rev = Some((root.clone(), import.to_owned(), rev.to_owned()));
+    reader.project(&root)?.trace(None)
 }
 
 /// Reads the configuration, the requirement files and the tags of the

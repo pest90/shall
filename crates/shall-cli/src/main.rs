@@ -1,6 +1,7 @@
 //! Command line interface of `shall`.
 
 mod check;
+mod component;
 mod diff;
 mod export;
 mod external;
@@ -28,6 +29,9 @@ use shall_core::export::BuildInfo;
     after_help = "Any other command `foo` runs the program `shall-foo` from the PATH."
 )]
 struct Cli {
+    /// Never fetch external components; use only what `.shall/cache` has.
+    #[arg(long, global = true)]
+    offline: bool,
     #[command(subcommand)]
     command: Command,
 }
@@ -129,9 +133,14 @@ enum Command {
     /// revised or removed, and whether `--to` already updated it. Never
     /// changes the exit code by itself.
     UpgradeCheck {
-        /// The commit to upgrade to, e.g. `master`.
+        /// The commit to upgrade to, e.g. `master`; with `--import`, the
+        /// new `rev` of the component.
         #[arg(long, value_name = "REV")]
         to: String,
+        /// Move only this external component of the project to `--to`, as
+        /// a new `rev` in its `[[import]]` would.
+        #[arg(long, value_name = "NAME")]
+        import: Option<String>,
         /// A directory in the project.
         #[arg(default_value = ".")]
         path: PathBuf,
@@ -211,7 +220,9 @@ fn parse_build_info(text: &str) -> Result<BuildInfo, String> {
 const FAILURE: u8 = 2;
 
 fn main() -> ExitCode {
-    match run(Cli::parse().command) {
+    let cli = Cli::parse();
+    component::set_offline(cli.offline);
+    match run(cli.command) {
         Ok(code) => code,
         Err(error) => {
             eprintln!("Error: {error:#}");
@@ -259,8 +270,8 @@ fn run(command: Command) -> anyhow::Result<ExitCode> {
             format,
         })
         .map(|()| ExitCode::SUCCESS),
-        Command::UpgradeCheck { to, path } => {
-            diff::upgrade(&diff::UpgradeArgs { to, path }).map(|()| ExitCode::SUCCESS)
+        Command::UpgradeCheck { to, import, path } => {
+            diff::upgrade(&diff::UpgradeArgs { to, path, import }).map(|()| ExitCode::SUCCESS)
         }
         Command::External(args) => {
             let builtin: Vec<String> = Cli::command()

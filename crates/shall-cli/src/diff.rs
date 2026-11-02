@@ -78,36 +78,54 @@ pub fn run(args: &DiffArgs) -> anyhow::Result<()> {
 pub struct UpgradeArgs {
     pub to: String,
     pub path: PathBuf,
+    /// An external component to move to `to` instead of the whole
+    /// repository.
+    pub import: Option<String>,
 }
 
 /// Prints the valid links of the working tree that merging the commit
 /// `to` would make stale: whose targets `to` changed since its merge base
 /// with `HEAD`, see [`diff::upgrade`].
 pub fn upgrade(args: &UpgradeArgs) -> anyhow::Result<()> {
-    let (root, top, relative) = locate(&args.path)?;
-    let to = commit(&top, &args.to)?;
-    let head = commit(&top, "HEAD")?;
-    let base = output(git(&top).args(["merge-base", &head, &to]))
-        .map_err(|_| anyhow::anyhow!("HEAD and '{}' have no merge base", args.to))?;
-    let current = check::analyze(&root, None)?;
-    let base_tree = Tree::write(&top, &base)?;
-    let before = base_tree.read(&relative)?;
-    let tree = Tree::write(&top, &to)?;
-    let target = tree.read(&relative)?;
-    if target.is_none() {
-        eprintln!(
-            "warning: the project {} does not exist in {}",
-            relative.display(),
-            short(&to)
-        );
-    }
     let empty = (Vec::new(), Trace::default());
+    let (current, before, target, name);
+    if let Some(import) = &args.import {
+        // The component moves; the current state is also the base, since
+        // only the component changes.
+        current = check::analyze(&args.path, None)?;
+        target = Some(check::analyze_at(&args.path, import, &args.to)?);
+        before = None;
+        name = format!("{import} {}", args.to);
+    } else {
+        let (root, top, relative) = locate(&args.path)?;
+        let to = commit(&top, &args.to)?;
+        let head = commit(&top, "HEAD")?;
+        let base = output(git(&top).args(["merge-base", &head, &to]))
+            .map_err(|_| anyhow::anyhow!("HEAD and '{}' have no merge base", args.to))?;
+        current = check::analyze(&root, None)?;
+        let base_tree = Tree::write(&top, &base)?;
+        before = base_tree.read(&relative)?;
+        let tree = Tree::write(&top, &to)?;
+        target = tree.read(&relative)?;
+        if target.is_none() {
+            eprintln!(
+                "warning: the project {} does not exist in {}",
+                relative.display(),
+                short(&to)
+            );
+        }
+        name = short(&to);
+    }
+    let base = match &before {
+        Some(project) => (project.items.as_slice(), &project.trace),
+        None if args.import.is_some() => (current.items.as_slice(), &current.trace),
+        None => (empty.0.as_slice(), &empty.1),
+    };
     let stale = diff::upgrade(
-        state(&before, &empty),
+        base,
         (current.items.as_slice(), &current.trace),
         state(&target, &empty),
     );
-    let name = short(&to);
     let mut review = 0;
     for entry in &stale {
         let link = entry.link;
@@ -129,12 +147,16 @@ pub fn upgrade(args: &UpgradeArgs) -> anyhow::Result<()> {
             link.target,
         );
     }
+    let given = if args.import.is_some() {
+        String::new()
+    } else {
+        format!(" ({})", args.to)
+    };
     eprintln!(
-        "{} stale {}, {review} to review, {} updated in {name} ({})",
+        "{} stale {}, {review} to review, {} updated in {name}{given}",
         stale.len(),
         if stale.len() == 1 { "link" } else { "links" },
         stale.len() - review,
-        args.to
     );
     Ok(())
 }
@@ -144,6 +166,8 @@ pub fn upgrade(args: &UpgradeArgs) -> anyhow::Result<()> {
 /// project.
 fn locate(path: &Path) -> anyhow::Result<(PathBuf, PathBuf, PathBuf)> {
     let root = find_root(path)?;
+    // Earlier states use the components of the working tree's cache.
+    crate::component::share_cache(&check::workspace_root(&root).unwrap_or_else(|_| root.clone()));
     let toml = std::fs::read_to_string(root.join(config::FILE_NAME))
         .with_context(|| format!("cannot read {}", root.join(config::FILE_NAME).display()))?;
     if config::Config::parse(&toml).is_ok_and(|config| config.workspace.is_some()) {
@@ -180,7 +204,7 @@ fn state<'a>(
 /// A Git command in `dir`, without the `GIT_*` variables of the
 /// environment: inside a Git hook they name the hook's index and
 /// repository, which must not be touched.
-fn git(dir: &Path) -> Command {
+pub(crate) fn git(dir: &Path) -> Command {
     let mut command = Command::new("git");
     for (name, _) in std::env::vars_os() {
         if name.to_string_lossy().starts_with("GIT_") {
@@ -192,7 +216,7 @@ fn git(dir: &Path) -> Command {
 }
 
 /// The output of a Git command, trimmed; its error output on failure.
-fn output(command: &mut Command) -> anyhow::Result<String> {
+pub(crate) fn output(command: &mut Command) -> anyhow::Result<String> {
     let output = command.output().context("cannot run git")?;
     if !output.status.success() {
         let error = String::from_utf8_lossy(&output.stderr).trim().to_owned();
@@ -291,8 +315,10 @@ impl Tree {
             .tempdir()
             .context("cannot create a temporary directory")?;
         let dir = dunce::canonicalize(temp.path())?.join("tree");
-        write_tree(top, commit, &dir, part)
+        write_tree(top, commit, &dir, part, true)
             .with_context(|| format!("cannot read {}", short(commit)))?;
+        // Paths in the tree stand for those of the work tree at `top`.
+        crate::component::map_tree(&dir, top);
         // Ends the search for a workspace above, as at the top of a work
         // tree.
         std::fs::write(dir.join(".git"), "").context("cannot write the temporary tree")?;
@@ -365,9 +391,16 @@ impl Drop for Tree {
 
 /// Writes the files of `commit` of the repository at `repo` below `dir`:
 /// blobs as files, executable or not, symbolic links as links where the
-/// platform has them and as files with the target otherwise, and a
-/// submodule from its own repository below `repo`, if it is cloned.
-fn write_tree(repo: &Path, commit: &str, dir: &Path, part: &Path) -> anyhow::Result<()> {
+/// platform has them and as files with the target otherwise, or not at
+/// all without `links`, and a submodule from its own repository below
+/// `repo`, if it is cloned.
+pub(crate) fn write_tree(
+    repo: &Path,
+    commit: &str,
+    dir: &Path,
+    part: &Path,
+    links: bool,
+) -> anyhow::Result<()> {
     std::fs::create_dir_all(dir).with_context(|| format!("cannot create {}", dir.display()))?;
     let mut command = git(repo);
     command.args(["ls-tree", "-r", "-z", "--full-tree", commit]);
@@ -430,7 +463,7 @@ fn write_tree(repo: &Path, commit: &str, dir: &Path, part: &Path) -> anyhow::Res
                     short(commit)
                 );
             } else if has(object) {
-                write_tree(&submodule, object, &target, Path::new(""))?;
+                write_tree(&submodule, object, &target, Path::new(""), links)?;
             } else {
                 let checked_out = output(git(&submodule).args(["rev-parse", "HEAD"]))
                     .with_context(|| format!("cannot read submodule {}", relative.display()))?;
@@ -442,8 +475,16 @@ fn write_tree(repo: &Path, commit: &str, dir: &Path, part: &Path) -> anyhow::Res
                     short(commit),
                     short(&checked_out)
                 );
-                write_tree(&submodule, &checked_out, &target, Path::new(""))?;
+                write_tree(&submodule, &checked_out, &target, Path::new(""), links)?;
             }
+            continue;
+        }
+        if mode == "120000" && !links {
+            eprintln!(
+                "warning: {} is a symbolic link; it is left out of {}",
+                relative.display(),
+                short(commit)
+            );
             continue;
         }
         blobs.push((mode.to_owned(), object.to_owned(), target));

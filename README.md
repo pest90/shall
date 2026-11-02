@@ -17,8 +17,8 @@ requirements, outdated links, orphaned code and failing tests.
 
 > **Status:** early development, not released yet. Today `shall` traces
 > requirements, code and test tags and gtest or `cargo nextest` results,
-> also across a workspace of projects that import a shared platform and
-> per product variant; prints the defects and fails by check mode
+> also across a workspace of projects that import a shared platform or
+> external components at a fixed `rev`, and per product variant; prints the defects and fails by check mode
 > (`shall check`, also as CI annotations or SARIF); writes an HTML report
 > with coverage, verified status, a traffic light per chain, requirement
 > details, a tree, the Green Graph and a defect list, plus `trace.json`,
