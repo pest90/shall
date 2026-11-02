@@ -1,3 +1,5 @@
+<img src="assets/logo/shall-logo.svg" alt="shall logo: a pixel-art wizard" width="96" align="right">
+
 # shall
 
 **Specifications Hooked to Actual Lines of Logic** – requirements as code.

@@ -1019,9 +1019,9 @@ Reads and traces the project like `shall check` and writes the result
 into the output directory, by default `site` in the current directory;
 the directory is created if missing:
 
-- `index.html`, the report: one self-contained file with embedded CSS
-  and a small script for the filter
-  that opens from disk without a server;
+- `index.html`, the report: one self-contained file that opens from
+  disk without a server, with embedded CSS, the `shall` logo (favicon
+  and page header) and a small script for the filter;
 - `trace.json`, the whole traced project as JSON, from which the report
   is made (see below);
 - `defects.txt`, the defects as `shall check` prints them, one line

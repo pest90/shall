@@ -8,6 +8,7 @@ expression: "overview.replace(&format!(\"shall {}\", env!(\"CARGO_PKG_VERSION\")
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="generator" content="shall [version]">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22 width=%22256%22 height=%22256%22 shape-rendering=%22crispEdges%22 role=%22img%22 aria-label=%22shall logo: a pixel-art wizard%22%3E %3Ctitle%3Eshall%3C/title%3E %3Cpath fill=%22%231d1f24%22 d=%22M7 0h1v1h-1zM6 1h1v1h-1zM8 1h1v1h-1zM6 2h1v1h-1zM9 2h1v1h-1zM5 3h1v1h-1zM9 3h1v1h-1zM4 4h1v1h-1zM10 4h1v1h-1zM3 5h9v1h-9zM4 6h1v1h-1zM6 6h1v1h-1zM9 6h1v1h-1zM11 6h1v1h-1zM4 7h1v1h-1zM11 7h1v1h-1zM3 8h1v1h-1zM12 8h1v1h-1zM2 9h1v1h-1zM2 10h1v1h-1zM2 11h1v1h-1zM12 11h1v1h-1zM1 12h1v1h-1zM12 12h1v1h-1zM1 13h1v1h-1zM12 13h1v1h-1zM0 14h1v1h-1zM12 14h1v1h-1zM0 15h13v1h-13z%22/%3E %3Cpath fill=%22%2334508f%22 d=%22M7 1h1v1h-1zM7 2h1v1h-1zM6 3h2v1h-2zM5 4h4v1h-4zM4 8h1v1h-1zM11 8h1v1h-1zM3 9h2v1h-2zM11 9h1v1h-1zM3 10h2v1h-2zM10 10h2v1h-2zM3 11h2v1h-2zM9 11h3v1h-3zM2 12h3v1h-3zM7 12h5v1h-5zM2 13h3v1h-3zM7 13h5v1h-5zM1 14h4v1h-4zM7 14h5v1h-5z%22/%3E %3Cpath fill=%22%236f8fd1%22 d=%22M8 2h1v1h-1zM8 3h1v1h-1zM9 4h1v1h-1zM5 10h1v1h-1zM5 11h2v1h-2zM5 12h2v1h-2zM5 13h2v1h-2zM5 14h2v1h-2z%22/%3E %3Cpath fill=%22%238a5a34%22 d=%22M12 2h2v1h-2zM12 3h1v1h-1zM14 3h1v1h-1zM13 4h1v1h-1zM13 5h1v1h-1zM13 6h1v1h-1zM13 7h1v1h-1zM13 8h1v1h-1zM13 9h1v1h-1zM13 10h1v1h-1zM13 11h1v1h-1zM13 12h1v1h-1zM13 13h1v1h-1zM13 14h1v1h-1zM13 15h1v1h-1z%22/%3E %3Cpath fill=%22%23b8613c%22 d=%22M13 3h1v1h-1z%22/%3E %3Cpath fill=%22%23efdcb8%22 d=%22M5 6h1v1h-1zM7 6h2v1h-2zM10 6h1v1h-1zM12 9h1v1h-1zM12 10h1v1h-1z%22/%3E %3Cpath fill=%22%23f4f1e8%22 d=%22M5 7h6v1h-6zM5 8h6v1h-6zM5 9h6v1h-6zM6 10h4v1h-4zM7 11h2v1h-2z%22/%3E %3C/svg%3E">
 <title>Traceability report: variants</title>
 <style>
 :root {
@@ -53,6 +54,7 @@ body {
 }
 header, main, footer { max-width: 72rem; margin: 0 auto; }
 h1 { font-size: 1.6rem; margin: 1.5rem 0 0.25rem; }
+h1 .logo { vertical-align: -0.3rem; margin-right: 0.5rem; }
 h2 { font-size: 1.25rem; margin: 2rem 0 0.5rem; border-bottom: 1px solid var(--line); padding-bottom: 0.25rem; }
 h3 { font-size: 1rem; margin: 1.25rem 0 0.5rem; }
 code { font: 0.9em ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; overflow-wrap: anywhere; }
@@ -171,7 +173,7 @@ table.params { width: auto; margin-top: 0.25rem; }
 </head>
 <body>
 <header>
-<h1>Traceability report: variants</h1>
+<h1><img class="logo" src="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22 width=%22256%22 height=%22256%22 shape-rendering=%22crispEdges%22 role=%22img%22 aria-label=%22shall logo: a pixel-art wizard%22%3E %3Ctitle%3Eshall%3C/title%3E %3Cpath fill=%22%231d1f24%22 d=%22M7 0h1v1h-1zM6 1h1v1h-1zM8 1h1v1h-1zM6 2h1v1h-1zM9 2h1v1h-1zM5 3h1v1h-1zM9 3h1v1h-1zM4 4h1v1h-1zM10 4h1v1h-1zM3 5h9v1h-9zM4 6h1v1h-1zM6 6h1v1h-1zM9 6h1v1h-1zM11 6h1v1h-1zM4 7h1v1h-1zM11 7h1v1h-1zM3 8h1v1h-1zM12 8h1v1h-1zM2 9h1v1h-1zM2 10h1v1h-1zM2 11h1v1h-1zM12 11h1v1h-1zM1 12h1v1h-1zM12 12h1v1h-1zM1 13h1v1h-1zM12 13h1v1h-1zM0 14h1v1h-1zM12 14h1v1h-1zM0 15h13v1h-13z%22/%3E %3Cpath fill=%22%2334508f%22 d=%22M7 1h1v1h-1zM7 2h1v1h-1zM6 3h2v1h-2zM5 4h4v1h-4zM4 8h1v1h-1zM11 8h1v1h-1zM3 9h2v1h-2zM11 9h1v1h-1zM3 10h2v1h-2zM10 10h2v1h-2zM3 11h2v1h-2zM9 11h3v1h-3zM2 12h3v1h-3zM7 12h5v1h-5zM2 13h3v1h-3zM7 13h5v1h-5zM1 14h4v1h-4zM7 14h5v1h-5z%22/%3E %3Cpath fill=%22%236f8fd1%22 d=%22M8 2h1v1h-1zM8 3h1v1h-1zM9 4h1v1h-1zM5 10h1v1h-1zM5 11h2v1h-2zM5 12h2v1h-2zM5 13h2v1h-2zM5 14h2v1h-2z%22/%3E %3Cpath fill=%22%238a5a34%22 d=%22M12 2h2v1h-2zM12 3h1v1h-1zM14 3h1v1h-1zM13 4h1v1h-1zM13 5h1v1h-1zM13 6h1v1h-1zM13 7h1v1h-1zM13 8h1v1h-1zM13 9h1v1h-1zM13 10h1v1h-1zM13 11h1v1h-1zM13 12h1v1h-1zM13 13h1v1h-1zM13 14h1v1h-1zM13 15h1v1h-1z%22/%3E %3Cpath fill=%22%23b8613c%22 d=%22M13 3h1v1h-1z%22/%3E %3Cpath fill=%22%23efdcb8%22 d=%22M5 6h1v1h-1zM7 6h2v1h-2zM10 6h1v1h-1zM12 9h1v1h-1zM12 10h1v1h-1z%22/%3E %3Cpath fill=%22%23f4f1e8%22 d=%22M5 7h6v1h-6zM5 8h6v1h-6zM5 9h6v1h-6zM6 10h4v1h-4zM7 11h2v1h-2z%22/%3E %3C/svg%3E" alt="" width="32" height="32">Traceability report: variants</h1>
 </header>
 <main>
 <section id="variants">

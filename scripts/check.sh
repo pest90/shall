@@ -8,6 +8,8 @@ cd "$(dirname "$0")/.."
 msrv=$(sed -n 's/^rust-version = "\(.*\)"/\1/p' Cargo.toml)
 
 set -x
+# The report embeds a copy of the logo; it must not drift from the asset.
+cmp assets/logo/shall-logo.svg crates/shall-report/templates/logo.svg
 cargo fmt --all --check
 cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo test --workspace --locked
