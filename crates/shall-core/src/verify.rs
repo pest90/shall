@@ -254,8 +254,15 @@ pub(crate) fn lights(
 /// The other items below an item above are not requested by that: they
 /// stay provided, e.g. the sibling capabilities under a platform's top
 /// item. Provided items, e.g. platform capabilities no customer
-/// requirement asks for, are information.
-pub(crate) fn provided(joined: &[Joined<'_>]) -> Vec<bool> {
+/// requirement asks for, are information. An item with a link against
+/// the import direction among `links` is never provided: it is a defect,
+/// so its light stays visible.
+pub(crate) fn provided(joined: &[Joined<'_>], links: &[Link]) -> Vec<bool> {
+    let against: HashSet<(&Location, &ItemId)> = links
+        .iter()
+        .filter(|link| link.status == LinkStatus::AgainstImports)
+        .map(|link| (&link.source_location, &link.source))
+        .collect();
     let sources = sources(joined);
     let mut targets: Vec<Vec<usize>> = vec![Vec::new(); joined.len()];
     for (target, sources) in sources.iter().enumerate() {
@@ -293,7 +300,13 @@ pub(crate) fn provided(joined: &[Joined<'_>]) -> Vec<bool> {
             }
         }
     }
-    requested.into_iter().map(|requested| !requested).collect()
+    requested
+        .into_iter()
+        .zip(joined)
+        .map(|(requested, entry)| {
+            !requested && !against.contains(&(&entry.item.location, &entry.item.id))
+        })
+        .collect()
 }
 
 /// For every joined item, the positions of the items covering it.
@@ -970,7 +983,7 @@ Covers:
         let joined = join(&items, &trace, None);
         let lines: Vec<String> = joined
             .iter()
-            .zip(provided(&joined))
+            .zip(provided(&joined, &trace.links))
             .filter(|(_, provided)| *provided)
             .map(|(entry, _)| entry.item.location.to_string())
             .collect();
@@ -1005,7 +1018,7 @@ Covers:
         items.extend(platform);
         let trace = trace::trace(&items, &config);
         let joined = join(&items, &trace, None);
-        let provided = provided(&joined);
+        let provided = provided(&joined, &trace.links);
         let names: Vec<String> = joined
             .iter()
             .zip(&provided)

@@ -344,7 +344,7 @@ impl<'a> Document<'a> {
     pub fn new(input: Input<'a>) -> Self {
         let joined = verify::join(input.items, input.trace, input.tests.map(|(_, e)| e));
         let verified = verify::verified(&joined, input.config);
-        let provided = verify::provided(&joined);
+        let provided = verify::provided(&joined, &input.trace.links);
         let lights = verify::lights(&joined, &input.trace.links, &provided, input.config);
         let items = joined
             .iter()

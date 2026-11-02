@@ -10,6 +10,7 @@ pub mod diagnostic;
 pub mod export;
 pub mod gate;
 pub mod id;
+pub mod imports;
 pub mod item;
 pub mod junit;
 pub mod markdown;

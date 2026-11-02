@@ -696,8 +696,7 @@ fn reports_problems_with_imports() {
         stderr(&output)
     );
 
-    // Imports of an import are not followed yet, also when written as an
-    // inline array.
+    // An import cycle, also when written as an inline array.
     fs::write(a.join("shall.toml"), &config).unwrap();
     let platform = dir.path().join("platform/shall.toml");
     let platform_config = fs::read_to_string(&platform).unwrap();
@@ -707,21 +706,86 @@ fn reports_problems_with_imports() {
     )
     .unwrap();
     let output = shall(&a, &["check"]);
-    assert!(
-        stdout(&output).contains("platform/shall.toml:1: warning: the imports of 'plat'"),
-        "{}",
-        stdout(&output)
+    assert_eq!(output.status.code(), Some(2));
+    assert_eq!(
+        stderr(&output),
+        "Error: import cycle projects/a -> platform -> projects/a; imports must not lead back\n"
     );
-    let mut platform_config = platform_config;
-    platform_config.push_str("\n[[import]]\nname = \"a\"\npath = \"../projects/a\"\n");
+}
+
+#[test]
+fn follows_the_imports_of_imports() {
+    let dir = workspace();
+    fs::write(
+        dir.path().join("shall.toml"),
+        "[workspace]\nmembers = [\"lib\", \"platform\", \"projects/*\"]\n",
+    )
+    .unwrap();
+    fs::create_dir_all(dir.path().join("lib")).unwrap();
+    fs::write(
+        dir.path().join("lib/shall.toml"),
+        "[[level]]\ntype = \"lib\"\nname = \"Library\"\n",
+    )
+    .unwrap();
+    // The library knows nothing of the platform, so it must not cover a
+    // platform item.
+    fs::write(
+        dir.path().join("lib/reqs.md"),
+        "# Lib\n`lib~parse~1`\n\n# Bad\n`lib~bad~1`\nCovers:\n- cap~log~1\n",
+    )
+    .unwrap();
+    let platform = dir.path().join("platform/shall.toml");
+    let mut platform_config = fs::read_to_string(&platform).unwrap();
+    platform_config.push_str("\n[[import]]\nname = \"lib\"\npath = \"../lib\"\n");
     fs::write(&platform, platform_config).unwrap();
+    fs::write(
+        dir.path().join("platform/reqs/uses.md"),
+        "# Uses\n`cap~uses~1`\nStatus: rejected\nDepends:\n- lib~parse~1\n",
+    )
+    .unwrap();
+    let a = dir.path().join("projects/a");
     let output = shall(&a, &["check"]);
     assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
-    assert!(
-        stdout(&output).contains(
-            "platform/shall.toml:16: warning: the imports of 'plat' are not followed; \
-             transitive imports are planned (M8.2)"
-        ),
+    assert_eq!(
+        stdout(&output),
+        "lib/reqs.md:7: lib~bad~1: covers cap~log~1 of project 'platform', which project \
+         'lib' does not import; links point from a project to its imports\n\
+         platform/reqs/cap.md:7: cap~log~1: not covered by required type 'impl'\n\
+         platform/reqs/cap.md:7: cap~log~1: not covered by required type 'utest'\n"
+    );
+    let site = dir.path().join("site");
+    let output = shall(&a, &["report", "--out", site.to_str().unwrap()]);
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    let json = fs::read_to_string(site.join("trace.json")).unwrap();
+    assert!(json.contains("\"import\": \"plat.lib\""), "{json}");
+    assert!(json.contains("\"status\": \"against_imports\""), "{json}");
+    // The item with the link is a defect, not information.
+    let document: serde_json::Value = serde_json::from_str(&json).unwrap();
+    let bad = document["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|item| item["id"] == "lib~bad~1")
+        .unwrap();
+    assert_eq!(bad["light"], "red");
+    assert_eq!(bad["provided"], false);
+    // In the workspace, the library's defect is the same in every project
+    // that imports it, and printed once.
+    let b = dir.path().join("projects/b");
+    fs::create_dir_all(&b).unwrap();
+    fs::write(
+        b.join("shall.toml"),
+        "[[import]]\nname = \"l\"\npath = \"../../lib\"\n\n\
+         [[import]]\nname = \"p\"\npath = \"../../platform\"\n",
+    )
+    .unwrap();
+    let output = shall(dir.path(), &["check"]);
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    assert_eq!(
+        stdout(&output)
+            .matches("lib/reqs.md:7: lib~bad~1: covers cap~log~1 of project")
+            .count(),
+        1,
         "{}",
         stdout(&output)
     );

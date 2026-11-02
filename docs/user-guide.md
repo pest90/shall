@@ -613,10 +613,24 @@ path = "../../platform"
 - `path` is relative to the importing project and must name a member
   of the workspace; it always follows the current state of the files, so a
   `rev` is an error. Imports from other repositories (`git`, `rev`)
-  and the imports of an import (a warning for now) are planned (M8.2,
-  M8.3).
+  are planned (M8.3).
+- The imports of an import are part of the trace too, each project
+  once, also when it is imported along several ways. An item of an
+  import of the import `plat` named `motor` in the platform's
+  `shall.toml` is marked `plat.motor` (the shortest way, in the order of
+  `[[import]]`); a project imported directly keeps its own name. An
+  import cycle, such as a platform importing a customer project that
+  imports it, is an error.
+- Links point from a project to its imports, directly or not: a
+  `Covers:`, `Depends:` or `Satisfied-by:` link or a tag of an imported
+  project whose target belongs to the importing project, or to another
+  project that it does not import, is an error, e.g. a platform item
+  that covers a customer requirement. Such a link covers nothing; the
+  message names the projects by their directories, so that a workspace
+  check prints it once. In the imported project's own check, such a
+  target is unknown.
 - IDs are not renamed by an import; a duplicate ID in a project and
-  its imports is an error as within one project. Members that do not
+  all of its imports is an error as within one project. Members that do not
   import each other are not compared.
 - Paths in diagnostics and in `trace.json` are relative to the
   workspace root, e.g. `platform/reqs/cap.md:7`, wherever `shall` runs.
@@ -1093,8 +1107,10 @@ A `location` is `{"path": "reqs/design.md", "line": 12}`. A link's
 `status` is `valid`, `unknown`, `outdated` or `predated` (with the
 target's `current` revision), `ambiguous`, `rejected`, `unwanted`
 (the target does not need the source's type), `disallowed` (the
-target's type is no `[satisfied_by]` target), or `outside_variant` (the
-target exists, but not in the traced variant); only `valid` links count
+target's type is no `[satisfied_by]` target), `outside_variant` (the
+target exists, but not in the traced variant), or `against_imports`
+(the target belongs to a project that the source's project does not
+import); only `valid` links count
 as coverage. A valid `Satisfied-by:` link covers its source, not its
 target.
 

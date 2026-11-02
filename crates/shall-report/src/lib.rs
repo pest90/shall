@@ -1177,6 +1177,7 @@ fn problem(status: LinkStatus) -> Option<String> {
         LinkStatus::Unwanted => "the target does not need this type".to_owned(),
         LinkStatus::Disallowed => "type not allowed by [satisfied_by]".to_owned(),
         LinkStatus::OutsideVariant => "outside the variant".to_owned(),
+        LinkStatus::AgainstImports => "against the import direction".to_owned(),
     })
 }
 

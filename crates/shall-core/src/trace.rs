@@ -59,6 +59,7 @@ use crate::check;
 use crate::config::Config;
 use crate::diagnostic::Diagnostic;
 use crate::id::{ItemId, ItemType};
+use crate::imports::Imports;
 use crate::item::{Item, Location, Origin, Reference, Status};
 
 /// Result of tracing all items of a project.
@@ -181,6 +182,9 @@ pub enum LinkStatus {
     /// The target exists, but outside the traced variant; a defect except
     /// for `Covers:`.
     OutsideVariant,
+    /// The target belongs to a project that the source's project does not
+    /// import, see [`crate::imports`].
+    AgainstImports,
 }
 
 /// Traces `items` against the levels of `config`.
@@ -194,6 +198,19 @@ pub fn trace(items: &[Item], config: &Config) -> Trace {
 /// Traces the `inside` items of a variant; links to `outside` items get
 /// [`LinkStatus::OutsideVariant`], see [`crate::variant::select`].
 pub fn trace_variant(inside: &[Item], outside: &[Item], config: &Config) -> Trace {
+    trace_imports(inside, outside, config, &Imports::default())
+}
+
+/// Traces like [`trace_variant`] the items of a project and its
+/// `imports`, whose links must point from a project to its imports, see
+/// [`crate::imports`]; a link against them gets
+/// [`LinkStatus::AgainstImports`] and covers nothing.
+pub fn trace_imports(
+    inside: &[Item],
+    outside: &[Item],
+    config: &Config,
+    imports: &Imports,
+) -> Trace {
     // IDs are global: a duplicate is a defect in every variant.
     let mut defects = check::duplicate_ids(inside.iter().chain(outside));
     let outside_items = outside;
@@ -298,7 +315,15 @@ pub fn trace_variant(inside: &[Item], outside: &[Item], config: &Config) -> Trac
                     .map(|link| (LinkKind::SatisfiedBy, link)),
             );
         for (kind, link) in all_links {
-            let resolved = resolve(&copies, &outside, &items, &rejected, link);
+            let mut resolved = resolve(&copies, &outside, &items, &rejected, link);
+            let mut against = None;
+            if let Ok(target) = resolved {
+                let to = items[target].import.as_deref();
+                if !imports.allows(item.import.as_deref(), to) {
+                    against = Some(to);
+                    resolved = Err(LinkStatus::AgainstImports);
+                }
+            }
             let status = match (kind, resolved) {
                 (LinkKind::Covers, Ok(target)) => {
                     if needs[target].contains(item.id.typ()) {
@@ -337,7 +362,19 @@ pub fn trace_variant(inside: &[Item], outside: &[Item], config: &Config) -> Trac
                 (LinkKind::Depends, Ok(_)) => LinkStatus::Valid,
                 (_, Err(status)) => status,
             };
-            if let Some(mut message) = link_message(kind, item, link, status, config) {
+            if let Some(to) = against {
+                defects.push(Diagnostic::error(
+                    item.location.with_line(link.line),
+                    format!(
+                        "{subject}: {} {} of project {}, which project {} does not import; \
+                         links point from a project to its imports",
+                        verb(kind),
+                        link.id,
+                        imports.name(to),
+                        imports.name(item.import.as_deref())
+                    ),
+                ));
+            } else if let Some(mut message) = link_message(kind, item, link, status, config) {
                 if let (LinkStatus::Unwanted, Ok(target)) = (status, resolved)
                     && needed_without_satisfied_by(items[target], item.id.typ(), config)
                 {
@@ -524,6 +561,15 @@ fn resolve(
     }
 }
 
+/// How messages name a link of `kind`.
+fn verb(kind: LinkKind) -> &'static str {
+    match kind {
+        LinkKind::Covers => "covers",
+        LinkKind::Depends => "depends on",
+        LinkKind::SatisfiedBy => "is satisfied by",
+    }
+}
+
 /// The defect message for an invalid link, without location.
 fn link_message(
     kind: LinkKind,
@@ -532,11 +578,7 @@ fn link_message(
     status: LinkStatus,
     config: &Config,
 ) -> Option<String> {
-    let verb = match kind {
-        LinkKind::Covers => "covers",
-        LinkKind::Depends => "depends on",
-        LinkKind::SatisfiedBy => "is satisfied by",
-    };
+    let verb = verb(kind);
     let target = &link.id;
     // The ID of a tag's item is generated, so its defects name the tag as
     // written; a tag with an unknown target is orphaned code.
@@ -558,6 +600,7 @@ fn link_message(
             format!("{verb} {target}, whose type and name are defined more than once")
         }
         LinkStatus::Rejected => format!("{verb} rejected item {target}"),
+        LinkStatus::AgainstImports => format!("{verb} {target} against the import direction"),
         LinkStatus::Unwanted => format!(
             "{verb} {target}, which does not need type '{}'",
             item.id.typ()
@@ -949,6 +992,40 @@ dsn --> impl : sys~b~1
         );
         assert!(item(&trace, "sys~a~1").deep_covered);
         assert!(item(&trace, "swr~a~1").deep_covered);
+    }
+
+    #[test]
+    fn links_against_the_imports_cover_nothing() {
+        let config = "[[level]]\ntype = \"hlr\"\nname = \"H\"\nneeds = [\"cap\"]\n\
+                      [[level]]\ntype = \"cap\"\nname = \"C\"\n";
+        let mut items = markdown::parse(Path::new("a/reqs.md"), "`hlr~h~1`\n")
+            .unwrap()
+            .items;
+        let mut platform = markdown::parse(
+            Path::new("platform/reqs.md"),
+            "`cap~c~1`\nCovers:\n- hlr~h~1\n\n`cap~d~1`\nDepends:\n- cap~c~1\n",
+        )
+        .unwrap()
+        .items;
+        for item in &mut platform {
+            item.import = Some("plat".to_owned());
+        }
+        items.extend(platform);
+        let mut imports = Imports::default();
+        imports.add(None, "a", [Some("plat".to_owned())]);
+        imports.add(Some("plat"), "platform", []);
+        let trace = trace_imports(&items, &[], &Config::parse(config).unwrap(), &imports);
+        assert_eq!(
+            messages(&trace),
+            [
+                "a/reqs.md:1: hlr~h~1: not covered by required type 'cap'",
+                "platform/reqs.md:3: cap~c~1: covers hlr~h~1 of project 'a', which project \
+                 'platform' does not import; links point from a project to its imports",
+            ]
+        );
+        assert_eq!(trace.links[0].status, LinkStatus::AgainstImports);
+        assert_eq!(trace.links[1].status, LinkStatus::Valid);
+        assert!(!item(&trace, "hlr~h~1").covered);
     }
 
     #[test]

@@ -11,7 +11,7 @@
 //! `build/**/*.xml`, also find ignored files below it, since test results
 //! usually are in an ignored build directory.
 
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
 use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
@@ -24,6 +24,7 @@ use globset::{GlobBuilder, GlobMatcher};
 use shall_core::config::Mode;
 use shall_core::config::{self, Config};
 use shall_core::gate::{self, Baseline};
+use shall_core::imports::Imports;
 use shall_core::junit::{self, TestResult};
 use shall_core::results::{self, Evaluation, Packages};
 use shall_core::trace::{self, Trace};
@@ -602,7 +603,10 @@ impl Reader {
         Ok(member)
     }
 
-    /// Reads the project at `root` and its imports.
+    /// Reads the project at `root` and its imports, also those of its
+    /// imports: breadth first and each project once, so that a project
+    /// imported along several ways gets the name of the shortest, such as
+    /// `plat.motor` for the import `motor` of the import `plat`.
     fn project(&mut self, root: &Path) -> anyhow::Result<ReadProject> {
         let member = self.member(root)?;
         if member.config.workspace.is_some() {
@@ -612,7 +616,90 @@ impl Reader {
             );
         }
         let mut imports: Vec<(String, Rc<Member>)> = Vec::new();
+        // The direct imports of every project read, by root.
+        let mut direct: HashMap<PathBuf, Vec<PathBuf>> = HashMap::new();
+        let mut queue: VecDeque<(Option<String>, Rc<Member>)> =
+            VecDeque::from([(None, Rc::clone(&member))]);
+        while let Some((name, current)) = queue.pop_front() {
+            let found = self.imports(&current)?;
+            direct.insert(
+                current.root.clone(),
+                found.iter().map(|(_, read)| read.root.clone()).collect(),
+            );
+            for (import, read) in found {
+                let known = read.root == member.root
+                    || imports.iter().any(|(_, other)| other.root == read.root);
+                if known {
+                    continue;
+                }
+                let full = match &name {
+                    Some(name) => format!("{name}.{import}"),
+                    None => import,
+                };
+                imports.push((full.clone(), Rc::clone(&read)));
+                queue.push_back((Some(full), read));
+            }
+        }
+        if let Some(cycle) = import_cycle(&member.root, &direct) {
+            let names: Vec<String> = cycle.iter().map(|dir| self.display(dir)).collect();
+            bail!(
+                "import cycle {}; imports must not lead back",
+                names.join(" -> ")
+            );
+        }
+        // Which project imports which, directly or not, by import name.
+        let names: HashMap<&Path, Option<&str>> = std::iter::once((member.root.as_path(), None))
+            .chain(
+                imports
+                    .iter()
+                    .map(|(name, read)| (read.root.as_path(), Some(name.as_str()))),
+            )
+            .collect();
+        let mut reach = Imports::default();
+        for (&dir, &name) in &names {
+            let mut seen: HashSet<&Path> = HashSet::new();
+            let mut stack = vec![dir];
+            while let Some(next) = stack.pop() {
+                if seen.insert(next) {
+                    stack.extend(direct[next].iter().map(PathBuf::as_path));
+                }
+            }
+            reach.add(
+                name,
+                self.display(dir),
+                seen.iter().map(|dir| names[dir].map(str::to_owned)),
+            );
+        }
         let mut diagnostics = Vec::new();
+        let config = member
+            .config
+            .with_imports(
+                imports
+                    .iter()
+                    .map(|(name, read)| (name.as_str(), &read.config)),
+            )
+            .with_context(|| format!("in {}", root.join(config::FILE_NAME).display()))?;
+        if !member.config.imports.is_empty() {
+            let mut unknown = unknown_source_keys(&member.config, &config, &member.config_text);
+            relocate(&mut unknown, &member.prefix);
+            diagnostics.extend(unknown);
+        }
+        let mut unknown = unknown_check_settings(&member.config, &config, &member.config_text);
+        relocate(&mut unknown, &member.prefix);
+        diagnostics.extend(unknown);
+        Ok(ReadProject {
+            member,
+            imports,
+            config,
+            diagnostics,
+            reach,
+        })
+    }
+
+    /// The direct imports of `member`, by their names in its `shall.toml`,
+    /// checked to be other members of the workspace.
+    fn imports(&mut self, member: &Member) -> anyhow::Result<Vec<(String, Rc<Member>)>> {
+        let mut imports: Vec<(String, Rc<Member>)> = Vec::new();
         for import in &member.config.imports {
             let path = import.path.as_deref().expect("the configuration checks it");
             let what = format!("import '{}' of {}", import.name, member.root.display());
@@ -659,60 +746,50 @@ impl Reader {
             if imported.config.workspace.is_some() {
                 bail!("{what}: {} describes a workspace", dir.display());
             }
-            if !imported.config.imports.is_empty() {
-                let line = first_import_line(&imported.config_text).unwrap_or(1);
-                let location = Location::new(Path::new(config::FILE_NAME), line)
-                    .expect("valid location")
-                    .prefixed(&imported.prefix);
-                diagnostics.push(Diagnostic::warning(
-                    location,
-                    format!(
-                        "the imports of '{}' are not followed; transitive imports are \
-                         planned (M8.2)",
-                        import.name
-                    ),
-                ));
-            }
             imports.push((import.name.clone(), imported));
         }
-        let config = member
-            .config
-            .with_imports(
-                imports
-                    .iter()
-                    .map(|(name, read)| (name.as_str(), &read.config)),
-            )
-            .with_context(|| format!("in {}", root.join(config::FILE_NAME).display()))?;
-        if !member.config.imports.is_empty() {
-            let mut unknown = unknown_source_keys(&member.config, &config, &member.config_text);
-            relocate(&mut unknown, &member.prefix);
-            diagnostics.extend(unknown);
+        Ok(imports)
+    }
+
+    /// A project directory as messages show it, relative to the root of
+    /// the [`Place`].
+    fn display(&self, dir: &Path) -> String {
+        let relative = dir.strip_prefix(&self.place.root).unwrap_or(dir);
+        if relative.as_os_str().is_empty() {
+            ".".to_owned()
+        } else {
+            relative.to_string_lossy().replace('\\', "/")
         }
-        let mut unknown = unknown_check_settings(&member.config, &config, &member.config_text);
-        relocate(&mut unknown, &member.prefix);
-        diagnostics.extend(unknown);
-        Ok(ReadProject {
-            member,
-            imports,
-            config,
-            diagnostics,
-        })
     }
 }
 
-/// Line of the first import in a `shall.toml`: an `[[import]]` table or
-/// an `import = [...]` key.
-fn first_import_line(text: &str) -> Option<u32> {
-    text.lines()
-        .position(|line| {
-            let code = line
-                .split_once('#')
-                .map_or(line, |(code, _)| code)
-                .trim()
-                .replace(' ', "");
-            code == "[[import]]" || code.starts_with("import=")
-        })
-        .map(|index| u32::try_from(index + 1).unwrap_or(u32::MAX))
+/// The first import cycle reachable from `root` in the graph of direct
+/// imports, as the projects along it with the first one again at the end;
+/// found by a depth-first search with an explicit stack.
+fn import_cycle(root: &Path, direct: &HashMap<PathBuf, Vec<PathBuf>>) -> Option<Vec<PathBuf>> {
+    let mut done: HashSet<&Path> = HashSet::new();
+    // The path of the search, with the index of each project's next import.
+    let mut path: Vec<(&Path, usize)> = vec![(root, 0)];
+    while let Some(&mut (dir, ref mut next)) = path.last_mut() {
+        let Some(import) = direct[dir].get(*next) else {
+            done.insert(dir);
+            path.pop();
+            continue;
+        };
+        *next += 1;
+        if let Some(start) = path.iter().position(|(on_path, _)| *on_path == import) {
+            let mut cycle: Vec<PathBuf> = path[start..]
+                .iter()
+                .map(|(dir, _)| dir.to_path_buf())
+                .collect();
+            cycle.push(import.clone());
+            return Some(cycle);
+        }
+        if !done.contains(import.as_path()) {
+            path.push((import, 0));
+        }
+    }
+    None
 }
 
 /// A project read with its imports, ready to be traced, once or once per
@@ -725,6 +802,9 @@ pub struct ReadProject {
     config: Config,
     /// Diagnostics of resolving the imports.
     diagnostics: Vec<Diagnostic>,
+    /// Which project of the trace imports which, for the direction of
+    /// links.
+    reach: Imports,
 }
 
 /// Reads the project at or above `start` and its imports. A project in a
@@ -972,7 +1052,7 @@ impl ReadProject {
             }
             None => (all_items, Vec::new()),
         };
-        let trace = trace::trace_variant(&items, &outside, config);
+        let trace = trace::trace_imports(&items, &outside, config, &self.reach);
         diagnostics.extend(trace.defects.iter().cloned());
 
         let own_junit = match selected {
