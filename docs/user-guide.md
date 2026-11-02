@@ -1325,6 +1325,30 @@ Every exported file starts with
 project, it skips such files with a warning, so an export inside the
 project, such as the default `oft`, is not read back.
 
+### External commands
+
+Any other command runs a program from the `PATH`, as with Git and
+Cargo: `shall foo a b` runs `shall-foo a b` (on Windows also with the
+extensions of `PATHEXT`, such as `shall-foo.exe`). So tools can add
+commands without changing `shall`. The program gets in its
+environment:
+
+| Variable | Value |
+| --- | --- |
+| `SHALL` | the path of the running `shall`, to call it back |
+| `SHALL_VERSION` | its version |
+| `SHALL_PROJECT_ROOT` | the project at or above the current directory, if any |
+| `SHALL_CONFIG` | its `shall.toml` |
+| `SHALL_WORKSPACE_ROOT` | the root of its workspace, or the project root without one; unset if the workspace cannot be determined, e.g. because the project is no member of the workspace above it |
+
+Its exit code becomes that of `shall`: as it is if it fits into a byte,
+128 plus the signal number if a signal killed the program, and 1
+otherwise. If there is no such program, `shall` exits with 2 and
+suggests a built-in command with a similar name. A command name must
+not be empty, start with `-` or contain a path separator. `shall help`
+lists the built-in commands only; `shall foo --help` asks the
+program.
+
 ### Exit codes
 
 All commands exit with 2 if they cannot run, e.g. without a

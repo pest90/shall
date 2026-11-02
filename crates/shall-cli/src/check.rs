@@ -269,6 +269,12 @@ fn repository_prefix(root: &Path) -> String {
     .unwrap_or_default()
 }
 
+/// The root of the workspace that the project at `root` belongs to, or
+/// `root` without a workspace.
+pub(crate) fn workspace_root(root: &Path) -> anyhow::Result<PathBuf> {
+    Ok(workspace_place(root)?.root)
+}
+
 /// The [`Place`] of `root`: the workspace it is the root of, or else the
 /// place of the project.
 fn workspace_place(root: &Path) -> anyhow::Result<Place> {

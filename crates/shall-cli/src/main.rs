@@ -3,23 +3,30 @@
 mod check;
 mod diff;
 mod export;
+mod external;
 mod init;
 mod new;
 mod output;
 mod project;
 mod report;
 
+use std::ffi::OsString;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
 use shall_core::config::Mode;
 use shall_core::export::BuildInfo;
 
 /// Specifications Hooked to Actual Lines of Logic: requirements-as-code
 /// traceability from Markdown requirements down to code and tests.
 #[derive(Debug, Parser)]
-#[command(name = "shall", version, about)]
+#[command(
+    name = "shall",
+    version,
+    about,
+    after_help = "Any other command `foo` runs the program `shall-foo` from the PATH."
+)]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -187,6 +194,9 @@ enum Command {
         #[arg(long)]
         no_history: bool,
     },
+    /// Any other command `foo` runs the program `shall-foo` from the PATH.
+    #[command(external_subcommand)]
+    External(Vec<OsString>),
 }
 
 fn parse_mode(text: &str) -> Result<Mode, String> {
@@ -251,6 +261,13 @@ fn run(command: Command) -> anyhow::Result<ExitCode> {
         .map(|()| ExitCode::SUCCESS),
         Command::UpgradeCheck { to, path } => {
             diff::upgrade(&diff::UpgradeArgs { to, path }).map(|()| ExitCode::SUCCESS)
+        }
+        Command::External(args) => {
+            let builtin: Vec<String> = Cli::command()
+                .get_subcommands()
+                .map(|command| command.get_name().to_owned())
+                .collect();
+            external::run(&args, &builtin)
         }
         Command::Export { path, oft: _, out } => {
             export::run(&path, &out).map(|()| ExitCode::SUCCESS)

@@ -770,8 +770,9 @@ Tests brauchen diesen Abgleich kaum: Ein Ergebnis in der JUnit-XML beweist berei
 - [ ] **10.3 Prozess-Plugins (L)**
   - `[[plugin]]` einlesen, Programm mit Timeout starten, JSON über stdin/stdout austauschen; Erweiterungspunkte `importer`, `scanner`, `results`, `check`, `exporter`.
   - Fehler und Abstürze isolieren und als Plugin-Defekt melden.
-- [ ] **10.4 Externe Unterbefehle (S)**
+- [x] **10.4 Externe Unterbefehle (S)**
   - Unbekannter Befehl `foo` → `shall-foo` im `PATH` suchen und mit Kontext (Workspace-Pfad, Konfiguration) aufrufen.
+  - Umsetzung (`shall-cli/src/external.rs`): `shall foo …` startet `shall-foo …` aus dem `PATH` (unter Windows mit `PATHEXT`), mit `SHALL`, `SHALL_VERSION`, `SHALL_PROJECT_ROOT`, `SHALL_CONFIG` und `SHALL_WORKSPACE_ROOT` in der Umgebung (die drei Projektvariablen nur, wenn ein Projekt gefunden wird; geerbte Werte werden sonst entfernt). Der Exit-Code wird durchgereicht (ein Signal als 128 + Nummer wie in der Shell); `SHALL_WORKSPACE_ROOT` fehlt, wenn sich der Workspace nicht bestimmen lässt, damit ein kaputter Workspace darüber einen externen Befehl nicht stoppt. Namen, die leer sind, mit `-` beginnen oder einen Pfadtrenner enthalten, werden abgelehnt; `--help` nennt die externen Befehle in einer Zeile. Fehlt das Programm, ist das ein Bedienfehler (2) mit Vorschlag eines eingebauten Befehls ähnlichen Namens, weil clap seinen eigenen Vorschlag bei erlaubten externen Befehlen nicht mehr macht. Den Graphen bekommt ein externer Befehl über `shall report`/`trace.json`, nicht über stdin; das bleibt den Plugins (10.3).
 - [ ] **10.5 Eigene Templates und Felder (M)**
   - Report-Templates und CSS aus dem Projekt überschreibbar; zusätzliche Item-Felder in `shall.toml` deklarieren und im Report anzeigen.
 - [ ] **10.6 Beispiel-Plugins und Doku (M)**
