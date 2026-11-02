@@ -25,6 +25,7 @@ expression: items
   end_line: 10
   origin:
     kind: requirement
+  forwarded: false
   import: ~
 - id: swr~motor.overtemp-shutdown-k4f2~2
   title: Shut down the motor on overtemperature
@@ -53,6 +54,7 @@ expression: items
   end_line: 22
   origin:
     kind: requirement
+  forwarded: false
   import: ~
 - id: vrev~motor.relay-driver-review-m3q8~1
   title: Review of the relay driver
@@ -76,6 +78,7 @@ expression: items
   end_line: 9
   origin:
     kind: requirement
+  forwarded: false
   import: ~
 - id: hlr~customer-a.overtemp-c3x9~1
   title: Shut down the drive on overtemperature
@@ -102,6 +105,54 @@ expression: items
   end_line: 10
   origin:
     kind: requirement
+  forwarded: false
+  import: ~
+- id: hlr~brake.on-request-p2d7~1
+  title: Brake on request
+  description: The vehicle brakes when the driver requests it.
+  rationale: ~
+  comment: ~
+  status: approved
+  needs: []
+  covers: []
+  depends: []
+  satisfied_by: []
+  params: []
+  tags: []
+  features: []
+  source: ~
+  location:
+    path: docs/user-guide.md
+    line: 2
+  end_line: 5
+  origin:
+    kind: requirement
+  forwarded: false
+  import: ~
+- id: sys~brake.on-request-p2d7~1
+  title: ""
+  description: ""
+  rationale: ~
+  comment: ~
+  status: approved
+  needs:
+    - swr
+  covers:
+    - id: hlr~brake.on-request-p2d7~1
+      line: 6
+  depends: []
+  satisfied_by: []
+  params: []
+  tags: []
+  features: []
+  source: ~
+  location:
+    path: docs/user-guide.md
+    line: 6
+  end_line: 6
+  origin:
+    kind: requirement
+  forwarded: true
   import: ~
 - id: cap~diag.uds-readout-t4m1~1
   title: Read out the fault memory over UDS
@@ -124,4 +175,5 @@ expression: items
   end_line: 6
   origin:
     kind: requirement
+  forwarded: false
   import: ~

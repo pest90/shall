@@ -10,7 +10,8 @@ requirements, outdated links, orphaned code and failing tests.
 - Requirements live in Markdown files next to the code, in Git, and are
   reviewed in merge requests like any other change.
 - The syntax is compatible with [OpenFastTrace](https://github.com/itsallcode/openfasttrace).
-- Levels are configurable, e.g. system → software → design.
+- Levels are configurable, e.g. system → software → design, and a
+  single item can skip a level by forwarding.
 - Planned: a single binary for Linux, macOS and Windows, deterministic
   output as static files, no server.
 

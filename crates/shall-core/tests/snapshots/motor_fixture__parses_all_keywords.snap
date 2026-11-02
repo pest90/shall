@@ -26,6 +26,7 @@ expression: read_requirements()
   end_line: 15
   origin:
     kind: requirement
+  forwarded: false
   import: ~
 - id: dsn~motor.shutdown-signal-w9e4~1
   title: Shutdown signal
@@ -51,6 +52,7 @@ expression: read_requirements()
   end_line: 28
   origin:
     kind: requirement
+  forwarded: false
   import: ~
 - id: dsn~motor.relay-driver-b6j3~1
   title: Relay driver
@@ -77,6 +79,7 @@ expression: read_requirements()
   end_line: 40
   origin:
     kind: requirement
+  forwarded: false
   import: ~
 - id: swr~motor.overtemp-shutdown-k4f2~2
   title: Shut down the motor on overtemperature
@@ -101,6 +104,7 @@ expression: read_requirements()
   end_line: 18
   origin:
     kind: requirement
+  forwarded: false
   import: ~
 - id: swr~motor.overtemp-warning-p8n5~1
   title: Warn before overtemperature
@@ -125,6 +129,7 @@ expression: read_requirements()
   end_line: 31
   origin:
     kind: requirement
+  forwarded: false
   import: ~
 - id: swr~motor.estop-relay-c2v6~1
   title: Open the motor relay on emergency stop
@@ -149,6 +154,7 @@ expression: read_requirements()
   end_line: 43
   origin:
     kind: requirement
+  forwarded: false
   import: ~
 - id: sys~motor.thermal-protection-q7m2~1
   title: Thermal protection of the motor
@@ -171,6 +177,7 @@ expression: read_requirements()
   end_line: 15
   origin:
     kind: requirement
+  forwarded: false
   import: ~
 - id: sys~motor.emergency-stop-h3x9~1
   title: Emergency stop
@@ -194,6 +201,7 @@ expression: read_requirements()
   end_line: 25
   origin:
     kind: requirement
+  forwarded: false
   import: ~
 - id: vrev~motor.relay-driver-review-m3q8~1
   title: Review of the relay driver
@@ -217,4 +225,5 @@ expression: read_requirements()
   end_line: 12
   origin:
     kind: requirement
+  forwarded: false
   import: ~

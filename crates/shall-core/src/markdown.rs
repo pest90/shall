@@ -49,6 +49,13 @@
 //! `Params:` without `Satisfied-by:` gets a warning, since the parameters
 //! then belong to no link.
 //!
+//! A forwarding such as `sys --> swr : hlr~x~1` at column 0, written in
+//! OFT syntax, skips the level `sys` for `hlr~x~1`: it makes an item
+//! `sys~x~1` that covers `hlr~x~1` and needs `swr`, or several types
+//! separated by commas, so that `swr` items cover `sys~x~1` and nobody
+//! writes a `sys` item that only repeats `hlr~x~1`. A forwarding ends the
+//! item before it.
+//!
 //! Known differences from OFT, relevant for cross-checks with OFT:
 //!
 //! - shall accepts every keyword anywhere in an item and values on the
@@ -88,6 +95,7 @@ pub fn parse(path: &Path, text: &str) -> Result<Parsed, LocationError> {
         deferred: None,
         fence: None,
         current: 0,
+        forwarding: None,
     };
     let text = text.strip_prefix('\u{feff}').unwrap_or(text);
     for (index, line) in text.lines().enumerate() {
@@ -241,6 +249,8 @@ struct Parser {
     fence: Option<Fence>,
     /// The line being read; one past the last line at the end of the file.
     current: usize,
+    /// Line of the last forwarding, until the next ID or heading.
+    forwarding: Option<usize>,
 }
 
 impl Parser {
@@ -282,6 +292,13 @@ impl Parser {
             self.text(line);
             return;
         }
+        if let Some(forward) = forward(line) {
+            self.finish_item();
+            self.heading = None;
+            self.forwarding = Some(number);
+            self.forward(number, forward);
+            return;
+        }
         if let Some(candidate) = id_candidate(line) {
             match candidate.parse::<ItemId>() {
                 Ok(id) => self.start_item(number, id),
@@ -291,6 +308,7 @@ impl Parser {
                     self.deferred = None;
                     self.finish_item();
                     self.heading = None;
+                    self.forwarding = None;
                     self.error(
                         number,
                         format!("{error}; lines up to the next item are ignored"),
@@ -300,6 +318,7 @@ impl Parser {
             return;
         }
         if let Some((level, title)) = heading(line) {
+            self.forwarding = None;
             let nested = self
                 .item
                 .as_ref()
@@ -320,6 +339,19 @@ impl Parser {
         if self.item.is_none() {
             if !line.trim().is_empty() {
                 self.heading = None;
+            }
+            if let Some(forwarding) = self.forwarding
+                && let Some((keyword, _)) = keyword(line)
+            {
+                self.warning(
+                    number,
+                    format!(
+                        "'{}:' belongs to no item, since the forwarding in line {forwarding} \
+                         ended it; the line is ignored. Put forwardings after the keywords \
+                         of an item",
+                        keyword.as_str()
+                    ),
+                );
             }
             return;
         }
@@ -384,6 +416,7 @@ impl Parser {
     }
 
     fn start_item(&mut self, number: usize, id: ItemId) {
+        self.forwarding = None;
         let nested = self.deferred.take();
         // The heading that titles the new item ends the previous one.
         if let Some(deferred) = &nested {
@@ -649,9 +682,93 @@ impl Parser {
             // The line that ends the item is not part of it.
             end_line: to_u32(self.current.saturating_sub(1).max(item.line)),
             origin: Origin::Requirement,
+            forwarded: false,
             import: None,
         });
     }
+
+    /// Adds the item of a forwarding `skipped --> needs : target`.
+    fn forward(&mut self, number: usize, (skipped, needs, target): (&str, &str, &str)) {
+        let parsed = forwarding(skipped, needs, target);
+        let (id, needs, target) = match parsed {
+            Ok(parsed) => parsed,
+            Err(error) => {
+                self.error(number, format!("invalid forwarding: {error}"));
+                return;
+            }
+        };
+        let location = self.location(number);
+        let line = to_u32(number);
+        self.parsed.items.push(Item {
+            id,
+            title: String::new(),
+            description: String::new(),
+            rationale: None,
+            comment: None,
+            status: Status::default(),
+            needs,
+            covers: vec![Reference { id: target, line }],
+            depends: Vec::new(),
+            satisfied_by: Vec::new(),
+            params: Vec::new(),
+            tags: Vec::new(),
+            features: Vec::new(),
+            source: None,
+            location,
+            end_line: line,
+            origin: Origin::Requirement,
+            forwarded: true,
+            import: None,
+        });
+    }
+}
+
+/// Splits a forwarding such as `sys --> swr, dsn : hlr~x~1` at column 0
+/// into the skipped type, the needed types and the forwarded ID, as in
+/// OpenFastTrace. Only the shape is checked here, so that a mistyped part
+/// is reported instead of read as text; a line whose left part is no
+/// single word or whose right part does not start like an ID is text.
+fn forward(line: &str) -> Option<(&str, &str, &str)> {
+    let (skipped, rest) = line.split_once("-->")?;
+    let skipped = skipped.trim_end();
+    if skipped.is_empty() || !skipped.bytes().all(|b| b.is_ascii_alphanumeric()) {
+        return None;
+    }
+    let (needs, target) = rest.split_once(':')?;
+    let target = strip_backticks(target.trim());
+    if target.contains(char::is_whitespace) || id_candidate(target) != Some(target) {
+        return None;
+    }
+    Some((skipped, needs.trim(), target))
+}
+
+/// The ID, needed types and forwarded ID of a forwarding split by
+/// [`forward`].
+fn forwarding(
+    skipped: &str,
+    needs: &str,
+    target: &str,
+) -> Result<(ItemId, Vec<ItemType>, ItemId), String> {
+    let skipped: ItemType = skipped.parse().map_err(|error| format!("{error}"))?;
+    let target: ItemId = target.parse().map_err(|error| format!("{error}"))?;
+    let mut types: Vec<ItemType> = Vec::new();
+    for entry in needs.split(',').map(str::trim) {
+        if entry.is_empty() {
+            return Err("expected the needed types between '-->' and ':'".to_owned());
+        }
+        let typ: ItemType = entry.parse().map_err(|error| format!("{error}"))?;
+        if !types.contains(&typ) {
+            types.push(typ);
+        }
+    }
+    if &skipped == target.typ() {
+        return Err(format!(
+            "'{skipped}' is the type of {target} itself, which cannot be skipped"
+        ));
+    }
+    let id = ItemId::new(skipped, target.name(), target.revision())
+        .map_err(|error| error.to_string())?;
+    Ok((id, types, target))
 }
 
 fn to_u32(line: usize) -> u32 {
@@ -1489,5 +1606,76 @@ Params: a = 1
         );
         assert_eq!(parsed.items[0].features, ["diag_uds", "ota", "can-fd"]);
         assert_eq!(parsed.items[1].features, ["motor+ctrl", "2.0"]);
+    }
+
+    #[test]
+    fn reads_forwardings() {
+        let parsed = parse_str(
+            "# H\n`hlr~h~1`\nText.\nsys --> swr, dsn , swr : `hlr~h~1`\nAfter.\n\
+             sys-->swr:hlr~g~2\n",
+        );
+        assert_eq!(messages(&parsed), Vec::<String>::new());
+        let ids: Vec<String> = parsed
+            .items
+            .iter()
+            .map(|item| item.id.to_string())
+            .collect();
+        assert_eq!(ids, ["hlr~h~1", "sys~h~1", "sys~g~2"]);
+        // The forwarding ends the item before it.
+        assert_eq!(parsed.items[0].description, "Text.");
+        assert_eq!(parsed.items[0].end_line, 3);
+        let forwarded = &parsed.items[1];
+        assert!(forwarded.forwarded && !parsed.items[0].forwarded);
+        assert_eq!(forwarded.location.to_string(), "reqs/x.md:4");
+        assert_eq!(forwarded.end_line, 4);
+        let needs: Vec<&str> = forwarded.needs.iter().map(ItemType::as_str).collect();
+        assert_eq!(needs, ["swr", "dsn"]);
+        assert_eq!(forwarded.covers[0].id.to_string(), "hlr~h~1");
+        assert_eq!(forwarded.covers[0].line, 4);
+        assert_eq!(forwarded.status, Status::Approved);
+    }
+
+    #[test]
+    fn reports_invalid_forwardings() {
+        let parsed = parse_str(
+            "hlr --> swr : hlr~h~1\nsys --> : hlr~h~1\nsys --> s-w : hlr~h~1\n\
+             sys --> swr : hlr~h\nA --> B is prose: no id\n a --> b : hlr~h~1\n\
+             ```\nsys --> swr : hlr~h~1\n```\n",
+        );
+        assert_eq!(
+            messages(&parsed),
+            [
+                "reqs/x.md:1: invalid forwarding: 'hlr' is the type of hlr~h~1 itself, which cannot be skipped",
+                "reqs/x.md:2: invalid forwarding: expected the needed types between '-->' and ':'",
+                "reqs/x.md:3: invalid forwarding: invalid type 's-w': expected ASCII letters only",
+                "reqs/x.md:4: invalid forwarding: invalid ID 'hlr~h': expected 'typ~name~revision'",
+            ]
+        );
+        assert_eq!(parsed.items, []);
+        // The right part must start like an ID.
+        assert_eq!(
+            parse_str("a --> b : ~/.config\na --> b : 1~x~1\n").diagnostics,
+            []
+        );
+    }
+
+    #[test]
+    fn warns_about_keywords_after_a_forwarding() {
+        let parsed = parse_str(
+            "`hlr~h~1`\n\nsys --> swr : hlr~h~1\n\nNeeds: vrev\nText.\nTags: x\n\
+             # Next\nNeeds: y\nsys --> swr : hlr~h~1\n`hlr~broken`\nNeeds: z\n",
+        );
+        assert_eq!(
+            messages(&parsed),
+            [
+                "reqs/x.md:5: 'Needs:' belongs to no item, since the forwarding in \
+                 line 3 ended it; the line is ignored. Put forwardings after the keywords of an item",
+                "reqs/x.md:7: 'Tags:' belongs to no item, since the forwarding in \
+                 line 3 ended it; the line is ignored. Put forwardings after the keywords of an item",
+                "reqs/x.md:11: invalid ID 'hlr~broken': expected 'typ~name~revision'; \
+                 lines up to the next item are ignored",
+            ]
+        );
+        assert_eq!(parsed.items[0].needs, []);
     }
 }

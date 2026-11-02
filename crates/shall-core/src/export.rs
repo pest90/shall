@@ -146,6 +146,9 @@ pub struct ItemEntry<'a> {
     pub end_line: u32,
     /// Requirement file or tag, with the tag's text and test definition.
     pub origin: &'a Origin,
+    /// Whether the item was made by a forwarding such as `sys --> swr :
+    /// hlr~x~1`.
+    pub forwarded: bool,
     /// The `[[import]]` the item comes from; none for the project's own.
     pub import: Option<&'a str>,
     /// Types the item needs, from `Needs:` or its level; empty for
@@ -433,6 +436,7 @@ fn entry<'a>(joined: &Joined<'a>, verified: bool, light: Light) -> ItemEntry<'a>
         location: &item.location,
         end_line: item.end_line,
         origin: &item.origin,
+        forwarded: item.forwarded,
         import: item.import.as_deref(),
         needs: &traced.needs,
         covered_by: &traced.covered_by,

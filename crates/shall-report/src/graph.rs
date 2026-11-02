@@ -412,7 +412,11 @@ fn draw(
             let (class, sign, first, second, tooltip, anchor) = match kind {
                 Kind::Requirement(item) => {
                     let id = item.id.to_string();
-                    let tooltip = format!("{id} {}: {}", item.title, item.light.as_str());
+                    let tooltip = if item.title.is_empty() {
+                        format!("{id}: {}", item.light.as_str())
+                    } else {
+                        format!("{id} {}: {}", item.title, item.light.as_str())
+                    };
                     (
                         item.light.as_str(),
                         item.light.sign(),

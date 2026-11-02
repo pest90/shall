@@ -70,6 +70,7 @@ expression: normalized(&json)
       "origin": {
         "kind": "requirement"
       },
+      "forwarded": false,
       "import": null,
       "needs": [
         "impl",
@@ -131,6 +132,7 @@ expression: normalized(&json)
       "origin": {
         "kind": "requirement"
       },
+      "forwarded": false,
       "import": null,
       "needs": [
         "impl",
@@ -192,6 +194,7 @@ expression: normalized(&json)
       "origin": {
         "kind": "requirement"
       },
+      "forwarded": false,
       "import": null,
       "needs": [
         "impl",
@@ -261,6 +264,7 @@ expression: normalized(&json)
       "origin": {
         "kind": "requirement"
       },
+      "forwarded": false,
       "import": null,
       "needs": [
         "dsn"
@@ -314,6 +318,7 @@ expression: normalized(&json)
       "origin": {
         "kind": "requirement"
       },
+      "forwarded": false,
       "import": null,
       "needs": [
         "dsn"
@@ -361,6 +366,7 @@ expression: normalized(&json)
       "origin": {
         "kind": "requirement"
       },
+      "forwarded": false,
       "import": null,
       "needs": [
         "dsn"
@@ -409,6 +415,7 @@ expression: normalized(&json)
       "origin": {
         "kind": "requirement"
       },
+      "forwarded": false,
       "import": null,
       "needs": [
         "swr"
@@ -466,6 +473,7 @@ expression: normalized(&json)
       "origin": {
         "kind": "requirement"
       },
+      "forwarded": false,
       "import": null,
       "needs": [
         "swr"
@@ -521,6 +529,7 @@ expression: normalized(&json)
         "text": "[impl->dsn~motor.fault-log-z2d8~1]",
         "test": null
       },
+      "forwarded": false,
       "import": null,
       "needs": [],
       "covered_by": [],
@@ -566,6 +575,7 @@ expression: normalized(&json)
         "text": "[impl->dsn~motor.relay-driver-b6j3~1]",
         "test": null
       },
+      "forwarded": false,
       "import": null,
       "needs": [],
       "covered_by": [],
@@ -611,6 +621,7 @@ expression: normalized(&json)
         "text": "[impl->dsn~motor.shutdown-signal-w9e4~1]",
         "test": null
       },
+      "forwarded": false,
       "import": null,
       "needs": [],
       "covered_by": [],
@@ -656,6 +667,7 @@ expression: normalized(&json)
         "text": "[impl->dsn~motor.temp-monitor-r5t1~1]",
         "test": null
       },
+      "forwarded": false,
       "import": null,
       "needs": [],
       "covered_by": [],
@@ -707,6 +719,7 @@ expression: normalized(&json)
           "line": 11
         }
       },
+      "forwarded": false,
       "import": null,
       "needs": [],
       "covered_by": [],
@@ -764,6 +777,7 @@ expression: normalized(&json)
           "line": 6
         }
       },
+      "forwarded": false,
       "import": null,
       "needs": [],
       "covered_by": [],
@@ -821,6 +835,7 @@ expression: normalized(&json)
           "line": 6
         }
       },
+      "forwarded": false,
       "import": null,
       "needs": [],
       "covered_by": [],
@@ -870,6 +885,7 @@ expression: normalized(&json)
       "origin": {
         "kind": "requirement"
       },
+      "forwarded": false,
       "import": null,
       "needs": [],
       "covered_by": [],

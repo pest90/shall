@@ -207,6 +207,7 @@ fn tag_items(
         location: location.clone(),
         end_line: location.line(),
         origin: Origin::Requirement,
+        forwarded: false,
         import: None,
     };
 

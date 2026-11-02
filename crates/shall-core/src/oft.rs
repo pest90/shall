@@ -13,6 +13,10 @@
 //! - `Status:` comes on the line right after the ID, the only place OFT
 //!   reads it.
 //!
+//! A forwarding such as `sys --> swr : hlr~x~1` is OFT syntax and stays
+//! one, unless it is the target of a `Satisfied-by:`: it then becomes an
+//! item with both `Covers:` links.
+//!
 //! Text between the items, such as headings without an ID, is not part
 //! of the export. Inside an item, OFT ends the item at any heading and
 //! reads IDs and keywords also in code blocks, unlike `shall`; so every
@@ -68,6 +72,19 @@ pub fn export(items: &[Item], trace: &Trace) -> BTreeMap<String, String> {
             .copied()
             .unwrap_or(&item.needs);
         let extra = added.get(&item.location).map_or(&[][..], Vec::as_slice);
+        // A forwarding that is a target of `Satisfied-by:` becomes an item
+        // that covers the targets of both.
+        if item.forwarded && extra.is_empty() {
+            let needs: Vec<&str> = item.needs.iter().map(crate::ItemType::as_str).collect();
+            let _ = writeln!(
+                out,
+                "\n{} --> {} : {}",
+                item.id.typ(),
+                needs.join(", "),
+                item.covers[0].id
+            );
+            continue;
+        }
         write_item(out, item, needs, extra);
     }
     files
@@ -218,10 +235,15 @@ needs = [\"impl\"]
     fn the_export_traces_like_the_original_without_levels() {
         let config = Config::parse(CONFIG).unwrap();
         let text = "# H\n`hlr~h~1`\nSatisfied-by:\n- cap~c~1\n\n# C\n`cap~c~1`\n\n\
-                    # D\n`hlr~d~1`\nNeeds: swr\n";
+                    # D\n`hlr~d~1`\nNeeds: swr\n\nswr --> impl, utest : hlr~d~1\n";
         let items = markdown::parse(Path::new("r.md"), text).unwrap().items;
         let original = trace::trace(&items, &config);
         let files = export(&items, &original);
+        assert!(
+            files["r.md"].contains("\n\nswr --> impl, utest : hlr~d~1\n"),
+            "{}",
+            files["r.md"]
+        );
         let exported = markdown::parse(Path::new("r.md"), &files["r.md"]).unwrap();
         assert_eq!(exported.diagnostics, []);
         // OFT has no levels: the exported needs stand on their own.
@@ -240,6 +262,22 @@ needs = [\"impl\"]
                 .collect()
         };
         assert_eq!(coverage(&again), coverage(&original));
+    }
+
+    #[test]
+    fn a_satisfying_forwarding_becomes_an_item() {
+        let config = Config::parse(CONFIG).unwrap();
+        let text = "# H\n`hlr~h~1`\nSatisfied-by:\n- cap~c~1\n\n# G\n`hlr~c~1`\n\n\
+                    cap --> impl : hlr~c~1\n";
+        let items = markdown::parse(Path::new("r.md"), text).unwrap().items;
+        let files = export(&items, &trace::trace(&items, &config));
+        assert!(
+            files["r.md"].ends_with(
+                "\n\n`cap~c~1`\nStatus: approved\n\nCovers:\n- hlr~c~1\n- hlr~h~1\n\nNeeds: impl\n"
+            ),
+            "{}",
+            files["r.md"]
+        );
     }
 
     #[test]

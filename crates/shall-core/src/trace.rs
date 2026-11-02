@@ -921,6 +921,37 @@ Covers:
     }
 
     #[test]
+    fn forwarding_skips_a_level() {
+        let trace = run("\
+`sys~a~1`
+
+swr --> dsn : sys~a~1
+
+`dsn~c~1`
+Covers:
+- swr~a~1
+
+`impl~d~0`
+Covers:
+- dsn~c~1
+
+`sys~b~1`
+
+dsn --> impl : sys~b~1
+");
+        assert_eq!(
+            messages(&trace),
+            [
+                "x.md:13: sys~b~1: not covered by required type 'swr'",
+                "x.md:15: dsn~b~1: covers sys~b~1, which does not need type 'dsn'",
+                "x.md:15: dsn~b~1: not covered by required type 'impl'",
+            ]
+        );
+        assert!(item(&trace, "sys~a~1").deep_covered);
+        assert!(item(&trace, "swr~a~1").deep_covered);
+    }
+
+    #[test]
     fn item_needs_override_level_needs() {
         let trace = run("\
 `sys~a~1`

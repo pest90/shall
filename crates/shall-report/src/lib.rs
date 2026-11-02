@@ -359,6 +359,9 @@ struct ItemView<'a> {
     /// Whether an import provides the item but nothing of the project
     /// requests it.
     provided: bool,
+    /// The types a forwarding passes the item on to, e.g. `swr` for `sys
+    /// --> swr : hlr~x~1`; empty for other items.
+    forwarded_to: Vec<&'a str>,
     duplicate: bool,
     missing: Vec<&'a str>,
     location: String,
@@ -799,6 +802,11 @@ fn item_view<'a>(
         light_sign: item.light.sign(),
         light: item.light.as_str(),
         provided: item.provided,
+        forwarded_to: if item.forwarded {
+            item.needs.iter().map(ItemType::as_str).collect()
+        } else {
+            Vec::new()
+        },
         duplicate: item.duplicate,
         status: item.status.as_str(),
         coverage,
@@ -1233,6 +1241,26 @@ mod tests {
         assert!(!html.contains("<tr class=\"unknown\""), "{html}");
         assert!(html.contains("<tr class=\"rejected\""), "{html}");
         assert!(html.contains("<h2>itst</h2>"), "{html}");
+    }
+
+    #[test]
+    fn forwarded_items_are_marked() {
+        let html = html(
+            "[[level]]\ntype = \"hlr\"\nname = \"H\"\nneeds = [\"sys\"]\n\
+             [[level]]\ntype = \"sys\"\nname = \"S\"\nneeds = [\"swr\"]\n",
+            "# A\n`hlr~a-k4f2~1`\n\nsys --> swr, dsn : hlr~a-k4f2~1\n",
+        );
+        assert!(
+            html.contains("<span class=\"forwarded\">→ forwarded to swr, dsn</span>"),
+            "{html}"
+        );
+        assert!(
+            html.contains(
+                "<dd>→ level skipped, passed on to <code>swr</code>, <code>dsn</code></dd>"
+            ),
+            "{html}"
+        );
+        assert_eq!(html.matches("→ forwarded to").count(), 1, "{html}");
     }
 
     #[test]

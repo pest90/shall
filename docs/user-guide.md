@@ -52,6 +52,9 @@ Needs: dsn
   is part of the text. An item without a title ends at any heading.
 - IDs and keywords inside fenced code blocks (```` ``` ```` or `~~~`)
   are ignored, so examples stay examples.
+- A forwarding line such as `sys --> swr : hlr~x~1` makes an item of
+  its own and ends the item before it, see
+  [Skipping a level](#skipping-a-level).
 
 ### IDs
 
@@ -122,6 +125,9 @@ The parser detects the following problems; `shall check` reports them.
 - invalid feature names: as in Cargo, letters, digits, `_`, `-`, `+`
   and `.`, starting with a letter, a digit or `_`
 - code blocks that are never closed
+- invalid forwardings: a type or ID that is not valid, no type after
+  `-->`, or the forwarded item's own type as the skipped one; a keyword
+  right after a forwarding (a warning)
 - duplicate IDs across files, whatever their revision
 
 ## Configuration: `shall.toml`
@@ -510,6 +516,44 @@ fallback = ["swr"]
 In a repository with several projects, the platform is a project of
 its own that customer projects import, see
 [Workspaces and imports](#workspaces-and-imports).
+
+## Skipping a level
+
+When an item of one level would only repeat the item above it, for
+example because a high-level requirement already is a system
+requirement, forward it instead of copying it. A forwarding, written in
+OFT syntax at column 0, names the skipped type, the types that cover
+instead, and the forwarded item:
+
+```markdown
+## Brake on request
+`hlr~brake.on-request-p2d7~1`
+
+The vehicle brakes when the driver requests it.
+
+sys --> swr : hlr~brake.on-request-p2d7~1
+```
+
+- The line makes the item `sys~brake.on-request-p2d7~1`, with the name
+  and revision of the forwarded item, that covers
+  `hlr~brake.on-request-p2d7~1` and needs `swr`. `swr` items cover
+  `sys~brake.on-request-p2d7~1` as they would cover a written `sys`
+  item; once they do, the `hlr` item is covered as usual.
+- Several types are separated by commas: `sys --> swr, dsn : hlr~x~1`.
+  They replace the `needs` of the skipped level.
+- The links are checked like written ones: the forwarded item must need
+  the skipped type, and a written item with the same ID is a duplicate.
+- The forwarding ends the item before it, like an ID, so put it after
+  the item's keywords or anywhere else in a file; a keyword right after
+  it gets a warning, since it belongs to no item and is ignored.
+- The item has no title or text. Its status is `approved`, as in OFT,
+  but check mode `mature` judges it, and the tags and items that cover
+  it, by the status of the forwarded item. It belongs to the variants
+  that the forwarded item belongs to.
+- The report marks the item as "forwarded to swr". `shall export --oft`
+  writes the forwarding as such a line again, without duplicate types;
+  if the item is a target of `Satisfied-by:`, it writes an item with
+  both `Covers:` links instead.
 
 ## Workspaces and imports
 

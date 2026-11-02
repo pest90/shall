@@ -101,9 +101,10 @@ impl Baseline {
 ///
 /// Several items can cover a defect's line, e.g. the tags of one line;
 /// those whose ID or tag text the message names decide, or else all of
-/// them, and the defect fails if it fails for one of them. A tag is
-/// mature if one of the items it covers is, or if it covers none that
-/// exists.
+/// them, and the defect fails if it fails for one of them. A tag, and an
+/// item made by a forwarding, is mature if one of the items it covers is,
+/// or if it covers none that exists; a forwarding has the status of the
+/// item it forwards.
 pub fn failing<'a>(
     diagnostics: &'a [Diagnostic],
     items: &[Item],
@@ -114,29 +115,57 @@ pub fn failing<'a>(
     // Items by file, to find those a defect is in, and the statuses of
     // the requirements by type and name, for the maturity of tags.
     let mut by_file: HashMap<&str, Vec<&Item>> = HashMap::new();
-    let mut statuses: HashMap<(&str, &str), Vec<Status>> = HashMap::new();
+    let name = |id: &'_ crate::ItemId| (id.typ().as_str().to_owned(), id.name().to_owned());
+    let mut statuses: HashMap<(String, String), Vec<Status>> = HashMap::new();
     for item in items {
         by_file.entry(item.location.path()).or_default().push(item);
-        if item.origin == Origin::Requirement {
+        if item.origin == Origin::Requirement && !item.forwarded {
             statuses
-                .entry((item.id.typ().as_str(), item.id.name()))
+                .entry(name(&item.id))
                 .or_default()
                 .push(item.status);
         }
     }
+    // A forwarding has the status of the item it forwards, through
+    // forwardings of forwardings, also for the tags that cover it.
+    let targets: HashMap<(String, String), (String, String)> = items
+        .iter()
+        .filter(|item| item.forwarded)
+        .map(|item| (name(&item.id), name(&item.covers[0].id)))
+        .collect();
+    let forwarded: Vec<((String, String), Vec<Status>)> = targets
+        .keys()
+        .map(|id| {
+            let mut target = &targets[id];
+            // Bounded, since forwardings can form a cycle.
+            for _ in 0..targets.len() {
+                match targets.get(target) {
+                    Some(next) => target = next,
+                    None => break,
+                }
+            }
+            (
+                id.clone(),
+                statuses.get(target).cloned().unwrap_or_default(),
+            )
+        })
+        .collect();
+    for (id, target) in forwarded {
+        statuses.entry(id).or_default().extend(target);
+    }
     let mature_status = &config.check.mature_status;
-    let mature = |item: &Item| match item.origin {
-        Origin::Requirement => mature_status.contains(&item.status),
-        Origin::Tag { .. } => {
-            let targets: Vec<Status> = item
-                .covers
-                .iter()
-                .filter_map(|link| statuses.get(&(link.id.typ().as_str(), link.id.name())))
-                .flatten()
-                .copied()
-                .collect();
-            targets.is_empty() || targets.iter().any(|status| mature_status.contains(status))
+    let mature = |item: &Item| {
+        if item.origin == Origin::Requirement && !item.forwarded {
+            return mature_status.contains(&item.status);
         }
+        let targets: Vec<Status> = item
+            .covers
+            .iter()
+            .filter_map(|link| statuses.get(&name(&link.id)))
+            .flatten()
+            .copied()
+            .collect();
+        targets.is_empty() || targets.iter().any(|status| mature_status.contains(status))
     };
     let mut left = baseline.map(|baseline| baseline.counts.clone());
     diagnostics
@@ -373,6 +402,22 @@ Status: draft
                 "a.c:2: tag [impl->dsn~done~1>>utest]: not covered by required type 'utest'",
                 "a.c:3: tag [impl->dsn~gone~1]: unknown target dsn~gone~1",
             ]
+        );
+    }
+
+    #[test]
+    fn forwardings_are_as_mature_as_what_they_forward() {
+        let config = "[[level]]\ntype = \"hlr\"\nname = \"H\"\nneeds = [\"sys\"]\n\
+                      [[level]]\ntype = \"sys\"\nname = \"S\"\nneeds = [\"swr\"]\n\
+                      [[level]]\ntype = \"swr\"\nname = \"W\"\nneeds = [\"dsn\"]\n\
+                      [check]\nmode = \"mature\"\n";
+        let requirements = "`hlr~draft~1`\nStatus: draft\n\nsys --> swr : hlr~draft~1\n\
+                            swr --> impl : sys~draft~1\n\n`hlr~done~1`\n\n\
+                            sys --> swr : hlr~done~1\n";
+        let code = "// [impl->swr~draft~1>>utest]\n";
+        assert_eq!(
+            failing_with_code(config, requirements, code),
+            ["x.md:9: sys~done~1: not covered by required type 'swr'"]
         );
     }
 

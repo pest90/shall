@@ -53,6 +53,12 @@ pub struct Item {
     pub end_line: u32,
     /// Whether the item comes from a requirement file or a tag in code.
     pub origin: Origin,
+    /// Whether the item was made by a forwarding such as `sys --> swr :
+    /// hlr~x~1` in a requirement file: an item `sys~x~1` that covers
+    /// `hlr~x~1` and needs `swr`, so that the level `sys` is skipped for
+    /// `hlr~x~1` without writing an item for it.
+    #[serde(default)]
+    pub forwarded: bool,
     /// Name of the `[[import]]` the item comes from; none for items of the
     /// traced project itself. Set by whoever reads the imports, not by the
     /// parsers.
