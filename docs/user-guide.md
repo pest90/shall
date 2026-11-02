@@ -1212,6 +1212,40 @@ p/reqs/a.md:7: broken link: dsn~handler~1 covers swr~stop~1: outdated, current r
 - The summary on stderr names both states; `shall diff` does not change
   the exit code by itself.
 
+### `shall upgrade-check`
+
+```text
+shall upgrade-check --to <REV> [PATH]
+```
+
+Before taking a newer state, e.g. on a release branch before merging
+the current `master`, lists the links of the working tree that would
+point to an old revision or a removed item:
+
+```text
+p/reqs/a.md:10: dsn~handler~1 covers swr~stop~1: revised to swr~stop~2 in 3f2a9c1d0b7e; updated there
+p/reqs/c.md:4: dsn~mine~1 covers swr~stop~1: revised to swr~stop~2 in 3f2a9c1d0b7e; to review
+p/reqs/c.md:5: dsn~mine~1 covers swr~gone~1: removed in 3f2a9c1d0b7e; to review
+```
+
+- Listed is every valid link of the project and its imports whose
+  target `--to` has revised or removed since the merge base of `HEAD`
+  and `--to`, as a merge would bring it in. What only the working tree
+  changed, such as a requirement added on the release branch, does not
+  count.
+- *Updated there* means `--to` has the same link from the same item or
+  tag already at the new revision; *to review* links need a decision
+  after the upgrade.
+- Only revision changes and removals count; a target that `--to`
+  rejects or defines twice shows up in `shall check` after the merge.
+- `--to` is read like a commit in [`shall diff`](#shall-diff), and as
+  there, `PATH` must be a project, not a workspace root. A warning says
+  when the project does not exist in `--to`. The summary on stderr
+  counts both kinds; the exit code stays 0.
+- Upgrading an external component to a new `rev`
+  (`shall upgrade-check <import> --to <rev>`) is planned with external
+  imports (M8.3).
+
 ### `shall export`
 
 ```text

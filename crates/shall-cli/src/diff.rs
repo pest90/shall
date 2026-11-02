@@ -1,5 +1,5 @@
-//! `shall diff`: the requirement changes between two Git states, see
-//! [`shall_core::diff`].
+//! `shall diff` and `shall upgrade-check`: the requirement changes
+//! between two Git states, see [`shall_core::diff`].
 //!
 //! A state that is a commit is written into a temporary directory from
 //! the objects of the repository (`git ls-tree`, `git cat-file`), read
@@ -42,26 +42,7 @@ pub struct DiffArgs {
 
 /// Prints the changes from the base to the head of `range`.
 pub fn run(args: &DiffArgs) -> anyhow::Result<()> {
-    let root = find_root(&args.path)?;
-    let toml = std::fs::read_to_string(root.join(config::FILE_NAME))
-        .with_context(|| format!("cannot read {}", root.join(config::FILE_NAME).display()))?;
-    if config::Config::parse(&toml).is_ok_and(|config| config.workspace.is_some()) {
-        bail!(
-            "{} describes a workspace, not a project; run this in a member",
-            root.join(config::FILE_NAME).display()
-        );
-    }
-    let top = git_top(&root)?;
-    let relative = root
-        .strip_prefix(&top)
-        .with_context(|| {
-            format!(
-                "{} is not in the Git work tree {}",
-                root.display(),
-                top.display()
-            )
-        })?
-        .to_path_buf();
+    let (root, top, relative) = locate(&args.path)?;
     let (base, head) = range(&top, &args.range)?;
     let base_tree = Tree::write(&top, &base)?;
     let base_project = base_tree.read(&relative)?;
@@ -91,6 +72,98 @@ pub fn run(args: &DiffArgs) -> anyhow::Result<()> {
         short(&base)
     );
     Ok(())
+}
+
+/// Arguments of `shall upgrade-check`.
+pub struct UpgradeArgs {
+    pub to: String,
+    pub path: PathBuf,
+}
+
+/// Prints the valid links of the working tree that merging the commit
+/// `to` would make stale: whose targets `to` changed since its merge base
+/// with `HEAD`, see [`diff::upgrade`].
+pub fn upgrade(args: &UpgradeArgs) -> anyhow::Result<()> {
+    let (root, top, relative) = locate(&args.path)?;
+    let to = commit(&top, &args.to)?;
+    let head = commit(&top, "HEAD")?;
+    let base = output(git(&top).args(["merge-base", &head, &to]))
+        .map_err(|_| anyhow::anyhow!("HEAD and '{}' have no merge base", args.to))?;
+    let current = check::analyze(&root, None)?;
+    let base_tree = Tree::write(&top, &base)?;
+    let before = base_tree.read(&relative)?;
+    let tree = Tree::write(&top, &to)?;
+    let target = tree.read(&relative)?;
+    if target.is_none() {
+        eprintln!(
+            "warning: the project {} does not exist in {}",
+            relative.display(),
+            short(&to)
+        );
+    }
+    let empty = (Vec::new(), Trace::default());
+    let stale = diff::upgrade(
+        state(&before, &empty),
+        (current.items.as_slice(), &current.trace),
+        state(&target, &empty),
+    );
+    let name = short(&to);
+    let mut review = 0;
+    for entry in &stale {
+        let link = entry.link;
+        let what = match entry.target {
+            Some(target) => format!("revised to {} in {name}", target.id),
+            None => format!("removed in {name}"),
+        };
+        let then = if entry.updated {
+            "updated there"
+        } else {
+            review += 1;
+            "to review"
+        };
+        println!(
+            "{}: {} {} {}: {what}; {then}",
+            link.location,
+            source(link, &current.items),
+            verb(link.kind),
+            link.target,
+        );
+    }
+    eprintln!(
+        "{} stale {}, {review} to review, {} updated in {name} ({})",
+        stale.len(),
+        if stale.len() == 1 { "link" } else { "links" },
+        stale.len() - review,
+        args.to
+    );
+    Ok(())
+}
+
+/// The project at or above `path`: its root, the top of its Git work
+/// tree and the root relative to that top. A workspace root is no
+/// project.
+fn locate(path: &Path) -> anyhow::Result<(PathBuf, PathBuf, PathBuf)> {
+    let root = find_root(path)?;
+    let toml = std::fs::read_to_string(root.join(config::FILE_NAME))
+        .with_context(|| format!("cannot read {}", root.join(config::FILE_NAME).display()))?;
+    if config::Config::parse(&toml).is_ok_and(|config| config.workspace.is_some()) {
+        bail!(
+            "{} describes a workspace, not a project; run this in a member",
+            root.join(config::FILE_NAME).display()
+        );
+    }
+    let top = git_top(&root)?;
+    let relative = root
+        .strip_prefix(&top)
+        .with_context(|| {
+            format!(
+                "{} is not in the Git work tree {}",
+                root.display(),
+                top.display()
+            )
+        })?
+        .to_path_buf();
+    Ok((root, top, relative))
 }
 
 /// The items and trace of a state, those of `empty` without the project.

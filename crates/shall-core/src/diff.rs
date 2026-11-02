@@ -10,6 +10,10 @@
 //! old revision of a revised requirement; links match by what they
 //! connect, wherever they are written, and a link that was invalid for
 //! the same reason before is not broken by the change.
+//!
+//! [`upgrade`] answers the question before taking a newer state, e.g. on
+//! a release branch: which links of today would point to an old revision
+//! or a removed item, and which of them the newer state already updated.
 
 use std::collections::{HashMap, HashSet};
 use std::mem::{Discriminant, discriminant};
@@ -126,6 +130,78 @@ pub fn changes<'a>(
     changes
 }
 
+/// A valid link of the current state whose target the state to upgrade
+/// to has revised or removed, see [`upgrade`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Stale<'a> {
+    /// The link, valid in the current state.
+    pub link: &'a Link,
+    /// The target in the state to upgrade to, with its new revision; none
+    /// if that state no longer has it.
+    pub target: Option<&'a Item>,
+    /// Whether the state to upgrade to has the link from the same source
+    /// already moved to the target's revision there, valid.
+    pub updated: bool,
+}
+
+/// The links that merging the state `to` into the `current` state would
+/// make stale, e.g. on a release branch before merging the current
+/// `master`: every valid link of `current` whose target `to` has revised
+/// or removed since `base`, the merge base of both, in the order of the
+/// links; what only `current` changed does not count. Each tells whether
+/// `to` already updated that link; the others are the links to review.
+pub fn upgrade<'a>(
+    (base_items, _): (&'a [Item], &'a Trace),
+    (_, current): (&'a [Item], &'a Trace),
+    (to_items, to): (&'a [Item], &'a Trace),
+) -> Vec<Stale<'a>> {
+    let first = |items: &'a [Item]| {
+        let mut targets: HashMap<(String, String), &'a Item> = HashMap::new();
+        for item in requirements(items) {
+            targets.entry(name(&item.id)).or_insert(item);
+        }
+        targets
+    };
+    let base_targets = first(base_items);
+    let to_targets = first(to_items);
+    // The valid links of `to` by kind, source and target. A tag's item
+    // keeps its name when its target's revision changes, so tags count by
+    // their full name here.
+    let updated: HashSet<(LinkKind, String, String)> = to
+        .links
+        .iter()
+        .filter(|link| link.status == LinkStatus::Valid)
+        .map(|link| (link.kind, exact(&link.source), link.target.to_string()))
+        .collect();
+    current
+        .links
+        .iter()
+        .filter(|link| link.status == LinkStatus::Valid)
+        .filter_map(|link| {
+            let key = name(&link.target);
+            let before = base_targets.get(&key).map(|item| &item.id);
+            let target = to_targets.get(&key).copied();
+            let changed_in_to = before != target.map(|item| &item.id);
+            if !changed_in_to || target.is_some_and(|target| target.id == link.target) {
+                return None;
+            }
+            let updated = target.is_some_and(|target| {
+                updated.contains(&(link.kind, exact(&link.source), target.id.to_string()))
+            });
+            Some(Stale {
+                link,
+                target,
+                updated,
+            })
+        })
+        .collect()
+}
+
+/// Type and name of an ID as one key, also for tags.
+fn exact(id: &ItemId) -> String {
+    format!("{}~{}", id.typ(), id.name())
+}
+
 /// The requirements among `items`, by location.
 fn requirements(items: &[Item]) -> Vec<&Item> {
     let mut requirements: Vec<&Item> = items
@@ -199,6 +275,86 @@ mod tests {
         let items = markdown::parse(Path::new("r.md"), text).unwrap().items;
         let trace = trace::trace(&items, &Config::parse(CONFIG).unwrap());
         (items, trace)
+    }
+
+    #[test]
+    fn lists_the_links_an_upgrade_makes_stale() {
+        let current = state(
+            "# A\n`swr~a~1`\n\n# B\n`swr~b~1`\n\n# C\n`swr~c~1`\n\n# Gone\n`swr~gone~1`\n\n\
+             # D\n`dsn~d~1`\nCovers:\n- swr~a~1\n- swr~b~1\n- swr~c~1\n- swr~gone~1\n",
+        );
+        let to = state(
+            "# A\n`swr~a~2`\n\n# B\n`swr~b~3`\n\n# C\n`swr~c~1`\n\n\
+             # D\n`dsn~d~1`\nCovers:\n- swr~a~2\n- swr~b~1\n- swr~c~1\n",
+        );
+        // Base and current are the same state here.
+        let stale: Vec<(String, Option<String>, bool)> = upgrade(
+            (&current.0, &current.1),
+            (&current.0, &current.1),
+            (&to.0, &to.1),
+        )
+        .iter()
+        .map(|stale| {
+            (
+                stale.link.target.to_string(),
+                stale.target.map(|item| item.id.to_string()),
+                stale.updated,
+            )
+        })
+        .collect();
+        assert_eq!(
+            stale,
+            [
+                ("swr~a~1".to_owned(), Some("swr~a~2".to_owned()), true),
+                ("swr~b~1".to_owned(), Some("swr~b~3".to_owned()), false),
+                ("swr~gone~1".to_owned(), None, false),
+            ]
+        );
+        // What only the current state changed since the base does not
+        // count, nor what `to` leaves as the base had it.
+        let base = state("# A\n`swr~a~1`\n");
+        let release = state(
+            "# A\n`swr~a~2`\n\n# Fix\n`swr~fix~1`\n\n# D\n`dsn~d~1`\nCovers:\n- swr~a~2\n\
+             - swr~fix~1\n",
+        );
+        let master = state("# A\n`swr~a~1`\n");
+        assert_eq!(
+            upgrade(
+                (&base.0, &base.1),
+                (&release.0, &release.1),
+                (&master.0, &master.1)
+            ),
+            []
+        );
+    }
+
+    #[test]
+    fn tags_count_one_by_one_in_an_upgrade() {
+        let tagged = |a: &str, b: &str, revision: u32| {
+            let mut items =
+                markdown::parse(Path::new("r.md"), &format!("# A\n`swr~a~{revision}`\n"))
+                    .unwrap()
+                    .items;
+            items.extend(crate::tags::scan(Path::new("a.c"), a).unwrap().items);
+            items.extend(crate::tags::scan(Path::new("b.c"), b).unwrap().items);
+            let trace = trace::trace(&items, &Config::parse(CONFIG).unwrap());
+            (items, trace)
+        };
+        let current = tagged("// [dsn->swr~a~1]\n", "// [dsn->swr~a~1]\n", 1);
+        // `to` updates only the tag in a.c.
+        let to = tagged("// [dsn->swr~a~2]\n", "// [dsn->swr~a~1]\n", 2);
+        let stale: Vec<(String, bool)> = upgrade(
+            (&current.0, &current.1),
+            (&current.0, &current.1),
+            (&to.0, &to.1),
+        )
+        .iter()
+        .map(|stale| (stale.link.location.to_string(), stale.updated))
+        .collect();
+        assert_eq!(
+            stale,
+            [("a.c:1".to_owned(), true), ("b.c:1".to_owned(), false)]
+        );
     }
 
     #[test]

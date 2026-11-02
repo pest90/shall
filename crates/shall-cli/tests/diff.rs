@@ -275,3 +275,58 @@ fn skips_paths_that_are_no_utf8_in_both_states() {
     assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
     assert_eq!(stdout(&output), "");
 }
+
+#[test]
+fn upgrade_check_lists_the_links_a_newer_state_makes_stale() {
+    let dir = repository();
+    let root = dir.path();
+    // A release branch keeps the old state; master moves on.
+    git(root, &["branch", "release"]);
+    fs::write(
+        root.join("p/reqs/a.md"),
+        "# Stop\n`swr~stop~2`\n\n# Handler\n`dsn~handler~1`\nCovers:\n- swr~stop~2\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("p/reqs/b.md"),
+        "# Other\n`dsn~other~1`\nCovers:\n- swr~gone~1\n",
+    )
+    .unwrap();
+    git(root, &["add", "-A"]);
+    git(root, &["commit", "-q", "-m", "master moves on"]);
+    git(root, &["checkout", "-q", "release"]);
+    // The release branch adds links of its own, a requirement master does
+    // not know, and a tag; only what master changed counts.
+    fs::write(
+        root.join("p/reqs/c.md"),
+        "# Mine\n`dsn~mine~1`\nCovers:\n- swr~stop~1\n- swr~gone~1\n- swr~fix~1\n\n\
+         # Fix\n`swr~fix~1`\n",
+    )
+    .unwrap();
+    let output = shall(root, &["upgrade-check", "--to", "master", "p"]);
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    let commit = String::from_utf8(
+        Command::new("git")
+            .current_dir(root)
+            .args(["rev-parse", "--short=12", "master"])
+            .output()
+            .unwrap()
+            .stdout,
+    )
+    .unwrap();
+    let commit = commit.trim();
+    assert_eq!(
+        stdout(&output),
+        format!(
+            "p/reqs/a.md:10: dsn~handler~1 covers swr~stop~1: revised to swr~stop~2 in {commit}; \
+             updated there\n\
+             p/reqs/c.md:4: dsn~mine~1 covers swr~stop~1: revised to swr~stop~2 in {commit}; \
+             to review\n\
+             p/reqs/c.md:5: dsn~mine~1 covers swr~gone~1: removed in {commit}; to review\n"
+        )
+    );
+    assert_eq!(
+        stderr(&output),
+        format!("3 stale links, 2 to review, 1 updated in {commit} (master)\n")
+    );
+}

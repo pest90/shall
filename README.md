@@ -25,7 +25,7 @@ requirements, outdated links, orphaned code and failing tests.
 > a badge and diagrams (`shall report`); creates new items with
 > generated IDs (`shall new`) and projects from templates
 > (`shall init`); shows the requirement changes between Git states
-> (`shall diff`); and exports the requirements for a cross-check with
+> (`shall diff`, `shall upgrade-check`); and exports the requirements for a cross-check with
 > OpenFastTrace (`shall export --oft`). The PDF report,
 > plugins and the build check are being built; see
 > [the plan](docs/konzept.md) (German).

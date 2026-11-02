@@ -110,6 +110,20 @@ enum Command {
         #[arg(long, value_enum, default_value_t = diff::Format::Text)]
         format: diff::Format,
     },
+    /// List the links an upgrade to a newer state would make stale.
+    ///
+    /// On a release branch, before taking a newer `master`: prints every
+    /// valid link of the working tree whose target the commit `--to`
+    /// revised or removed, and whether `--to` already updated it. Never
+    /// changes the exit code by itself.
+    UpgradeCheck {
+        /// The commit to upgrade to, e.g. `master`.
+        #[arg(long, value_name = "REV")]
+        to: String,
+        /// A directory in the project.
+        #[arg(default_value = ".")]
+        path: PathBuf,
+    },
     /// Export the requirements for other tools.
     ///
     /// With `--oft`, writes every requirement file of the project and its
@@ -228,6 +242,9 @@ fn run(command: Command) -> anyhow::Result<ExitCode> {
             format,
         })
         .map(|()| ExitCode::SUCCESS),
+        Command::UpgradeCheck { to, path } => {
+            diff::upgrade(&diff::UpgradeArgs { to, path }).map(|()| ExitCode::SUCCESS)
+        }
         Command::Export { path, oft: _, out } => {
             export::run(&path, &out).map(|()| ExitCode::SUCCESS)
         }
