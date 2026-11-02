@@ -1,6 +1,7 @@
 //! Command line interface of `shall`.
 
 mod check;
+mod diff;
 mod export;
 mod init;
 mod new;
@@ -88,6 +89,26 @@ enum Command {
         /// the commit.
         #[arg(long, value_name = "INFO", value_parser = parse_build_info)]
         build_info: Option<BuildInfo>,
+    },
+    /// Show the requirement changes between two Git states.
+    ///
+    /// Prints added, removed, revised and edited requirements and the
+    /// links that the changes break, e.g. for a merge request. Never
+    /// changes the exit code by itself.
+    Diff {
+        /// `base` to compare with the working tree, `base..head` to
+        /// compare two commits, or `base...head` to compare `head` with
+        /// its merge base with `base`, as a merge request does; an empty
+        /// side is `HEAD`.
+        #[arg(value_name = "RANGE")]
+        range: String,
+        /// A directory in the project.
+        #[arg(default_value = ".")]
+        path: PathBuf,
+        /// `text`, one line `path:line: change` per change, or `markdown`
+        /// for a comment.
+        #[arg(long, value_enum, default_value_t = diff::Format::Text)]
+        format: diff::Format,
     },
     /// Export the requirements for other tools.
     ///
@@ -195,6 +216,16 @@ fn run(command: Command) -> anyhow::Result<ExitCode> {
             dir,
             template,
             platform,
+        })
+        .map(|()| ExitCode::SUCCESS),
+        Command::Diff {
+            range,
+            path,
+            format,
+        } => diff::run(&diff::DiffArgs {
+            range,
+            path,
+            format,
         })
         .map(|()| ExitCode::SUCCESS),
         Command::Export { path, oft: _, out } => {

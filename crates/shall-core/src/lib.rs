@@ -7,6 +7,7 @@ pub mod check;
 pub mod config;
 pub mod create;
 pub mod diagnostic;
+pub mod diff;
 pub mod export;
 pub mod gate;
 pub mod id;

@@ -1045,7 +1045,7 @@ fn detail<'a>(
                     anchor: link
                         .and_then(|link| link.target_location.as_ref())
                         .and_then(|location| index.anchor_at(location, &reference.id)),
-                    problem: link.and_then(|link| problem(link.status)),
+                    problem: link.and_then(|link| link.status.problem()),
                 }
             })
             .collect()
@@ -1129,7 +1129,7 @@ fn detail<'a>(
                 anchor,
                 location: link.location.to_string(),
                 url: index.code(&link.location),
-                problem: problem(status).unwrap_or_default(),
+                problem: status.problem().unwrap_or_default(),
             }),
         }
     }
@@ -1161,24 +1161,6 @@ fn detail<'a>(
         implementations,
         tests,
     }
-}
-
-/// Why a link is not valid, in words; none for a valid one.
-fn problem(status: LinkStatus) -> Option<String> {
-    Some(match status {
-        LinkStatus::Valid => return None,
-        LinkStatus::Unknown => "unknown item".to_owned(),
-        LinkStatus::Outdated { current } => format!("outdated, current revision {current}"),
-        LinkStatus::Predated { current } => {
-            format!("revision does not exist yet, current revision {current}")
-        }
-        LinkStatus::Ambiguous => "ID defined more than once".to_owned(),
-        LinkStatus::Rejected => "target rejected".to_owned(),
-        LinkStatus::Unwanted => "the target does not need this type".to_owned(),
-        LinkStatus::Disallowed => "type not allowed by [satisfied_by]".to_owned(),
-        LinkStatus::OutsideVariant => "outside the variant".to_owned(),
-        LinkStatus::AgainstImports => "against the import direction".to_owned(),
-    })
 }
 
 #[cfg(test)]

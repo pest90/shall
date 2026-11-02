@@ -124,7 +124,7 @@ pub fn step_summary(diagnostics: &[Diagnostic], summaries: &[String], prefix: &s
 /// that GitHub's Markdown would read as markup (strikethrough by the `~`
 /// of IDs, emphasis, links, HTML, entities, table cells) backslash
 /// escaped, line breaks as spaces.
-fn cell(text: &str) -> String {
+pub fn cell(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     for c in text.chars() {
         match c {

@@ -63,7 +63,7 @@ use crate::imports::Imports;
 use crate::item::{Item, Location, Origin, Reference, Status};
 
 /// Result of tracing all items of a project.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 pub struct Trace {
     /// Every item, ordered by location.
     pub items: Vec<TracedItem>,
@@ -185,6 +185,27 @@ pub enum LinkStatus {
     /// The target belongs to a project that the source's project does not
     /// import, see [`crate::imports`].
     AgainstImports,
+}
+
+impl LinkStatus {
+    /// Why a link with this status is not valid, in a few words, e.g.
+    /// `outdated, current revision 2`; none for a valid link.
+    pub fn problem(self) -> Option<String> {
+        Some(match self {
+            Self::Valid => return None,
+            Self::Unknown => "unknown item".to_owned(),
+            Self::Outdated { current } => format!("outdated, current revision {current}"),
+            Self::Predated { current } => {
+                format!("revision does not exist yet, current revision {current}")
+            }
+            Self::Ambiguous => "ID defined more than once".to_owned(),
+            Self::Rejected => "target rejected".to_owned(),
+            Self::Unwanted => "the target does not need this type".to_owned(),
+            Self::Disallowed => "type not allowed by [satisfied_by]".to_owned(),
+            Self::OutsideVariant => "outside the variant".to_owned(),
+            Self::AgainstImports => "against the import direction".to_owned(),
+        })
+    }
 }
 
 /// Traces `items` against the levels of `config`.

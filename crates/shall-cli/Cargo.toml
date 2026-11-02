@@ -22,10 +22,10 @@ rand = "0.10.3"
 serde_json = "1.0.154"
 shall-core.workspace = true
 shall-report.workspace = true
+tempfile = "3.27.0"
 
 [lints]
 workspace = true
 
 [dev-dependencies]
 insta = "1.49.0"
-tempfile = "3.27.0"

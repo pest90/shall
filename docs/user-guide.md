@@ -1162,6 +1162,56 @@ Each item has:
   (several results can share a location in a JUnit file written on one
   line); otherwise `null`.
 
+### `shall diff`
+
+```text
+shall diff <RANGE> [PATH] [--format text|markdown]
+```
+
+Shows what changed in the requirements of the project between two Git
+states, for example in a merge request:
+
+| `RANGE` | Base | Head |
+| --- | --- | --- |
+| `master` | `master` | the working tree, as it is |
+| `master..feature` | `master` | `feature` |
+| `master...feature`, `master...` | the merge base of `master` and `feature` (or `HEAD`) | `feature` (or `HEAD`) |
+
+```text
+p/reqs/a.md:10: added swr~new~1 (New)
+p/reqs/a.md:5: removed swr~gone~1 (Gone) (in the base)
+p/reqs/a.md:2: revised swr~stop~1 -> swr~stop~2 (Stop now)
+p/reqs/a.md:7: broken link: dsn~handler~1 covers swr~stop~1: outdated, current revision 2
+```
+
+- Requirements are matched by type and name: *added* and *removed*
+  ones exist in one state only, *revised* ones have another revision in
+  the head, *edited* ones the same ID but other text, links, status or
+  other keywords, which may deserve a new revision. A removed one is
+  shown at its location in the base.
+- A *broken link* is a link of the head that is not valid, but was
+  valid or did not exist in the base, such as a link to the old
+  revision of a revised requirement. Links match by what they connect,
+  wherever they are written, so a link that was broken for the same
+  reason before is not repeated, also after moving its file.
+- The project includes its imports. A project that does not exist in
+  the base yet has only added requirements.
+- `--format markdown` prints a heading and tables, for a comment in a
+  merge request.
+- The files of a commit are written into a temporary directory from
+  the objects of the repository, as Git stores them: without filters
+  such as Git LFS and without line-ending conversion. The repository is
+  not touched, also not inside a Git hook. A submodule is read at the
+  commit the state records; if its clone does not have that commit,
+  e.g. before `git submodule update`, at the commit it has checked out,
+  with a warning, and if it is not cloned, it is left out. A revision is anything
+  `git rev-parse` resolves to a commit.
+- In CI, the base must be in the clone: fetch the history (e.g.
+  `fetch-depth: 0`) and name the target branch as the runner has it,
+  such as `origin/master...`.
+- The summary on stderr names both states; `shall diff` does not change
+  the exit code by itself.
+
 ### `shall export`
 
 ```text
