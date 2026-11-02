@@ -649,7 +649,9 @@ path = "../../platform"
   below its own items and below what they cover directly, by `Covers:`
   or `Satisfied-by:`; the other items below an item above stay provided,
   e.g. the sibling capabilities under a platform's top item. A provided
-  item counts as nothing in the light of the items above it.
+  item counts as nothing in the light of the items above it. An item
+  with a link against the import direction (see above) is never
+  provided, since that link is a defect.
   The report marks a provided item, shows its light in grey and leaves
   it out of the badge, and its filter `Requested` shows or hides such
   items; `trace.json` has `provided: true`. Its defects are those of the
