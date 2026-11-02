@@ -58,7 +58,7 @@ coverage, console report = MVP).
 
 - `cargo fmt`, `cargo clippy -- -D warnings`, `cargo test` and
   `cargo doc` without warnings must pass; `scripts/check.sh` runs all of
-  them plus the MSRV build. Docker:
+  them plus clippy for Windows and macOS and the MSRV build. Docker:
   `docker compose run --rm check` (see `CONTRIBUTING.md`).
 - Keep the `Dockerfile` in sync with the local environment: every system
   package or toolchain installed locally to build, run or test the

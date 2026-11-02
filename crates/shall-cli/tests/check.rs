@@ -829,7 +829,15 @@ fn imports_need_a_workspace_and_a_valid_one() {
     let output = shall(&a, &["check"]);
     assert_eq!(output.status.code(), Some(2));
     assert!(
-        stderr(&output).contains(&format!("in {}", dir.path().join("shall.toml").display())),
+        // The tool prints the canonical path, which on Windows is not the
+        // 8.3 short form a temporary directory may have.
+        stderr(&output).contains(&format!(
+            "in {}",
+            dunce::canonicalize(dir.path())
+                .unwrap()
+                .join("shall.toml")
+                .display()
+        )),
         "{}",
         stderr(&output)
     );

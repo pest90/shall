@@ -555,7 +555,12 @@ fn write_blobs(repo: &Path, blobs: &[(String, String, PathBuf)]) -> anyhow::Resu
 }
 
 /// Writes one blob as a file, or as a symbolic link for mode `120000`.
+///
+/// Outside Unix the mode is ignored: a symbolic link is written as a
+/// file holding its target, and the executable bit is not set.
 fn write_blob(mode: &str, content: &[u8], path: &Path) -> std::io::Result<()> {
+    #[cfg(not(unix))]
+    let _ = mode;
     #[cfg(unix)]
     if mode == "120000" {
         use std::os::unix::ffi::OsStrExt;
