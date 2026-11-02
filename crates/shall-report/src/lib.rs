@@ -74,6 +74,9 @@ const INDEX: &str = include_str!("../templates/index.html");
 const OVERVIEW: &str = include_str!("../templates/overview.html");
 const STYLE: &str = include_str!("../templates/style.css");
 const FILTER: &str = include_str!("../templates/filter.js");
+/// The logo, a copy of `assets/logo/shall-logo.svg` (`scripts/check.sh`
+/// keeps them equal), embedded so the report stays one file.
+const LOGO: &str = include_str!("../templates/logo.svg");
 
 /// Renders the start page, `index.html`.
 ///
@@ -120,6 +123,32 @@ pub fn render_overview(documents: &[Document<'_>]) -> Result<String, minijinja::
         .render(Value::from(Serde(&overview)))
 }
 
+/// The logo as a `data:` URI for the favicon and the page header.
+///
+/// Line breaks become spaces (a `\r` is dropped), and `%`, `#`, `"`,
+/// `'`, `&`, `<` and `>` are percent-encoded. That leaves no character HTML
+/// would have to escape, so the URI is passed to the templates as safe,
+/// unescaped text and stays readable in the page source.
+fn logo_uri() -> String {
+    let mut uri = String::from("data:image/svg+xml,");
+    for c in LOGO.trim_end().chars() {
+        match c {
+            '\n' => uri.push(' '),
+            // A checkout with CRLF line endings, e.g. on Windows.
+            '\r' => {}
+            '%' => uri.push_str("%25"),
+            '#' => uri.push_str("%23"),
+            '"' => uri.push_str("%22"),
+            '\'' => uri.push_str("%27"),
+            '&' => uri.push_str("%26"),
+            '<' => uri.push_str("%3C"),
+            '>' => uri.push_str("%3E"),
+            _ => uri.push(c),
+        }
+    }
+    uri
+}
+
 fn environment() -> Result<Environment<'static>, minijinja::Error> {
     let mut env = Environment::new();
     env.set_syntax(
@@ -134,6 +163,7 @@ fn environment() -> Result<Environment<'static>, minijinja::Error> {
     env.add_template("overview.html", OVERVIEW)?;
     env.add_template("style.css", STYLE)?;
     env.add_template("filter.js", FILTER)?;
+    env.add_global("logo", Value::from_safe_string(logo_uri()));
     env.set_undefined_behavior(minijinja::UndefinedBehavior::Strict);
     Ok(env)
 }
@@ -1192,6 +1222,17 @@ mod tests {
     }
 
     #[test]
+    fn the_logo_uri_needs_no_html_escaping() {
+        let uri = logo_uri();
+        assert!(uri.starts_with("data:image/svg+xml,%3Csvg "));
+        assert!(
+            !uri.contains(['#', '\n', '"', '\'', '&', '<', '>']),
+            "{uri}"
+        );
+        assert!(uri.contains("fill=%22%231d1f24%22"), "{uri}");
+    }
+
+    #[test]
     fn unknown_types_show_no_coverage_and_duplicates_are_marked() {
         let html = html(
             "[[level]]\ntype = \"dsn\"\nname = \"Design\"\n",
@@ -1416,7 +1457,12 @@ mod tests {
         );
         // The only script is the report's own filter.
         assert_eq!(html.matches("<script").count(), 1, "{html}");
-        assert!(!html.contains("<img"), "{html}");
+        // The only image is the report's own logo.
+        assert_eq!(html.matches("<img").count(), 1, "{html}");
+        assert!(
+            html.contains("<img class=\"logo\" src=\"data:image/svg+xml,"),
+            "{html}"
+        );
     }
 
     #[test]

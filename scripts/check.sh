@@ -12,6 +12,8 @@ targets=$(sed -n 's/^targets = \[\(.*\)\]$/\1/p' rust-toolchain.toml | tr -d '",
 [ -n "$targets" ] || { echo "no targets in rust-toolchain.toml" >&2; exit 1; }
 
 set -x
+# The report embeds a copy of the logo; it must not drift from the asset.
+cmp assets/logo/shall-logo.svg crates/shall-report/templates/logo.svg
 cargo fmt --all --check
 cargo clippy --workspace --all-targets --locked -- -D warnings
 for target in $targets; do

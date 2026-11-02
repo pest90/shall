@@ -41,6 +41,7 @@ body {
 }
 header, main, footer { max-width: 72rem; margin: 0 auto; }
 h1 { font-size: 1.6rem; margin: 1.5rem 0 0.25rem; }
+h1 .logo { vertical-align: -0.3rem; margin-right: 0.5rem; }
 h2 { font-size: 1.25rem; margin: 2rem 0 0.5rem; border-bottom: 1px solid var(--line); padding-bottom: 0.25rem; }
 h3 { font-size: 1rem; margin: 1.25rem 0 0.5rem; }
 code { font: 0.9em ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; overflow-wrap: anywhere; }

@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="generator" content="{{ generator }}">
+<link rel="icon" href="{{ logo }}">
 <title>Traceability report{% if variant %}: {{ variant.name }}{% endif %}</title>
 <style>
 {% include "style.css" %}
@@ -12,7 +13,7 @@
 <body>
 {% macro loc(text, url) %}{% if url %}<a href="{{ url }}"><code>{{ text }}</code></a>{% else %}<code>{{ text }}</code>{% endif %}{% endmacro %}
 <header>
-<h1>Traceability report</h1>
+<h1><img class="logo" src="{{ logo }}" alt="" width="32" height="32">Traceability report</h1>
 {% if build %}
 <p class="build">{% if build.sha %}Commit <code>{{ build.sha }}</code>{% endif %}{% if build.date %}{% if build.sha %}, {% endif %}{{ build.date }}{% endif %}{% if build.pipeline %}{% if build.sha or build.date %}, {% endif %}pipeline {{ build.pipeline }}{% endif %}</p>
 {% endif %}
