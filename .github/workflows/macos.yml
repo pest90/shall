@@ -1,0 +1,29 @@
+name: macos
+# Linux and Windows come first and run in ci.yml on every pull request.
+# GitHub's macOS runners are often not available, so macOS runs in this
+# workflow of its own: only after a merge to master, or by hand. A
+# missing runner or a failure here never turns the ci run red.
+# scripts/check.sh lints for macOS locally.
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+# Several merges in a row need only the newest state tested.
+concurrency:
+  group: macos-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+
+jobs:
+  test:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      # rustup picks up the pinned toolchain from rust-toolchain.toml
+      - run: cargo test --workspace --locked --no-fail-fast
+      - run: cargo run --locked -p shall-cli -- --version
