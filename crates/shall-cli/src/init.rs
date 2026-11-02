@@ -19,6 +19,7 @@ use shall_core::create;
 use shall_core::{ItemId, ItemType};
 
 use crate::check;
+use crate::project::shown;
 
 /// What a new project looks like.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -152,11 +153,11 @@ pub fn run(args: &InitArgs) -> anyhow::Result<()> {
     for (path, _) in &contents {
         let path = args.dir.join(path);
         if fs::symlink_metadata(&path).is_ok() {
-            bail!("{} exists already", path.display());
+            bail!("{} exists already", shown(&path));
         }
         for dir in path.ancestors().skip(1) {
             if fs::symlink_metadata(dir).is_ok() && !dir.is_dir() {
-                bail!("{} is not a directory", dir.display());
+                bail!("{} is not a directory", shown(dir));
             }
         }
     }
@@ -173,10 +174,10 @@ pub fn run(args: &InitArgs) -> anyhow::Result<()> {
         written.push(path);
     }
     for path in &written {
-        println!("created {}", path.display());
+        println!("created {}", shown(path));
     }
     let root = dunce::canonicalize(&args.dir)
-        .with_context(|| format!("cannot resolve {}", args.dir.display()))?;
+        .with_context(|| format!("cannot resolve {}", shown(&args.dir)))?;
     // The files are written: what keeps `shall check` from running is only
     // a warning here.
     match check::place(&root) {
@@ -185,7 +186,7 @@ pub fn run(args: &InitArgs) -> anyhow::Result<()> {
             eprintln!(
                 "warning: {} is in no workspace, but a project imports only members of \
                  its own workspace; list both in the [workspace] members of a shall.toml above",
-                args.dir.display()
+                shown(&args.dir)
             );
         }
         Ok(_) => {}
@@ -203,7 +204,7 @@ pub fn run(args: &InitArgs) -> anyhow::Result<()> {
             "warning: no {} at {platform} relative to {}; create the platform there \
              (`shall init --template platform`) or fix the [[import]] path in shall.toml",
             config::FILE_NAME,
-            args.dir.display()
+            shown(&args.dir)
         );
     }
     Ok(())
@@ -213,15 +214,15 @@ pub fn run(args: &InitArgs) -> anyhow::Result<()> {
 /// file that exists, also as a link, is an error.
 fn create(path: &Path, text: &str) -> anyhow::Result<()> {
     let parent = path.parent().expect("files are in the project directory");
-    fs::create_dir_all(parent).with_context(|| format!("cannot create {}", parent.display()))?;
+    fs::create_dir_all(parent).with_context(|| format!("cannot create {}", shown(parent)))?;
     let mut file = OpenOptions::new()
         .write(true)
         .create_new(true)
         .open(path)
-        .with_context(|| format!("cannot create {}", path.display()))?;
+        .with_context(|| format!("cannot create {}", shown(path)))?;
     file.write_all(text.as_bytes()).map_err(|error| {
         let _ = fs::remove_file(path);
-        anyhow::Error::new(error).context(format!("cannot write {}", path.display()))
+        anyhow::Error::new(error).context(format!("cannot write {}", shown(path)))
     })
 }
 

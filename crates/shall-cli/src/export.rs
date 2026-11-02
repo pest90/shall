@@ -8,6 +8,7 @@ use anyhow::Context;
 use shall_core::oft;
 
 use crate::check;
+use crate::project::shown;
 
 /// Where an exported file goes below the output directory: at its path,
 /// but a file of an external component, below
@@ -32,10 +33,10 @@ pub fn run(start: &Path, out: &Path) -> anyhow::Result<()> {
     for (path, text) in &files {
         let target = out.join(exported(path));
         if let Some(dir) = target.parent() {
-            fs::create_dir_all(dir).with_context(|| format!("cannot create {}", dir.display()))?;
+            fs::create_dir_all(dir).with_context(|| format!("cannot create {}", shown(dir)))?;
         }
-        fs::write(&target, text).with_context(|| format!("cannot write {}", target.display()))?;
-        eprintln!("wrote {}", target.display());
+        fs::write(&target, text).with_context(|| format!("cannot write {}", shown(&target)))?;
+        eprintln!("wrote {}", shown(&target));
     }
     eprintln!("{}", project.summary());
     Ok(())

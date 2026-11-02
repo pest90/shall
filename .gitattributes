@@ -1,0 +1,4 @@
+# Check out text with LF on every platform: templates and golden files are
+# embedded with include_str! or compared byte by byte, and a CRLF checkout
+# (core.autocrlf on Windows) would change what shall writes.
+* text=auto eol=lf
