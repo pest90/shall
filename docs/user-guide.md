@@ -1374,9 +1374,13 @@ shall export fixtures/motor --oft --out oft-export
 java -jar openfasttrace-4.11.0.jar trace oft-export fixtures/motor/src fixtures/motor/tests
 ```
 
-Trace the export rather than the original files: OFT does not know the
-default needs of levels or `Satisfied-by:`, so on the original files it
-reports coverage as unwanted or missing that is correct in `shall`.
+Trace the export rather than the original files. It matters as soon as
+a project relies on the default needs of levels or on `Satisfied-by:`.
+OFT does not know default needs, so it reports correct coverage as
+unwanted. It reads `Satisfied-by:` as text and loses the link, without a
+defect unless the item also has an explicit `Needs:`. It also reads a
+`Status:` only near the ID, where the export puts it. `fixtures/motor`
+repeats its needs, so there both give the same result for every item.
 
 On `fixtures/motor`, OFT 4.11.0 reads the same 16 items and reports
 `not ok - 16 total, 4 direct, 1 transitive defects`, while `shall check`
