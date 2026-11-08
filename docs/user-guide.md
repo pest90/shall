@@ -1407,10 +1407,11 @@ offers go to definition for IDs; it does not know the extensions of
   job `publish-report`.
 
 Both run your tests, then `shall check`, then `shall report --out site`,
-and fail at the end if the tests or the check failed, so that a failed
-test or check still leaves a report. Replace `make test` with your build
-and tests, which must write the JUnit files that `[sources]` names.
-Forgejo also needs your default branch and a runner label.
+and fail at the end if the tests or the check failed, so that failed
+tests or defects still leave a report. A check that cannot run, e.g.
+with a broken `shall.toml`, leaves none. Replace `make test` with your
+build and tests, which must write the JUnit files that `[sources]`
+names. Forgejo also needs your default branch and a runner label.
 
 A failed test or build fails the job in every check mode. `shall` could
 not stand in for this: it reports only failed tests that have a tag, and
