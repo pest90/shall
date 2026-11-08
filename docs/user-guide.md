@@ -1345,8 +1345,8 @@ and tags, and the extensions of `shall` become what OFT knows:
 - a valid `Satisfied-by:` becomes a `Covers:` in its target, back to
   the item that names it;
 - `Source:`, `Features:` and `Params:` become a list in `Comment:`;
-- `Status:` follows the ID line, since OFT does not read it after the
-  text;
+- `Status:` follows the ID line, since OFT does not read it directly
+  after the text;
 - rejected items keep their links but need nothing.
 
 Text between items, such as headings without an ID, is left out. Inside
@@ -1380,9 +1380,9 @@ a project relies on the default needs of levels or on `Satisfied-by:`.
 OFT does not know default needs, so it reports correct coverage as
 unwanted. It reads `Satisfied-by:` as text and loses the link, without a
 defect unless the item's own `Needs:` names the target's type. It also
-does not read a `Status:` after the text, so the export puts it under
-the ID. `fixtures/motor` repeats its needs, so there both give the same
-`ok` or `not ok` for every item.
+does not read a `Status:` directly after the text, so the export puts
+it under the ID. `fixtures/motor` repeats its needs, so there both give
+the same `ok` or `not ok` for every item.
 
 On `fixtures/motor`, OFT 4.11.0 reads the same 16 items and reports
 `not ok - 16 total, 4 direct, 1 transitive defects`, while `shall check`

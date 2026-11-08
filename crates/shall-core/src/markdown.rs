@@ -60,8 +60,8 @@
 //!
 //! - shall accepts every keyword anywhere in an item and values on the
 //!   same line as `Rationale:` and `Comment:`. OFT reads `Status:` under
-//!   the ID, but not after the text, `Covers:`, `Rationale:` or `Comment:`,
-//!   and it reads a value after `Rationale:` as text.
+//!   the ID, but not directly after the text, `Covers:`, `Rationale:` or
+//!   `Comment:`, and it reads a value after `Rationale:` as text.
 //! - A heading deeper than the item's title does not end the item. OFT
 //!   ends the item at any heading and drops keywords that follow it.
 //! - shall skips fenced code blocks inside items. OFT skips them only
