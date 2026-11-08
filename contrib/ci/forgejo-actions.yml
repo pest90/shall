@@ -1,9 +1,9 @@
 # Traces requirements in Forgejo Actions, e.g. on Codeberg or self-hosted.
 # Copy to .forgejo/workflows/requirements.yml and adapt the marked lines.
 #
-# Whether the job fails is up to the check mode: `report`, the default,
-# never fails. A failed job blocks a merge only if the branch protection
-# rule of the repository requires this check.
+# The check mode decides whether defects fail the job: `report`, the
+# default, never does. Failed tests always do. A failed job blocks a merge
+# only if the branch protection rule of the repository requires this check.
 name: requirements
 
 on:
@@ -23,21 +23,25 @@ jobs:
           fetch-depth: 0
 
       # Your build and tests, writing the JUnit files that `[sources]`
-      # names. `|| true`, so that `shall` reports failed tests.
-      - run: make test || true
+      # names. The job goes on, so that a report is written, and fails below.
+      - id: tests
+        continue-on-error: true
+        run: make test
 
       # Pin a commit with `--rev` instead of `--branch` for repeatable runs.
+      # Outside the checkout, so that its rust-toolchain.toml does not apply.
       - name: Install shall
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+          cd /
           "$HOME/.cargo/bin/cargo" install --locked --git https://github.com/pest90/shall --branch master shall-cli
 
-      # Before the check: `shall report` does not change the exit code, so
-      # a failing check still leaves a report.
-      - run: '"$HOME/.cargo/bin/shall" report --out site'
-
       # Add e.g. `--mode new --since origin/main` to fail on new defects only.
-      - run: '"$HOME/.cargo/bin/shall" check'
+      - id: check
+        continue-on-error: true
+        run: '"$HOME/.cargo/bin/shall" check'
+
+      - run: '"$HOME/.cargo/bin/shall" report --out site'
 
       # Forgejo needs its patched version of this action, or v3.
       - uses: https://data.forgejo.org/forgejo/upload-artifact@v4
@@ -45,3 +49,7 @@ jobs:
         with:
           name: requirements-report
           path: site/
+
+      - name: Fail if the tests or the check failed
+        if: steps.tests.outcome == 'failure' || steps.check.outcome == 'failure'
+        run: exit 1
