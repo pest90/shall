@@ -481,10 +481,11 @@ Der Plan hat zwölf Meilensteine; nach M2 gibt es ein nutzbares MVP (Konsole), n
 
 ### M0 – Fundament
 
-- [ ] **0.1 Projekt-Skelett (S)**
+- [x] **0.1 Projekt-Skelett (S)**
   - `cargo new shall`, Crates: `clap` (CLI), `anyhow`/`thiserror` (Fehler), `serde` + `toml` (Konfiguration).
   - Unterbefehle als Stubs: `shall check`, `shall report`, `shall new`.
   - Fertig, wenn: `shall --version` lokal und in der CI läuft.
+  - Umsetzung: Workspace mit den Crates aus 10.1; die Stubs sind inzwischen durch die echten Befehle ersetzt. Die CI (`ci.yml`) baut und testet Pull Requests unter Linux (gepinnte Toolchain, MSRV, stable) und Windows und führt dort `shall --version` aus; macOS läuft in `macos.yml` nach jedem Merge auf `master` oder von Hand, weil GitHub dafür oft keinen Runner bereitstellt. Lokal prüft `scripts/check.sh` Windows und macOS nur per clippy.
 - [x] **0.2 Beispielprojekt als Testfixture (M)**
   - Ordner `fixtures/motor/` mit 3 Ebenen, ca. 8 Requirements, etwas C++-Code mit gtest und einer JUnit-XML.
   - Absichtlich eingebaute Fehler: ein unabgedecktes Requirement, eine veraltete Revision, ein verwaistes Code-Tag, ein roter Test.
