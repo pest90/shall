@@ -1407,14 +1407,14 @@ offers go to definition for IDs; it does not know the extensions of
   job `publish-report`.
 
 Both run your tests, then `shall check`, then `shall report --out site`,
-and fail at the end if the tests or the check failed, so that there is
-always a report. Replace `make test` with your build and tests, which
-must write the JUnit files that `[sources]` names. Forgejo also needs
-your default branch and a runner label.
+and fail at the end if the tests or the check failed, so that a failed
+test or check still leaves a report. Replace `make test` with your build
+and tests, which must write the JUnit files that `[sources]` names.
+Forgejo also needs your default branch and a runner label.
 
 A failed test or build fails the job in every check mode. `shall` could
 not stand in for this: it reports only failed tests that have a tag, and
-without JUnit files it only warns about tests that were not executed.
+in mode `report` nothing it finds changes the exit code.
 
 There are no release binaries yet, so both jobs build `shall` from
 source on every run, which takes several minutes unless your CI caches
