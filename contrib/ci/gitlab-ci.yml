@@ -1,0 +1,50 @@
+# Traces requirements in GitLab CI and publishes the report on GitLab Pages.
+# Copy into .gitlab-ci.yml, or include it, and adapt the marked lines.
+# Needs GitLab 17.9 or later for `pages.publish`.
+#
+# Whether the job fails is up to the check mode: `report`, the default,
+# never fails. A failed job blocks a merge only if the project requires
+# a successful pipeline.
+stages:
+  - test
+  - deploy
+
+requirements:
+  stage: test
+  image: rust:1.99
+  variables:
+    # `shall check --since` and `shall diff` need the history.
+    GIT_DEPTH: 0
+  script:
+    # Pin a commit with `--rev` instead of `--branch` for repeatable runs.
+    - cargo install --locked --git https://github.com/pest90/shall --branch master shall-cli
+    # Your build and tests, writing the JUnit files that `[sources]` names.
+    # `|| true`, so that `shall` reports failed tests.
+    - make test || true
+    # Before the check: `shall report` does not change the exit code, so a
+    # failing check still leaves a report.
+    - shall report --out site
+    # Add e.g. `--mode new --since origin/$CI_DEFAULT_BRANCH` to fail on new
+    # defects only.
+    - shall check
+  artifacts:
+    when: always
+    expose_as: requirements report
+    paths:
+      - site/
+    reports:
+      junit: site/junit.xml
+
+publish-report:
+  stage: deploy
+  needs:
+    - job: requirements
+      artifacts: true
+  rules:
+    # `always`: a report with defects is worth publishing.
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: always
+  script:
+    - echo "publishing the report"
+  pages:
+    publish: site

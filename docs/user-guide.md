@@ -1391,6 +1391,37 @@ Since the syntax is OFT's, the
 offers go to definition for IDs; it does not know the extensions of
 `shall`, such as `Satisfied-by:`.
 
+### CI templates
+
+`contrib/ci` has a job for each of two CI systems, to copy and adapt:
+
+- [`forgejo-actions.yml`](../contrib/ci/forgejo-actions.yml) for Forgejo
+  Actions, as `.forgejo/workflows/requirements.yml`. The report is an
+  artifact of the run.
+- [`gitlab-ci.yml`](../contrib/ci/gitlab-ci.yml) for GitLab CI 17.9 or
+  later, in `.gitlab-ci.yml`. The report is an artifact and is published
+  on GitLab Pages from the default branch, and `site/junit.xml` shows
+  the defects in the test report of a merge request.
+
+Both run your tests, then `shall report --out site`, then `shall check`,
+and keep the report when the check fails. Replace `make test` with your
+build and tests, which must write the JUnit files that `[sources]`
+names; a failure there must not end the job, so that `shall` can report
+failed tests. Forgejo also needs your default branch and a runner label.
+
+There are no release binaries yet, so both jobs build `shall` from
+source on every run, which takes several minutes unless your CI caches
+it. They follow the `master` branch; pin a commit with `--rev` for
+repeatable runs.
+
+Whether the job fails is up to the check mode, see
+[`shall check`](#shall-check). `report`, the default, never fails, so
+start there and tighten the mode later, e.g. with `--mode new --since
+origin/main` in a merge request; that needs the history, which both
+templates fetch. A failed job blocks a merge only if the branch
+protection rule of the Git server, or the merge settings of the project,
+require it.
+
 ### External commands
 
 Any other command runs a program from the `PATH`, as with Git and

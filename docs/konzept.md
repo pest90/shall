@@ -695,7 +695,7 @@ Neben HTML erzeugt `shall report --format pdf` (oder `--format html,pdf`) densel
 
 ### M7 – CI und Alltag
 
-- [ ] **7.1–7.4** siehe Abschnitt „CI-Integration“.
+- [x] **7.1–7.4** siehe Abschnitt „CI-Integration“.
 
 ### M8 – Plattform, Projekte, Varianten
 
@@ -838,10 +838,13 @@ site/
 
 Der Report entsteht bei jedem Merge Request automatisch; ob Defekte den Merge blockieren, entscheidet das Team über den Prüfmodus und die Branch-Schutzregel.
 
-- [ ] **7.1 CI-Job (M)**
+- [x] **7.1 CI-Job (M)**
   - Ablauf: bauen → Tests mit JUnit-Ausgabe → `shall check` → `shall report --out site/` → als Artefakt bzw. statische Seite veröffentlichen.
   - Passt zu Forgejo Actions (z. B. Codeberg oder selbst gehostet) und GitLab CI gleichermaßen.
   - Ob der Job fehlschlägt, steuert der Prüfmodus; den Merge blockiert er erst, wenn er in der Branch-Schutzregel als erforderlicher Check eingetragen ist.
+  - Umsetzung (`contrib/ci`, User Guide „CI templates“): Vorlagen zum Kopieren für Forgejo Actions und GitLab CI, kein Code in `shall`. Abweichung von der Reihenfolge: `shall report` läuft vor `shall check`, weil nur `check` den Job scheitern lässt und der Report dann trotzdem entsteht. Forgejo-Job in `node:22-bookworm`, weil Actions dort Node brauchen, mit Rust über rustup; Upload über das gepatchte `forgejo/upload-artifact@v4`, wie es die Forgejo-Doku verlangt. GitLab veröffentlicht den Report zusätzlich auf Pages (`pages.publish`, ab 17.9) und zeigt die Defekte über `site/junit.xml` im Testbericht.
+  - Geprüft: Forgejos Workflow-Prüfung `forgejo-runner validate` (Runner 13.2.0) und das GitLab-Schema aus `check-jsonschema` akzeptieren die Vorlagen; die Befehle laufen in den genannten Images auf einer Kopie von `fixtures/motor`, mit `cargo install` aus dem Repo.
+  - Offen: Keine Vorlage lief bisher auf einem echten Forgejo- oder GitLab-Server. Ungetestet sind daher Artefakt-Upload, Pages-Veröffentlichung, `if: always()` und die Merge-Sperre; auch ein Lauf mit `forgejo-runner exec` steht aus. Bis zu Release-Binaries (10.7) baut jeder Lauf `shall` aus den Quellen, was mehrere Minuten dauert, und folgt `master`. Eine Vorlage für GitHub Actions gibt es nicht, weil 7.1 sie nicht verlangt; passend wäre sie zu 7.7 oder 10.8.
 - [x] **7.2 Pre-commit-Hook (S)**
   - Nur M1/M2 auf geänderten Markdown-Dateien: schnell, fängt Tippfehler in IDs vor dem Push.
   - Umsetzung (`shall check --mode new --since HEAD`, `.pre-commit-hooks.yaml`): Statt nur geänderte Dateien zu parsen, prüft der Hook das ganze Projekt im Modus `new` gegen `HEAD` – eine Änderung in einer Datei kann Links in anderen brechen, und bestehende Defekte (etwa offene Abdeckung in einer angefassten Datei) dürfen einen Commit nicht blockieren. Den Vergleichsstand rechnet `--since <REV>` selbst aus den Git-Objekten wie `shall diff` (ohne Index und mit entfernten `GIT_*`-Variablen, also sicher im Hook), auch für einen ganzen Workspace; vor dem ersten Commit ist alles neu. Der frühere Stand wird im Modus `report` geprüft (die Modi der Mitglieder zählen dort nicht), nur der Teil des Repositorys unter der Workspace- bzw. Projektwurzel wird geschrieben, und die Testergebnisse des Arbeitsbaums (Dateien der `junit`-Muster aus `[sources]` und den Varianten) gelten für beide Stände, wo der Commit keine hat; ein Stand, der sich nicht prüfen lässt (z. B. kaputtes `shall.toml`), hat mit Warnung keine Defekte – dann ist alles neu, und der reparierende Commit braucht `--no-verify` –, ebenso `HEAD` vor dem ersten Commit eines Branches. Ein einfacher Git-Hook prüft den Arbeitsbaum, pre-commit legt ungestagte Änderungen vorher beiseite. Hook-Definition für pre-commit.com und ein einfacher Git-Hook stehen im Handbuch.
