@@ -106,8 +106,9 @@ the end of the item; other text in between is an error. Put lists last
 in an item, or follow them with a keyword.
 
 Unlike OFT, `shall` accepts keywords anywhere within an item. Known
-differences that matter when cross-checking with OFT are listed in the
-API documentation of `shall_core::markdown`.
+differences in reading Markdown are listed in the API documentation of
+`shall_core::markdown`, those in tracing under
+[Cross-checking with OpenFastTrace](#cross-checking-with-openfasttrace).
 
 ### Checks while reading
 
@@ -1362,6 +1363,48 @@ Every exported file starts with
 `<!-- Exported by shall for OpenFastTrace. -->`; when `shall` reads a
 project, it skips such files with a warning, so an export inside the
 project, such as the default `oft`, is not read back.
+
+### Cross-checking with OpenFastTrace
+
+OFT can trace the export together with the code and tests. OFT is a Java
+tool and not needed to run `shall`:
+
+```sh
+shall export fixtures/motor --oft --out oft-export
+java -jar openfasttrace-4.11.0.jar trace oft-export fixtures/motor/src fixtures/motor/tests
+```
+
+Trace the export rather than the original files: OFT does not know the
+default needs of levels or `Satisfied-by:`, so on the original files it
+reports coverage as unwanted or missing that is correct in `shall`.
+
+On `fixtures/motor`, OFT 4.11.0 reads the same 16 items and reports
+`not ok - 16 total, 4 direct, 1 transitive defects`, while `shall check`
+reports 4 errors. The numbers match by chance, since each tool counts
+differently:
+
+| Defect in the fixture | `shall` | OFT |
+| --- | --- | --- |
+| outdated revision | one error at the link | direct defect on both items of the link |
+| uncovered requirement | one error | one direct defect |
+| orphaned code tag | one error | one direct defect |
+| failing test | one error | not reported, OFT reads no test results |
+| requirement above the uncovered one | status "not deep covered", no defect | transitive defect |
+
+The two tools also differ in these rules, checked with OFT 4.11.0:
+
+| Case | `shall` | OFT |
+| --- | --- | --- |
+| an item is covered only by a rejected item | error, not covered | ok, the rejected item counts |
+| `Depends:` names an unknown or a rejected item | error | ok, not checked |
+| two revisions of one name exist | error, duplicate ID | ok, two separate items |
+| a duplicate ID | one error at the later copy | direct defect on every copy |
+| a coverage cycle | error that names the cycle | transitive defect on every item in it, no direct defect |
+| a link of a type the target does not need | one error at the link | direct defect on both items |
+| exit code with defects | `0` in mode `report`, see `--mode` | `1` |
+
+`Features:` selects items in `shall` only; OFT traces every exported item
+whatever its features.
 
 ### Editor support
 
