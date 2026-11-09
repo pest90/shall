@@ -1,0 +1,55 @@
+# Traces requirements in GitLab CI and publishes the report on GitLab Pages.
+# Copy into .gitlab-ci.yml, or include it, and adapt the marked lines.
+# Needs GitLab 17.10 or later, which adds the `pages.publish` path to the
+# artifacts by itself.
+#
+# The check mode decides whether defects fail the job: `report`, the
+# default, never does. Failed tests always do. A failed job blocks a merge
+# only if the project requires a successful pipeline.
+stages:
+  - test
+  - deploy
+
+requirements:
+  stage: test
+  image: rust:1
+  variables:
+    # `shall check --since` and `shall diff` need the history.
+    GIT_DEPTH: 0
+  script:
+    # Pin a commit with `--rev` instead of `--branch` for repeatable runs.
+    # Outside the checkout, so that its rust-toolchain.toml does not apply.
+    - (cd / && cargo install --locked --git https://github.com/pest90/shall --branch master shall-cli)
+    - status=0
+    # Your build and tests, writing the JUnit files that `[sources]` names.
+    # The job goes on, so that a report is written, and fails at the end.
+    - make test || status=$?
+    # Add e.g. `--mode new --since origin/$CI_DEFAULT_BRANCH` to fail on new
+    # defects only.
+    - shall check || status=$?
+    - shall report --out site
+    - exit "$status"
+  artifacts:
+    when: always
+    expose_as: requirements report
+    paths:
+      - site/
+    reports:
+      junit: site/junit.xml
+
+# Pages are public on the internet unless the access control of the project
+# limits them, and the report holds the text of your requirements. Check that
+# setting, or delete this job and keep the artifact.
+publish-report:
+  stage: deploy
+  needs:
+    - job: requirements
+      artifacts: true
+  rules:
+    # `always`: a report with defects is worth publishing.
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: always
+  script:
+    - echo "publishing the report"
+  pages:
+    publish: site

@@ -1440,6 +1440,45 @@ Since the syntax is OFT's, the
 offers go to definition for IDs; it does not know the extensions of
 `shall`, such as `Satisfied-by:`.
 
+### CI templates
+
+`contrib/ci` has a job for each of two CI systems, to copy and adapt:
+
+- [`forgejo-actions.yml`](../contrib/ci/forgejo-actions.yml) for Forgejo
+  Actions, as `.forgejo/workflows/requirements.yml`. The report is an
+  artifact of the run.
+- [`gitlab-ci.yml`](../contrib/ci/gitlab-ci.yml) for GitLab CI 17.10 or
+  later, in `.gitlab-ci.yml`. The report is an artifact and is published
+  on GitLab Pages from the default branch, and `site/junit.xml` shows
+  the defects in the test report of a merge request. Pages are public
+  unless the access control of the project limits them, and the report
+  holds the text of your requirements: check that setting, or delete the
+  job `publish-report`.
+
+Both run your tests, then `shall check`, then `shall report --out site`,
+and fail at the end if the tests or the check failed, so that failed
+tests or defects still leave a report. A check that cannot run, e.g.
+with a broken `shall.toml`, leaves none. Replace `make test` with your
+build and tests, which must write the JUnit files that `[sources]`
+names. Forgejo also needs your default branch and a runner label.
+
+A failed test or build fails the job in every check mode. `shall` could
+not stand in for this: it reports only failed tests that have a tag, and
+in mode `report` nothing it finds changes the exit code.
+
+There are no release binaries yet, so both jobs build `shall` from
+source on every run, which takes several minutes unless your CI caches
+it. They follow the `master` branch; pin a commit with `--rev` for
+repeatable runs.
+
+The check mode decides whether defects fail the job, see
+[`shall check`](#shall-check). `report`, the default, never does, so
+start there and tighten the mode later, e.g. with
+`--mode new --since origin/main` in a merge request; that needs the
+history, which both templates fetch. A failed job blocks a merge only if
+the branch protection rule of the Git server, or the merge settings of
+the project, require it.
+
 ### External commands
 
 Any other command runs a program from the `PATH`, as with Git and
