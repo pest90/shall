@@ -46,10 +46,12 @@ lower_than() {
   fi
 }
 
-tags=$(git tag --list 'v[0-9]*')
+# Whether the current version is released: a clone can lack the tags, but a
+# release commit always leaves its changelog section.
+released=$(git tag --list 'v[0-9]*')$(grep -sF "## [$current] - " CHANGELOG.md || true)
 # Without a commit to release, git-cliff repeats the current version. The
 # first release has the version that the workspace started with.
-if [ "$version" = "$current" ] && [ -n "$tags" ]; then
+if [ "$version" = "$current" ] && [ -n "$released" ]; then
   echo "$version is the current version: nothing to release" >&2
   exit 1
 fi
@@ -58,9 +60,9 @@ if git rev-parse --quiet --verify "refs/tags/v$version" >/dev/null; then
   exit 1
 fi
 # git-cliff looks at final releases only, so after a pre-release with a version
-# of your choice, or in a clone without tags, it can suggest a lower one. Before
-# any tag the current version is not released, so its pre-releases are fine.
-if lower_than "$version" "$current" && { [ -n "$tags" ] || [ "${version%%-*}" != "$current" ]; }; then
+# of your choice, or in a clone without tags, it can suggest a lower one. An
+# unreleased current version can still get pre-releases of its own.
+if lower_than "$version" "$current" && { [ -n "$released" ] || [ "${version%%-*}" != "$current" ]; }; then
   echo "$version is lower than the current version $current: give a higher one" >&2
   exit 1
 fi

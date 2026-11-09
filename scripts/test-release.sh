@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Tests the release scripts in a throwaway repository: a first release, a
 # pre-release, the final release after it, a later one, and what they must
-# refuse. Every run of release.yml runs this before it builds anything, because
+# refuse. Every run of release.yml runs this before it builds the binaries, because
 # nothing else runs these scripts before a real tag, which could not be taken
 # back.
 #
@@ -201,5 +201,10 @@ printf 'fake-bin/\n' >>.gitignore
 commit "chore: ignore the fake cargo"
 PATH="$PWD/fake-bin:$PATH" refuses "fake cargo failed" scripts/prepare-release.sh 0.10.0
 clean "a failing cargo left changes"
+
+# A clone without tags still knows from the changelog what is released.
+git tag --list | xargs git tag -d >/dev/null
+refuses "lower than" scripts/prepare-release.sh 0.9.0-rc.1
+refuses "nothing to release" scripts/prepare-release.sh 0.9.0
 
 echo "release scripts: ok"

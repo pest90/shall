@@ -253,8 +253,9 @@ nothing to release, and `scripts/prepare-release.sh` refuses them. A
 pre-release is no boundary for this: the commits since the last final
 release decide, and its changelog section lists them all.
 After a pre-release with a version of your choice, the final release can need
-its version given as well; the script refuses a lower version than the
-current one, and one with a tag.
+its version given as well. The script refuses a version with a tag and one
+lower than the current one, except for pre-releases of a version not yet
+released, such as `0.1.0-rc.1` as the very first release.
 
 How a release is made (maintainers):
 
@@ -289,7 +290,7 @@ can run again. Fixing a cause in the repository needs a new patch release.
 A run started by hand, or by a pull request that changes the pipeline, is a
 dry run: it tests and builds everything and publishes nothing. Every run
 tests the release scripts with `scripts/test-release.sh` before it builds
-anything.
+the binaries.
 
 The repository needs the secret `CARGO_REGISTRY_TOKEN`, a crates.io token
 with the scopes `publish-new` and `publish-update` (`publish-update` only,
