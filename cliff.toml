@@ -18,7 +18,7 @@ body = """
 ### {{ group | striptags | trim }}
 
 {% for commit in commits -%}
-- {% if commit.breaking %}**Breaking:** {% endif %}{% if commit.scope %}**{{ commit.scope }}:** {% endif %}{{ commit.message | split(pat="\n") | first | trim }}
+- {% if commit.scope %}**{{ commit.scope }}:** {% endif %}{{ commit.message | split(pat="\n") | first | trim }}
 {% endfor -%}
 {% endfor -%}
 """
@@ -29,18 +29,21 @@ conventional_commits = true
 filter_unconventional = true
 protect_breaking_commits = true
 filter_commits = true
-tag_pattern = "^v[0-9]+\\.[0-9]+\\.[0-9]+"
+# Final releases only: a final release lists all that is new since the last
+# one, and the next version follows from it, not from a pre-release.
+tag_pattern = "^v[0-9]+\\.[0-9]+\\.[0-9]+$"
 sort_commits = "oldest"
 # The HTML comments order the groups and do not show.
 commit_parsers = [
-  { message = "^feat", group = "<!-- 0 -->Features" },
-  { message = "^fix", group = "<!-- 1 -->Bug fixes" },
-  { message = "^perf", group = "<!-- 2 -->Performance" },
-  { message = "^refactor", group = "<!-- 3 -->Refactoring" },
-  { message = "^docs", group = "<!-- 4 -->Documentation" },
-  { message = "^revert", group = "<!-- 5 -->Reverts" },
-  # Everything else is not for users, unless it breaks something: `build`,
-  # `ci`, `test`, `chore`, with the release commits themselves.
+  { field = "breaking", pattern = "true", group = "<!-- 0 -->Breaking changes" },
+  { message = "^feat", group = "<!-- 1 -->Features" },
+  { message = "^fix", group = "<!-- 2 -->Bug fixes" },
+  { message = "^perf", group = "<!-- 3 -->Performance" },
+  { message = "^refactor", group = "<!-- 4 -->Refactoring" },
+  { message = "^docs", group = "<!-- 5 -->Documentation" },
+  { message = "^revert", group = "<!-- 6 -->Reverts" },
+  # Everything else is not for users: `build`, `ci`, `test`, `chore`, with the
+  # release commits themselves.
   { message = ".*", skip = true },
 ]
 

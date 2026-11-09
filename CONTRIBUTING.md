@@ -247,13 +247,24 @@ The next version follows from the commits since the last tag:
 | at least one `feat` | minor | minor |
 | at least one breaking change (`!`) | major | minor |
 
+`docs`, `refactor` and `revert` alone bump the patch version too, because
+they show in the changelog. `build`, `ci`, `test` and `chore` alone are
+nothing to release, and `scripts/prepare-release.sh` refuses them. A
+pre-release is no boundary for this: the commits since the last final
+release decide, and its changelog section lists them all.
+
 How a release is made (maintainers):
 
-1. Branch `chore/release-<version>` from `master` and run
-   `docker compose run --rm dev scripts/prepare-release.sh`. It takes the
-   next version from the commits, or the one you give it (needed for a
-   pre-release), sets it in `Cargo.toml` and `Cargo.lock` and regenerates
-   `CHANGELOG.md` with `git-cliff`.
+1. Branch `chore/release-<version>` from `master` and run this, which
+   builds the `dev` image first because it holds `git-cliff`:
+   ```sh
+   export UID GID=$(id -g)
+   docker compose build dev
+   docker compose run --rm dev scripts/prepare-release.sh
+   ```
+   It takes the next version from the commits, or the one you give it
+   (needed for a pre-release, e.g. `0.3.0-rc.1`), sets it in `Cargo.toml` and
+   `Cargo.lock` and regenerates `CHANGELOG.md`.
 2. Open a pull request titled `chore(release): v<version>` and squash-merge it.
 3. Tag that commit on `master` and push the tag:
    ```sh
@@ -273,7 +284,8 @@ How a release is made (maintainers):
 If a run fails, fix the cause and re-run its failed jobs: each public step
 can run again. Fixing a cause in the repository needs a new patch release.
 A run started by hand, or by a pull request that changes the pipeline, is a
-dry run: it tests and builds everything and publishes nothing.
+dry run: it tests the release scripts with `scripts/test-release.sh`, tests
+and builds everything and publishes nothing.
 
 The repository needs the secret `CARGO_REGISTRY_TOKEN`, a crates.io token
 with the scopes `publish-new` and `publish-update` (`publish-update` only,

@@ -3,6 +3,10 @@
 # is already there, so that a failed run of the release workflow can simply
 # be run again. cargo waits for each crate to appear in the index.
 #
+# Without verifying: that compiles, so it would run the build scripts and
+# macros of every dependency with the token in the environment. The workflow
+# has verified the packages before, without the token.
+#
 #   CARGO_REGISTRY_TOKEN=... scripts/publish-crates.sh 0.3.0
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -30,6 +34,6 @@ for crate in shall-core shall-plugin shall-report shall-cli; do
   if grep -qF "\"vers\":\"$version\"" "$index"; then
     echo "$crate $version is already published"
   else
-    cargo publish --locked -p "$crate"
+    cargo publish --locked --no-verify -p "$crate"
   fi
 done

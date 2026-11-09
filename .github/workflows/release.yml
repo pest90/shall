@@ -16,7 +16,10 @@ on:
       - .github/workflows/release.yml
       - cliff.toml
       - scripts/check-release-tag.sh
+      - scripts/prepare-release.sh
       - scripts/publish-crates.sh
+      - scripts/release-notes.sh
+      - scripts/test-release.sh
   workflow_dispatch:
 
 permissions:
@@ -48,14 +51,15 @@ jobs:
       # Fails here rather than halfway through the publishing.
       - name: Package the crates
         run: cargo package --workspace --locked
-      - name: Write the release notes
+      - name: Test the release scripts and write the release notes
         env:
           PUBLISH: ${{ github.event_name == 'push' }}
+          TAG: ${{ github.ref_name }}
         run: |
           cargo install --locked --no-default-features --version "$GIT_CLIFF_VERSION" git-cliff
+          scripts/test-release.sh
           if [ "$PUBLISH" = true ]; then
-            git cliff --latest --strip all --output release-notes.md
-            [ -s release-notes.md ] || { echo "no release notes" >&2; exit 1; }
+            scripts/release-notes.sh "$TAG" >release-notes.md
           else
             git cliff --unreleased --strip all --output release-notes.md
           fi
@@ -125,7 +129,7 @@ jobs:
           if-no-files-found: error
 
   image:
-    needs: verify
+    needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
@@ -168,7 +172,7 @@ jobs:
 
   crates:
     if: github.event_name == 'push'
-    needs: [build, image]
+    needs: image
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -184,7 +188,7 @@ jobs:
   # look at: a release page means that the release is complete.
   release:
     if: github.event_name == 'push'
-    needs: [build, image, crates]
+    needs: crates
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
