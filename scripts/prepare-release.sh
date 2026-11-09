@@ -7,7 +7,7 @@
 #   scripts/prepare-release.sh 0.3.0-rc.1 # or a given one
 #
 # Needs git-cliff, which the `dev` container has. Commits nothing, and
-# changes nothing if it fails before the version is set.
+# changes nothing if it fails.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -30,10 +30,34 @@ version=${version#v}
   echo "not a SemVer version: $version" >&2
   exit 1
 }
+# Whether SemVer version $1 is lower than $2.
+lower_than() {
+  local a=${1%%-*} b=${2%%-*}
+  if [ "$a" != "$b" ]; then
+    [ "$(printf '%s\n%s\n' "$a" "$b" | sort -V | head -n 1)" = "$a" ]
+  elif [ "$1" = "$a" ]; then
+    false # a final release is not lower than its pre-releases
+  elif [ "$2" = "$b" ]; then
+    true
+  else
+    [ "$1" != "$2" ] && [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | head -n 1)" = "$1" ]
+  fi
+}
+
 # Without a commit to release, git-cliff repeats the current version. The
 # first release has the version that the workspace started with.
 if [ "$version" = "$current" ] && [ -n "$(git tag --list 'v[0-9]*')" ]; then
   echo "$version is the current version: nothing to release" >&2
+  exit 1
+fi
+if git rev-parse --quiet --verify "refs/tags/v$version" >/dev/null; then
+  echo "v$version exists already" >&2
+  exit 1
+fi
+# git-cliff looks at final releases only, so after a pre-release with a version
+# of your choice, or in a clone without tags, it can suggest a lower one.
+if lower_than "$version" "$current"; then
+  echo "$version is lower than the current version $current: give the version" >&2
   exit 1
 fi
 
@@ -53,7 +77,10 @@ sed -i.bak \
   Cargo.toml
 rm Cargo.toml.bak
 
-cargo update --workspace --quiet
+cargo update --workspace --quiet || {
+  git checkout -- Cargo.toml Cargo.lock
+  exit 1
+}
 cp "$changelog" CHANGELOG.md
 
 echo "prepared v$version: review with 'git diff', then commit"

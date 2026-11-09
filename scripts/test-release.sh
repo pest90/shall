@@ -8,7 +8,9 @@
 set -euo pipefail
 source_dir=$(cd "$(dirname "$0")/.." && pwd)
 
-bash -n "$source_dir"/scripts/*.sh
+for script in "$source_dir"/scripts/*.sh; do
+  bash -n "$script"
+done
 
 repo=$(mktemp -d)
 trap 'rm -rf "$repo"' EXIT
@@ -30,13 +32,16 @@ release() {
   git tag -a "$1" -m "shall $1"
   git update-ref refs/remotes/origin/master HEAD
   scripts/check-release-tag.sh "$1" >/dev/null || die "$1 is a good tag"
+  cargo metadata --locked --format-version 1 >/dev/null || die "Cargo.lock of $1"
 }
+# Runs a command that must fail with the given message.
 refuses() {
-  local what=$1
+  local message=$1 output
   shift
-  if "$@" >/dev/null 2>&1; then
-    die "$what passed"
+  if output=$("$@" 2>&1); then
+    die "passed, but should say '$message': $*"
   fi
+  grep -qF "$message" <<<"$output" || die "'$*' should say '$message': $output"
 }
 
 git init --quiet -b master
@@ -63,7 +68,6 @@ version.workspace = true
 edition.workspace = true
 TOML
 : >crates/shall-core/src/lib.rs
-sed -i.bak '/^other = /d' Cargo.toml && rm Cargo.toml.bak
 cargo generate-lockfile --quiet
 printf 'target/\n' >.gitignore
 commit "feat(core): first feature"
@@ -71,15 +75,15 @@ commit "feat(core): first feature"
 # The first release takes the version that the workspace started with.
 scripts/prepare-release.sh >/dev/null
 grep -qF '## [0.1.0] - ' CHANGELOG.md || die "changelog of 0.1.0"
-refuses "a dirty tree" scripts/prepare-release.sh
+refuses "not clean" scripts/prepare-release.sh
 release v0.1.0
 grep -qF 'first feature' <(scripts/release-notes.sh v0.1.0) || die "notes of 0.1.0"
 
 # Nothing for users since then.
 commit "ci: not for users"
-refuses "a version without commits to release" scripts/prepare-release.sh
+refuses "nothing to release" scripts/prepare-release.sh
 git diff --quiet || die "a refused release changed files"
-refuses "a version without a changelog section" scripts/prepare-release.sh 0.1.1
+refuses "no commits for the changelog" scripts/prepare-release.sh 0.1.1
 git diff --quiet || die "a refused release changed files"
 
 # A pre-release, then the final release without further changes.
@@ -95,6 +99,7 @@ if grep -qF 'first feature' <<<"$notes"; then die "notes of the rc list 0.1.0"; 
 scripts/prepare-release.sh >/dev/null
 grep -q '^version = "0.2.0"$' Cargo.toml || die "version of the final release"
 grep -qF 'version = "0.2.0"' <(grep '^shall-core' Cargo.toml) || die "dependency version"
+grep -qF 'other = { version = "1.0.0" }' Cargo.toml || die "a third-party version changed"
 release v0.2.0
 notes=$(scripts/release-notes.sh v0.2.0)
 grep -qF '## [0.2.0] - ' <<<"$notes" || die "section of the final release"
@@ -108,13 +113,71 @@ grep -q '^version = "0.2.1"$' Cargo.toml || die "a fix bumps the patch version"
 release v0.2.1
 grep -qF '## [0.2.0] - ' <(scripts/release-notes.sh v0.2.0) || die "re-run of the notes of 0.2.0"
 
-# Tags that must not be released.
-git tag v0.2.1-light
-refuses "a lightweight tag" scripts/check-release-tag.sh v0.2.1-light
-git tag -a v0.2.2 -m x
-refuses "a tag with another version" scripts/check-release-tag.sh v0.2.2
+# Tags that must not be released, each with one thing wrong. The state here:
+# v0.2.1 is a good tag on origin/master.
+retag() {
+  git tag -d v0.2.1 >/dev/null
+  git tag "$@" v0.2.1
+}
+
+retag
+refuses "not an annotated tag" scripts/check-release-tag.sh v0.2.1
+retag -a -m x
+
 commit "fix: off master"
-git tag -a v0.2.1-off -m x
-refuses "a tag off master" scripts/check-release-tag.sh v0.2.1-off
+retag -a -m x
+refuses "not on origin/master" scripts/check-release-tag.sh v0.2.1
+git reset --quiet --hard HEAD~1
+retag -a -m x
+
+# v0.2.0 has its changelog section, but Cargo.toml is at 0.2.1.
+refuses "Cargo.toml has version 0.2.1" scripts/check-release-tag.sh v0.2.0
+
+sed -i.bak 's/^## \[0\.2\.1\]/## Removed/' CHANGELOG.md && rm CHANGELOG.md.bak
+commit "docs: lose a changelog section"
+retag -a -m x
+git update-ref refs/remotes/origin/master HEAD
+refuses "no section for 0.2.1" scripts/check-release-tag.sh v0.2.1
+git reset --quiet --hard HEAD~1
+retag -a -m x
+git update-ref refs/remotes/origin/master HEAD
+
+sed -i.bak 's/^\(shall-core = .*version = \)"0\.2\.1"/\1"0.2.0"/' Cargo.toml && rm Cargo.toml.bak
+commit "chore: lose a dependency version"
+retag -a -m x
+git update-ref refs/remotes/origin/master HEAD
+refuses "Cargo.toml has shall-core" scripts/check-release-tag.sh v0.2.1
+git reset --quiet --hard HEAD~1
+retag -a -m x
+git update-ref refs/remotes/origin/master HEAD
+
+git tag -a v1.2 -m x
+refuses "not of the form" scripts/check-release-tag.sh v1.2
+
+# Versions that must not be prepared.
+commit "fix(cli): one more fix"
+refuses "exists already" scripts/prepare-release.sh 0.2.0
+refuses "lower than" scripts/prepare-release.sh 0.1.5
+scripts/prepare-release.sh 0.3.0-rc.2 >/dev/null
+release v0.3.0-rc.2
+refuses "lower than" scripts/prepare-release.sh 0.3.0-rc.1
+# git-cliff sees only a fix since v0.2.1 and suggests 0.2.2.
+refuses "lower than" scripts/prepare-release.sh
+git diff --quiet || die "a refused release changed files"
+scripts/prepare-release.sh 0.3.0-rc.10 >/dev/null
+git checkout --quiet -- .
+scripts/prepare-release.sh 0.3.0 >/dev/null
+git checkout --quiet -- .
+
+# A failing cargo leaves nothing behind.
+mkdir fake-bin
+printf '#!/bin/sh\nexit 101\n' >fake-bin/cargo
+chmod +x fake-bin/cargo
+printf 'fake-bin/\n' >>.gitignore
+commit "chore: ignore the fake cargo"
+if PATH="$PWD/fake-bin:$PATH" scripts/prepare-release.sh 0.3.0 >/dev/null 2>&1; then
+  die "a failing cargo passed"
+fi
+git diff --quiet || die "a failing cargo left changes"
 
 echo "release scripts: ok"
