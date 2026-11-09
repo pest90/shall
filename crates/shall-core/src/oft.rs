@@ -10,8 +10,8 @@
 //! - a valid `Satisfied-by:` link becomes a `Covers:` link in its target,
 //!   back to the item that names it, which then needs the target's type;
 //! - `Params:`, `Source:` and `Features:` become a list in `Comment:`;
-//! - `Status:` comes on the line right after the ID, the only place OFT
-//!   reads it.
+//! - `Status:` comes on the line right after the ID, since OFT does not
+//!   read it directly after the text.
 //!
 //! A forwarding such as `sys --> swr : hlr~x~1` is OFT syntax and stays
 //! one, unless it is the target of a `Satisfied-by:`: it then becomes an

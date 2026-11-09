@@ -56,15 +56,18 @@
 //! writes a `sys` item that only repeats `hlr~x~1`. A forwarding ends the
 //! item before it.
 //!
-//! Known differences from OFT, relevant for cross-checks with OFT:
+//! Known differences from OFT, checked with OFT 4.11.0:
 //!
 //! - shall accepts every keyword anywhere in an item and values on the
-//!   same line as `Rationale:` and `Comment:`. OFT reads `Status:` only
-//!   directly after the ID and a value after `Rationale:` as text.
-//! - A heading deeper than the item's title does not end the item.
-//! - shall skips fenced code blocks inside items; OFT only outside items.
+//!   same line as `Rationale:` and `Comment:`. OFT reads `Status:` under
+//!   the ID, but not directly after the text, `Covers:`, `Rationale:` or
+//!   `Comment:`, and it reads a value after `Rationale:` as text.
+//! - A heading deeper than the item's title does not end the item. OFT
+//!   ends the item at any heading and drops keywords that follow it.
+//! - shall skips fenced code blocks inside items. OFT skips them only
+//!   outside items, so inside an item it reads IDs and keywords in them.
 //! - Setext headings (underlined with `===` or `---`) are not recognised
-//!   as headings yet.
+//!   as headings yet; OFT recognises them.
 
 use std::collections::HashMap;
 use std::path::Path;
