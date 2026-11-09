@@ -261,7 +261,8 @@ fn reads_a_submodule_without_its_commit_as_checked_out() {
     );
 }
 
-#[cfg(unix)]
+// Not on macOS: its file system refuses names that are not UTF-8.
+#[cfg(all(unix, not(target_os = "macos")))]
 #[test]
 fn skips_paths_that_are_no_utf8_in_both_states() {
     use std::os::unix::ffi::OsStrExt;
