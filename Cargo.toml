@@ -7,6 +7,7 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.97"
 license = "MIT"
+repository = "https://github.com/pest90/shall"
 description = "Specifications Hooked to Actual Lines of Logic: requirements-as-code traceability"
 keywords = ["requirements", "traceability", "openfasttrace", "safety"]
 categories = ["development-tools", "command-line-utilities"]
