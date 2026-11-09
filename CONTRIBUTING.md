@@ -288,7 +288,8 @@ If a run fails, fix the cause and re-run its failed jobs: each public step
 can run again. Fixing a cause in the repository needs a new patch release.
 A run started by hand, or by a pull request that changes the pipeline, is a
 dry run: it tests and builds everything and publishes nothing. Every run
-first tests the release scripts with `scripts/test-release.sh`.
+tests the release scripts with `scripts/test-release.sh` before it builds
+anything.
 
 The repository needs the secret `CARGO_REGISTRY_TOKEN`, a crates.io token
 with the scopes `publish-new` and `publish-update` (`publish-update` only,

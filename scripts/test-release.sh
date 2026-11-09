@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Tests the release scripts in a throwaway repository: a first release, a
 # pre-release, the final release after it, a later one, and what they must
-# refuse. The dry run of release.yml runs this, because nothing else runs
-# these scripts before a real tag, which could not be taken back.
+# refuse. Every run of release.yml runs this before it builds anything, because
+# nothing else runs these scripts before a real tag, which could not be taken
+# back.
 #
 # Needs git-cliff and cargo, which the `dev` container has.
 set -euo pipefail
@@ -33,6 +34,9 @@ release() {
   git update-ref refs/remotes/origin/master HEAD
   scripts/check-release-tag.sh "$1" >/dev/null || die "$1 is a good tag"
   cargo metadata --locked --format-version 1 >/dev/null || die "Cargo.lock of $1"
+}
+clean() {
+  [ -z "$(git status --porcelain)" ] || die "$1"
 }
 # Runs a command that must fail with the given message.
 refuses() {
@@ -72,6 +76,17 @@ cargo generate-lockfile --quiet
 printf 'target/\n' >.gitignore
 commit "feat(core): first feature"
 
+# A pre-release as the very first release, then the final one. Undone at the
+# end, because the first release below starts without any tag.
+scripts/prepare-release.sh 0.1.0-rc.1 >/dev/null
+release v0.1.0-rc.1
+grep -qF 'first feature' <(scripts/release-notes.sh v0.1.0-rc.1) || die "notes of the first rc"
+[ "$(git cliff --bumped-version 2>/dev/null)" = v0.1.0 ] || die "the final release after the first rc"
+scripts/prepare-release.sh >/dev/null
+git tag -d v0.1.0-rc.1 >/dev/null
+git reset --quiet --hard HEAD~1
+refuses "lower than" scripts/prepare-release.sh 0.0.9
+
 # The first release takes the version that the workspace started with.
 scripts/prepare-release.sh >/dev/null
 grep -qF '## [0.1.0] - ' CHANGELOG.md || die "changelog of 0.1.0"
@@ -82,9 +97,9 @@ grep -qF 'first feature' <(scripts/release-notes.sh v0.1.0) || die "notes of 0.1
 # Nothing for users since then.
 commit "ci: not for users"
 refuses "nothing to release" scripts/prepare-release.sh
-git diff --quiet || die "a refused release changed files"
+clean "a refused release changed files"
 refuses "no commits for the changelog" scripts/prepare-release.sh 0.1.1
-git diff --quiet || die "a refused release changed files"
+clean "a refused release changed files"
 
 # A pre-release, then the final release without further changes.
 commit "fix(cli): a fix"
@@ -113,7 +128,7 @@ grep -q '^version = "0.2.1"$' Cargo.toml || die "a fix bumps the patch version"
 release v0.2.1
 grep -qF '## [0.2.0] - ' <(scripts/release-notes.sh v0.2.0) || die "re-run of the notes of 0.2.0"
 
-# Tags that must not be released, each with one thing wrong. The state here:
+# Tags that must not be released, each for the reason named. The state here:
 # v0.2.1 is a good tag on origin/master.
 retag() {
   git tag -d v0.2.1 >/dev/null
@@ -158,26 +173,33 @@ refuses "not of the form" scripts/check-release-tag.sh v1.2
 commit "fix(cli): one more fix"
 refuses "exists already" scripts/prepare-release.sh 0.2.0
 refuses "lower than" scripts/prepare-release.sh 0.1.5
+refuses "lower than" scripts/prepare-release.sh 0.2.1-rc.1
 scripts/prepare-release.sh 0.3.0-rc.2 >/dev/null
 release v0.3.0-rc.2
 refuses "lower than" scripts/prepare-release.sh 0.3.0-rc.1
 # git-cliff sees only a fix since v0.2.1 and suggests 0.2.2.
 refuses "lower than" scripts/prepare-release.sh
-git diff --quiet || die "a refused release changed files"
+clean "a refused release changed files"
 scripts/prepare-release.sh 0.3.0-rc.10 >/dev/null
 git checkout --quiet -- .
 scripts/prepare-release.sh 0.3.0 >/dev/null
 git checkout --quiet -- .
 
-# A failing cargo leaves nothing behind.
+# Numbers, not text: 0.10.0 follows 0.9.0.
+commit "fix(cli): a fix for 0.9"
+scripts/prepare-release.sh 0.9.0 >/dev/null
+release v0.9.0
+commit "fix(cli): a fix for 0.10"
+scripts/prepare-release.sh 0.10.0 >/dev/null
+git checkout --quiet -- .
+
+# A failing cargo leaves nothing behind, even if it changed Cargo.lock.
 mkdir fake-bin
-printf '#!/bin/sh\nexit 101\n' >fake-bin/cargo
+printf '#!/bin/sh\necho "# changed" >>Cargo.lock\necho "fake cargo failed" >&2\nexit 101\n' >fake-bin/cargo
 chmod +x fake-bin/cargo
 printf 'fake-bin/\n' >>.gitignore
 commit "chore: ignore the fake cargo"
-if PATH="$PWD/fake-bin:$PATH" scripts/prepare-release.sh 0.3.0 >/dev/null 2>&1; then
-  die "a failing cargo passed"
-fi
-git diff --quiet || die "a failing cargo left changes"
+PATH="$PWD/fake-bin:$PATH" refuses "fake cargo failed" scripts/prepare-release.sh 0.10.0
+clean "a failing cargo left changes"
 
 echo "release scripts: ok"

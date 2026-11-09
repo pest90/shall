@@ -6,8 +6,8 @@
 #   scripts/prepare-release.sh            # version from the commits
 #   scripts/prepare-release.sh 0.3.0-rc.1 # or a given one
 #
-# Needs git-cliff, which the `dev` container has. Commits nothing, and
-# changes nothing if it fails.
+# Needs git-cliff, which the `dev` container has. Commits nothing. A refusal
+# or a failing cargo leaves the files as they were.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -30,7 +30,9 @@ version=${version#v}
   echo "not a SemVer version: $version" >&2
   exit 1
 }
-# Whether SemVer version $1 is lower than $2.
+# Whether SemVer version $1 is lower than $2. Right for pre-releases like
+# `rc.2` and `beta.10`; `sort -V` is not SemVer for ones that mix them with
+# words, like `alpha.beta`.
 lower_than() {
   local a=${1%%-*} b=${2%%-*}
   if [ "$a" != "$b" ]; then
@@ -44,9 +46,10 @@ lower_than() {
   fi
 }
 
+tags=$(git tag --list 'v[0-9]*')
 # Without a commit to release, git-cliff repeats the current version. The
 # first release has the version that the workspace started with.
-if [ "$version" = "$current" ] && [ -n "$(git tag --list 'v[0-9]*')" ]; then
+if [ "$version" = "$current" ] && [ -n "$tags" ]; then
   echo "$version is the current version: nothing to release" >&2
   exit 1
 fi
@@ -55,9 +58,10 @@ if git rev-parse --quiet --verify "refs/tags/v$version" >/dev/null; then
   exit 1
 fi
 # git-cliff looks at final releases only, so after a pre-release with a version
-# of your choice, or in a clone without tags, it can suggest a lower one.
-if lower_than "$version" "$current"; then
-  echo "$version is lower than the current version $current: give the version" >&2
+# of your choice, or in a clone without tags, it can suggest a lower one. Before
+# any tag the current version is not released, so its pre-releases are fine.
+if lower_than "$version" "$current" && { [ -n "$tags" ] || [ "${version%%-*}" != "$current" ]; }; then
+  echo "$version is lower than the current version $current: give a higher one" >&2
   exit 1
 fi
 
