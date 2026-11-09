@@ -1361,6 +1361,10 @@ mod tests {
             "# <b>Bold</b> & co\n\n`swr~b-k4f2~1`\n\n# A\n\n`dsn~a-k4f2~1`\n\n\
              # Old\n\n`dsn~old-k4f2~1`\n\nStatus: rejected\n",
         );
+        let html = html.replace(
+            concat!("shall ", env!("CARGO_PKG_VERSION")),
+            "shall [version]",
+        );
         insta::assert_snapshot!(html);
     }
 

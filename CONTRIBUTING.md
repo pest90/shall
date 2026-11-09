@@ -239,26 +239,62 @@ Releases are annotated Git tags on `master` that follow
 example `v0.3.0`, pre-releases as `v0.3.0-rc.1`. There are no release
 branches.
 
-The next version follows from the commits since the last tag:
+The next version follows from the commits since the last final release:
 
-| Commits since last tag | Bump | Before 1.0 |
+| Commits since the last final release | Bump | Before 1.0 |
 | --- | --- | --- |
 | only `fix` / `perf` | patch | patch |
 | at least one `feat` | minor | minor |
 | at least one breaking change (`!`) | major | minor |
 
+`docs`, `refactor` and `revert` alone bump the patch version too, because
+they show in the changelog. `build`, `ci`, `test` and `chore` alone are
+nothing to release, and `scripts/prepare-release.sh` refuses them. A
+pre-release is no boundary for this: the commits since the last final
+release decide, and its changelog section lists them all.
+After a pre-release with a version of your choice, the final release can need
+its version given as well. The script refuses a version with a tag and one
+lower than the current one, except for pre-releases of a version not yet
+released, such as `0.1.0-rc.1` as the very first release.
+
 How a release is made (maintainers):
 
-1. Branch `chore/release-<version>` from `master`: bump the versions in
-   `Cargo.toml`, regenerate `CHANGELOG.md` with `git-cliff`.
+1. Branch `chore/release-<version>` from `master` and run this, which
+   builds the `dev` image first because it holds `git-cliff`:
+   ```sh
+   export UID GID=$(id -g)
+   docker compose build dev
+   docker compose run --rm dev scripts/prepare-release.sh
+   ```
+   It takes the next version from the commits, or the one you give it
+   (needed for a pre-release, e.g. `0.3.0-rc.1`), sets it in `Cargo.toml` and
+   `Cargo.lock` and regenerates `CHANGELOG.md`.
 2. Open a pull request titled `chore(release): v<version>` and squash-merge it.
 3. Tag that commit on `master` and push the tag:
    ```sh
    git tag -a v0.3.0 -m "shall v0.3.0"
    git push origin v0.3.0
    ```
-4. The tag triggers CI: binaries for Linux, macOS and Windows, crates.io,
-   container image and the release page with the changelog section.
+4. The tag starts `.github/workflows/release.yml`. It checks the tag with
+   `scripts/check-release-tag.sh`, tests and builds on every platform, and
+   only then publishes:
+   - the container image `ghcr.io/pest90/shall`, tagged `0.3.0`, `0.3` and
+     `latest` (a pre-release only with its full version), for `linux/amd64`;
+   - the crates on crates.io, with `scripts/publish-crates.sh`;
+   - the release page with the changelog section, `SHA256SUMS` and the
+     binaries for Linux (x86-64 and ARM64, static), macOS (ARM64) and
+     Windows (x86-64, static). A pre-release is marked as such.
+
+If a run fails, fix the cause and re-run its failed jobs: each public step
+can run again. Fixing a cause in the repository needs a new patch release.
+A run started by hand, or by a pull request that changes the pipeline, is a
+dry run: it tests and builds everything and publishes nothing. Every run
+tests the release scripts with `scripts/test-release.sh` before it builds
+the binaries.
+
+The repository needs the secret `CARGO_REGISTRY_TOKEN`, a crates.io token
+with the scopes `publish-new` and `publish-update` (`publish-update` only,
+limited to the `shall-*` crates, once they all exist).
 
 Tags are never moved or deleted once pushed; a broken release is fixed by
 a new patch release. Until 1.0, only the latest release receives fixes.

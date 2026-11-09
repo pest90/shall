@@ -31,6 +31,11 @@ RUN rustup toolchain install \
 FROM toolchain AS dev
 ARG UID=1000
 ARG GID=1000
+# For scripts/prepare-release.sh; the same version as in release.yml.
+ARG GIT_CLIFF_VERSION=2.14.2
+COPY rust-toolchain.toml ./
+RUN cargo install --locked --no-default-features --version "${GIT_CLIFF_VERSION}" git-cliff \
+ && rm -rf rust-toolchain.toml "$CARGO_HOME/registry"
 # --non-unique: the host IDs may already exist in the image, e.g. GID 20
 # (staff on macOS, dialout on Debian) or GID 100 (users).
 RUN groupadd --non-unique --gid "${GID}" dev \

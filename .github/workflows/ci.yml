@@ -32,6 +32,8 @@ jobs:
       - run: cargo doc --workspace --no-deps --locked
         env:
           RUSTDOCFLAGS: -D warnings
+      # A crate must build from its package alone, as on crates.io.
+      - run: cargo package --workspace --locked
 
   test:
     strategy:
