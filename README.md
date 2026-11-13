@@ -74,7 +74,8 @@ docker compose up -d demo
 The report is regenerated every few seconds, so a change to
 [`fixtures/motor`](fixtures/motor/README.md) shows after a reload.
 `SHALL_DEMO_PROJECT=<path> docker compose up -d demo` shows your own
-project instead.
+project instead; a relative path starts at the clone, and the files must
+be readable for everyone, since the demo runs as user `nobody`.
 
 Build from source with a Rust toolchain ([rustup](https://rustup.rs))
 and Git, which `shall new` uses at runtime:
