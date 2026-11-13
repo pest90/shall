@@ -63,6 +63,21 @@ TEST(TempMonitor, RaisesFlagAbove85C) { /* ... */ }
 
 ## Getting started
 
+To see the report of the sample project first, run this in a clone of
+the repository with Docker and open <http://localhost:8090>. The first
+start builds `shall`, which takes a few minutes:
+
+```sh
+docker compose up -d demo
+```
+
+The report is regenerated every few seconds, so a change to
+[`fixtures/motor`](fixtures/motor/README.md) shows after a reload.
+`SHALL_DEMO_PROJECT=<path> docker compose up -d demo` shows your own
+project instead. A relative path must start with `./` or `../` and is
+relative to the clone. Since the demo runs as user `nobody`, everyone
+must be able to read the files and enter the directories.
+
 Build from source with a Rust toolchain ([rustup](https://rustup.rs))
 and Git, which `shall new` uses at runtime:
 
