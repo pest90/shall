@@ -51,7 +51,8 @@ generate() {
   last_error=
   diff -r "$next" "$site" >/dev/null 2>&1 && return 0
   # Each file is renamed into place, which is atomic, so a request never
-  # sees a missing or half-written file; then what is gone is removed.
+  # sees a missing or half-written file, unless a file became a directory
+  # or the reverse; then what is gone is removed.
   (cd "$next" && find . -type f) >"$files"
   # A file that became a directory, or the reverse, is replaced first.
   (cd "$next" && find . -type d) | while read -r dir; do
