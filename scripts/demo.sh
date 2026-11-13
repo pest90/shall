@@ -53,8 +53,15 @@ generate() {
   # Each file is renamed into place, which is atomic, so a request never
   # sees a missing or half-written file; then what is gone is removed.
   (cd "$next" && find . -type f) >"$files"
-  (cd "$next" && find . -type d) | while read -r dir; do mkdir -p "$site/$dir"; done
-  while read -r file; do mv "$next/$file" "$site/$file"; done <"$files"
+  # A file that became a directory, or the reverse, is replaced first.
+  (cd "$next" && find . -type d) | while read -r dir; do
+    [ -d "$site/$dir" ] || rm -f "$site/$dir"
+    mkdir -p "$site/$dir"
+  done
+  while read -r file; do
+    [ ! -d "$site/$file" ] || rm -rf "${site:?}/$file"
+    mv -T "$next/$file" "$site/$file"
+  done <"$files"
   (cd "$site" && find . -type f) | grep -vxFf "$files" | while read -r file; do
     rm -f "$site/$file"
   done

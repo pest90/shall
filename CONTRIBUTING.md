@@ -20,7 +20,8 @@ docker compose up -d demo             # report of fixtures/motor, port 8090
 The `demo` service builds the `demo` target of the `Dockerfile` and
 runs `scripts/demo.sh`, which regenerates the report every
 `SHALL_DEMO_INTERVAL` seconds (default 5). It publishes the port on
-`127.0.0.1` only. A change to `shall` itself shows only after
+`127.0.0.1` only. A change to `shall` or to `scripts/demo.sh` shows
+only after
 `docker compose up -d --build demo`.
 
 `scripts/check.sh` runs the checks of CI: formatting, clippy, tests,
