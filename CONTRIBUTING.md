@@ -14,7 +14,13 @@ docker compose run --rm dev           # shell with the toolchain
 docker compose run --rm dev cargo test
 docker compose run --rm check         # all pull request checks
 docker compose run --rm shall --version
+docker compose up -d demo             # report of fixtures/motor, port 8090
 ```
+
+The `demo` service builds the `demo` target of the `Dockerfile` and
+runs `scripts/demo.sh`, which regenerates the report every
+`SHALL_DEMO_INTERVAL` seconds (default 5). It publishes the port on
+`127.0.0.1` only.
 
 `scripts/check.sh` runs the checks of CI: formatting, clippy, tests,
 rustdoc without warnings and a build on the MSRV. CI tests pull

@@ -6,6 +6,7 @@
 #   docker compose run --rm dev cargo test
 #   docker compose run --rm check          # all pull request checks
 #   docker compose run --rm shall --version
+#   docker compose up -d demo              # report at http://localhost:8090
 services:
   dev:
     build:
@@ -25,6 +26,21 @@ services:
   shall:
     extends: dev
     entrypoint: ["cargo", "run", "--quiet", "-p", "shall-cli", "--"]
+  # The HTML report of the sample project fixtures/motor, regenerated every
+  # few seconds, so that a change shows after a reload. SHALL_DEMO_PROJECT
+  # serves another project, SHALL_DEMO_PORT changes the port; only this
+  # machine can connect.
+  demo:
+    build:
+      context: .
+      target: demo
+    image: shall-demo
+    ports:
+      - "127.0.0.1:${SHALL_DEMO_PORT:-8090}:8000"
+    environment:
+      SHALL_DEMO_INTERVAL: ${SHALL_DEMO_INTERVAL:-5}
+    volumes:
+      - ${SHALL_DEMO_PROJECT:-./fixtures/motor}:/project:ro
 
 volumes:
   cargo-registry:

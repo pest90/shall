@@ -4,6 +4,8 @@
 #   dev      toolchain for interactive work, used by compose.yaml
 #   check    runs scripts/check.sh (fmt, clippy, tests, rustdoc, MSRV);
 #            the build fails if any check fails
+#   demo     serves the HTML report of fixtures/motor, or of a project
+#            mounted at /project, on port 8000 (scripts/demo.sh)
 #   runtime  (default) minimal image with the `shall` binary
 #
 # The Rust toolchain comes from rust-toolchain.toml and the MSRV from
@@ -62,6 +64,20 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/work/target \
     cargo build --release --locked -p shall-cli \
  && cp target/release/shall /usr/local/bin/shall
+
+# Before `runtime`, which stays the default target as the last one.
+FROM debian:${DEBIAN_RELEASE}-slim AS demo
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends busybox \
+ && rm -rf /var/lib/apt/lists/* \
+ && mkdir /srv/site \
+ && chown nobody:nogroup /srv /srv/site
+COPY --from=build /usr/local/bin/shall /usr/local/bin/shall
+COPY scripts/demo.sh /usr/local/bin/shall-demo
+COPY fixtures/motor /project
+USER nobody
+EXPOSE 8000
+ENTRYPOINT ["shall-demo"]
 
 FROM debian:${DEBIAN_RELEASE}-slim AS runtime
 RUN apt-get update \
