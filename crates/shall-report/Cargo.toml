@@ -1,6 +1,6 @@
 [package]
 name = "shall-report"
-description = "HTML and PDF report of shall"
+description = "HTML report of shall"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
