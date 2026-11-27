@@ -3,7 +3,7 @@
 `shall` ("Specifications Hooked to Actual Lines of Logic") is an open-source
 requirements-as-code traceability tool written in Rust. Requirements live as
 Markdown (later also Typst) files in Git; `shall` links them across levels down
-to code and tests and produces an HTML/PDF report.
+to code and tests and produces an HTML report (PDF planned).
 
 The full concept and implementation plan (German) is in `docs/konzept.md`.
 Read the relevant section before starting a work package. When it is
@@ -38,12 +38,12 @@ maintainer starts from the real state.
   (inbound = outbound); no DCO sign-off and no CLA for now.
 - Project language: English (code, CLI messages, docs, commit messages).
 
-## Workspace layout (target, see work package 10.1)
+## Workspace layout
 
 ```
 crates/
   shall-core/     # model, parsers, graph, tracer (no CLI/report deps)
-  shall-report/   # HTML/PDF report
+  shall-report/   # HTML report (PDF planned)
   shall-plugin/   # plugin protocol types
   shall-cli/      # binary `shall`
 fixtures/motor/   # sample project with deliberate defects (work package 0.2)
@@ -51,9 +51,10 @@ fixtures/motor/   # sample project with deliberate defects (work package 0.2)
 
 ## Where to start
 
-M0 in `docs/konzept.md`: 0.1 skeleton together with 10.1 crate layout, then
-0.2 fixture, 0.3 data model. Then M1 (Markdown import) and M2 (linker,
-coverage, console report = MVP).
+The open work packages are the unticked `[ ]` items in `docs/konzept.md`
+(`- [ ]` or `* [ ]`). What exists already and what is still open is in
+the `Umsetzung` and `Offen` notes of the finished packages; search the
+file for a package's number to find the notes that mention it.
 
 ## Conventions
 
