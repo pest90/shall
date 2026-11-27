@@ -51,9 +51,9 @@ fixtures/motor/   # sample project with deliberate defects (work package 0.2)
 
 ## Where to start
 
-The open work packages are the unticked `- [ ]` items in `docs/konzept.md`;
-their `Umsetzung` and `Offen` notes, and those of the packages they build
-on, say what exists already.
+The open work packages are the unticked `[ ]` items in `docs/konzept.md`
+(`- [ ]` or `* [ ]`); their `Umsetzung` notes, including any `Offen`
+points, and those of the packages they build on say what exists already.
 
 ## Conventions
 
